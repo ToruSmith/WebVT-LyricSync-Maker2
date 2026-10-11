@@ -1,0 +1,16 @@
+# 檢查 index.html 是否與 src/ 同步（只需 Node，不需要瀏覽器）。
+# 不同步時請在本機執行 node build.mjs，並把更新後的 index.html 一起提交。
+name: check-build
+on:
+  push:
+  pull_request:
+jobs:
+  build-in-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fail if index.html is out of sync with src/
+        run: node build.mjs --check
