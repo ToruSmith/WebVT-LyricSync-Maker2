@@ -45,6 +45,8 @@ function editor(){let d=$("#edm");if(d){d.remove();edLayout();return}
   b("套用預設到勾選",()=>{if(!ps.value)return note("先選一個位置預設");applyTo((y,k)=>{y.pos=presetPos(ps.value,k);y.auto=false})});
   b("把「目前這句」的位置套用到勾選",()=>{const src=subs[selIdx];if(!src)return;applyTo(y=>{y.pos=src.pos;if(y.pos)y.auto=false})});
   b("清除勾選句子的位置",()=>applyTo(y=>{y.pos=""}));
+  b("清除勾選句子的場景",()=>{const l=selList();if(!l.length)return note("先在編輯器勾選要套用的句子");clearSceneSubs(l)});
+  b("清除全部句子的場景",()=>clearSceneSubs());
   const c=document.createElement("span");c.id="edcnt";c.style.opacity=".8";bar.append(c);
   bar.append(Object.assign(document.createElement("div"),{textContent:"點左側句子＝跳到該句並暫停；勾選框可用 Shift 連選一段；位置欄與面板「這一句的位置」雙向同步",style:"opacity:.7;width:100%"}));d.append(bar);cntUpd();histBtn()}
   subs.forEach((x,xi)=>{const r=document.createElement("div");r.style.cssText="display:flex;gap:6px;align-items:center;margin:4px 0";r.append(Object.assign(document.createElement("span"),{textContent:x.s.toFixed(1)+"s　"+x.raw.replace(/\s+/g," ").trim().slice(0,12),style:"width:150px;cursor:pointer;text-decoration:underline dotted",title:"點一下：跳到這句並暫停",onclick:()=>jumpTo(xi)}),

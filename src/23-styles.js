@@ -39,6 +39,31 @@ regPack("戒尺",{font:"明體",weight:600,spacing:.15,color:"#f4efe6",accent:"#
 /* 離開風格包時要還原的欄位（只在「上一個套用的是風格包」時才還原，舊預設之間的行為完全不變） */
 const PACK_KEEP=["color","bgMode","bgColor","ghostOn","ghostA","ghostB","sceneAll","layoutPool","beatShake","beatZoom","beatTilt","beatHue","dim","vignette","speed","flash","bounce","pulse","weight","spacing","accent","auto","textShadow","lock"];
 
+/* ---- 一鍵清除：風格包／全域底層場景／版型池／逐句場景 ----
+   packReset：只把「目前這個風格包自己定義過的欄位」（Object.keys(PRESETS[presetName])）還原成出廠預設，並清空 presetName。
+   套用風格包之後使用者自己換掉的字體保留；風格包沒動過的欄位（鎖定版型、位置、文字縮放…）不碰。只改 CONFIG，不重畫面板。
+   cfgRefresh：改完 CONFIG 後重畫（保留面板捲動位置）。clearSceneSubs：清掉句子自己的 &（含該句的 none／bfx-*），這些句子改為跟隨全域底層。 */
+function packReset(){
+ const n=CONFIG.presetName,P=STYLE_PACKS.has(n)&&PRESETS[n];if(!P)return false;
+ const f=CONFIG.font;
+ Object.keys(P).forEach(k=>{if(k in CFG_DEFAULTS)CONFIG[k]=CFG_DEFAULTS[k]});
+ if(f!==P.font)CONFIG.font=f;   /* 套用後使用者自己換的字體不動 */
+ CONFIG.presetName="";return true}
+function cfgRefresh(){perfPart=null;applyScene();css();cur=-2;save();const pn=$("#panel"),st=pn?pn.scrollTop:0;panel();if(pn)pn.scrollTop=st}
+function clearPack(){if(!packReset())return note("目前沒有套用風格包");cfgRefresh();note("已清除風格包：它動過的設定已還原成預設（逐句標記不受影響）")}
+function clearSceneSubs(list){
+ const l=(list||subs.map((_,i)=>i)).filter(i=>subs[i]&&subs[i].scene);
+ if(!l.length)return note("沒有句子帶有場景標記（&）");
+ pushHist();l.forEach(i=>{subs[i].scene=""});cur=-2;refreshEditor();
+ note("已清除 "+l.length+" 句的場景標記（含該句的 none／bfx-*），改為跟隨全域底層。請用編輯器的「匯出帶標記的 SRT」存檔")}
+function clearAllLayers(){
+ const sp=STYLE_PACKS.has(CONFIG.presetName),sn=subs.filter(x=>x.scene).length;
+ if(!sp&&!CONFIG.sceneAll&&!CONFIG.layoutPool&&!sn)return note("沒有可清除的內容");
+ if(!confirm("會一次清除：\n・風格包（還原它動過的設定）\n・全域底層場景\n・版型池\n・所有句子自己的場景標記（&），目前 "+sn+" 句\n字幕文字、版型、位置不受影響。確定嗎？"))return;
+ packReset();CONFIG.sceneAll="";CONFIG.layoutPool="";
+ if(sn){pushHist();subs.forEach(x=>{x.scene=""})}
+ cfgRefresh();refreshEditor();note("已清除風格包、全域底層場景、版型池"+(sn?"與 "+sn+" 句的場景標記；請用編輯器的「匯出帶標記的 SRT」存檔":""))}
+
 /* ---- 場景層挑選器：chips 切換「名稱」是否在字串中（保留其他 token 的參數與 bfx-*／none）---- */
 const tokName=t=>t.split(":")[0];
 function scToggle(str,name){const a=(str||"").split(",").filter(Boolean),i=a.findIndex(t=>tokName(t)===name);if(i>=0)a.splice(i,1);else a.push(name);return a.join(",")}
@@ -58,8 +83,11 @@ let scPop=null;
 function openScenePop(anchor,getStr,setStr){
  if(scPop){const same=scPop.anchor===anchor;scPop.remove();scPop=null;if(same)return}
  const d=document.createElement("div");d.className="scpop";d.anchor=anchor;
- const h=document.createElement("div");h.textContent="場景層（點選切換，最多 "+(CONFIG.sceneMax||3)+" 層；同類互斥）";h.style.cssText="opacity:.8;margin-bottom:4px";
- d.append(h,scenePicker(getStr,setStr,()=>{cur=-2}));
+ const hr=document.createElement("div");hr.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px";
+ const h=document.createElement("div");h.textContent="場景層（點選切換，最多 "+(CONFIG.sceneMax||3)+" 層；同類互斥）";h.style.cssText="opacity:.8";
+ const cb=document.createElement("button");cb.type="button";cb.textContent="清除";cb.title="清除這句的場景標記（改為跟隨全域底層）";
+ cb.onclick=()=>{pushHist();setStr("");cur=-2;d.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"))};
+ hr.append(h,cb);d.append(hr,scenePicker(getStr,setStr,()=>{cur=-2}));
  const r=anchor.getBoundingClientRect();d.style.left=Math.max(4,Math.min(innerWidth-364,r.left))+"px";d.style.top=Math.min(innerHeight-260,r.bottom+4)+"px";
  document.body.append(d);scPop=d}
 document.addEventListener("pointerdown",e=>{if(scPop&&!scPop.contains(e.target)&&e.target!==scPop.anchor){scPop.remove();scPop=null}});
@@ -80,15 +108,18 @@ if(!RENDER)m.addEventListener("loadeddata",()=>{if(CONFIG.autoAccent&&m.videoWid
 /* ---- 面板區段「風格・場景層・後製」---- */
 function extra4(p){secAnchor(p,"layers");
  const lab=t=>{const l=document.createElement("label");l.textContent=t;return l},note2=t=>{const l=document.createElement("div");l.style.cssText="opacity:.65;font-size:11px;margin:2px 0 6px";l.textContent=t;return l};
- const ps=document.createElement("select");ps.style.width="100%";ps.add(new Option("選擇風格包…",""));[...STYLE_PACKS].forEach(k=>ps.add(new Option(k,k)));ps.value=STYLE_PACKS.has(CONFIG.presetName)?CONFIG.presetName:"";ps.onchange=()=>ps.value&&applyPreset(ps.value);
- p.append(lab("風格包（調色盤＋字體＋全域底層＋版型池＋後製；之後仍可逐句覆寫）"),ps,note2("套用後會開啟「自動變化版型」；有自己標記的句子不受影響。再套用其他組合時，風格包動過的欄位會還原。"));
+ const btn=(t,f,tip)=>{const b=document.createElement("button");b.type="button";b.textContent=t;if(tip)b.title=tip;b.onclick=f;b.style.cssText="margin:4px 4px 6px 0";return b};
+ const offChips=box=>box.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));   /* 清除後同步 chip 的亮暗（不重畫面板，避免捲動位置跳掉） */
+ const ps=document.createElement("select");ps.style.width="100%";ps.add(new Option("（無風格包）",""));[...STYLE_PACKS].forEach(k=>ps.add(new Option(k,k)));ps.value=STYLE_PACKS.has(CONFIG.presetName)?CONFIG.presetName:"";ps.onchange=()=>ps.value?applyPreset(ps.value):clearPack();
+ p.append(lab("風格包（調色盤＋字體＋全域底層＋版型池＋後製；之後仍可逐句覆寫）"),ps,btn("清除風格包",clearPack,"把目前風格包動過的設定還原成預設；選單改回「（無風格包）」效果相同"),btn("一鍵清除全部",clearAllLayers,"風格包＋全域底層場景＋版型池＋所有句子自己的場景標記；會先確認"),note2("套用後會開啟「自動變化版型」；有自己標記的句子不受影響。再套用其他組合時，風格包動過的欄位會還原。"));
  const si=document.createElement("input");si.style.width="100%";si.placeholder="全域底層場景，例：halftone:60,burst";si.value=CONFIG.sceneAll||"";si.dataset.k2="sceneAll";
  const setS=v=>{CONFIG.sceneAll=v.replace(/\s/g,"");si.value=CONFIG.sceneAll;cur=-2;save()};si.onchange=()=>setS(si.value);
- p.append(lab("全域底層場景（句子沒有自己的 & 時套用；語法同 &：名稱:強度:速度:節拍連動:X:Y）"),si,scenePicker(()=>CONFIG.sceneAll,setS),note2("單句覆寫：在句子編輯器的「場景層」欄寫 &…；寫 none＝這句不要全域底層。bfx-shake／zoom／tilt／hue:數值＝這句的節拍後製強度，bfx-off＝這句關閉節拍後製。"));
+ const sPick=scenePicker(()=>CONFIG.sceneAll,setS);
+ p.append(lab("全域底層場景（句子沒有自己的 & 時套用；語法同 &：名稱:強度:速度:節拍連動:X:Y）"),si,btn("清除全域底層場景",()=>{setS("");offChips(sPick)}),sPick,note2("單句覆寫：在句子編輯器的「場景層」欄寫 &…；寫 none＝這句不要全域底層。bfx-shake／zoom／tilt／hue:數值＝這句的節拍後製強度，bfx-off＝這句關閉節拍後製。"));
  const lp=document.createElement("input");lp.style.width="100%";lp.placeholder="版型池，逗號分隔；空＝全部（需開「自動變化版型」）";lp.value=CONFIG.layoutPool||"";
  const setP=v=>{CONFIG.layoutPool=v.replace(/\s/g,"");lp.value=CONFIG.layoutPool;cur=-2;save()};lp.onchange=()=>setP(lp.value);
  const d=document.createElement("details"),s=document.createElement("summary");s.textContent="挑選版型池（"+LAYOUTS.length+" 種）";d.append(s,chipBox(LAYOUTS,()=>CONFIG.layoutPool,setP,n=>n));
- p.append(lab("自動變化版型的候選池"),lp,d);
+ p.append(lab("自動變化版型的候選池"),lp,btn("清除版型池",()=>{setP("");offChips(d)}),d);
  const cb=document.createElement("label"),ci=document.createElement("input");ci.type="checkbox";ci.checked=!!CONFIG.autoAccent;ci.onchange=()=>{CONFIG.autoAccent=ci.checked;save()};cb.append(ci," 載入影片時自動取主色當強調色");p.append(cb);
  const fi=document.createElement("input");fi.type="file";fi.accept="image/*";fi.onchange=()=>{const f=fi.files[0];fi.value="";if(!f)return;const im=new Image(),u=URL.createObjectURL(f);im.onload=()=>{setAccentFrom(im,im.naturalWidth,im.naturalHeight)||note("這張圖找不到鮮明的顏色");URL.revokeObjectURL(u)};im.src=u};
  p.append(lab("從圖片取主色（寫入強調色，圖片不會載入）"),fi);

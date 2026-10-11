@@ -102,7 +102,7 @@
 2. 4:2:0 色度子取樣會讓文字邊緣的綠邊多 1–2 像素的色度模糊；模糊進出場、半透明字的邊緣也一定會和綠色混合。建議開軟體的「去除溢色（despill）」。要最乾淨的邊緣可加 `--png --frames-dir 資料夾` 輸出無損圖片序列（慢很多）。
 3. 版型自己畫的**不透明**裝飾（`hud-frame` 的框、`laser-scan` 的掃描線、`marquee` 等）仍會保留，它們是前景；若文字顏色接近綠色，請改用另一種鍵色（例如 `--chroma 0000ff`）。
 4. `glitch` 的紅藍殘影、`parallax-depth` 的景深模糊層屬於文字本身的效果，會保留。
-5. 驗證：`node test/chroma.mjs`（見「驗證」）。**沒有在真實的剪輯軟體（Premiere／DaVinci／CapCut 等）裡實際摳過像。**
+5. 驗證：`node test/chroma.mjs`（見「驗證」）（本倉庫未收錄此腳本）。**沒有在真實的剪輯軟體（Premiere／DaVinci／CapCut 等）裡實際摳過像。**
 
 ## 離線後製：輝光、色差、調色（只影響 preview.mp4）
 
@@ -122,7 +122,7 @@
 - 輝光與色差在 RGB 上運算（不要改成在 YUV 上做 `screen`：會連色度平面一起混，整片偏洋紅）。大半徑輝光會先降採樣再模糊再放大。
 - 啟動時檢查 ffmpeg 是否有所需濾鏡（輝光：`split lutrgb scale gblur blend`；色差：`rgbashift`；調色：`eq`，warm／cool 需 `colorbalance`，film 需 `curves`），缺少會在渲染前明確報錯。
 - 三組預設值只在一個暗色場景看過、屬於「保守」的起點，強度主觀，請依自己的素材調整。耗時：沙箱（單核、ffmpeg 6.1.1）用 30 格 1080p JPEG → x264 量測，未後製約 10–13 秒，加上輝光／色差／調色（含 `--glow-radius 6`、三種全開）約 10–14 秒，差異落在量測雜訊內（同一設定重跑就差 2–3 秒），x264 編碼佔絕大部分；降採樣讓大半徑輝光沒有明顯變慢。這是單核沙箱、每項只量 1–2 輪的粗略結果，**60fps 與 `--blur` 多倍幀率的情況沒量**，請在自己的機器上用 `time` 比較。
-- 驗證：`node test/post.mjs`（未設定時指令逐字不變、解碼後逐格雜湊兩次相同、與 `--blur`／`--alpha` 並用、缺濾鏡報錯）。
+- 驗證：`node test/post.mjs`（未設定時指令逐字不變、解碼後逐格雜湊兩次相同、與 `--blur`／`--alpha` 並用、缺濾鏡報錯）（本倉庫未收錄此腳本）。
 
 ## 新語法：樣式（@）與副文（||）
 
@@ -150,7 +150,7 @@
 - **副文**：設定位置的句子，副文會貼在主文（含裝飾線）正下方，並一起計入對齊範圍，不會擠在一起。沒設定位置時副文維持原本固定在畫面底部。
 - **忽略位置的滿版版型**：`hud-frame`、`laser-scan`、`iris-frame`、`marquee`、`danmaku`、`border-run`、`zoom-tunnel`（本身就是整個畫面的效果，平移會讓框或掃描線錯位）。
 - `lowerleft` 這類帶裝飾線的版型，線會跟文字一起算進範圍，所以是「文字加線」整組對齊，文字在線的左側。
-- 驗證：`node test/position.mjs [16:9|9:16]`（全版型 × 九宮格 × 有無副文，檢查不出界、對齊、副文不重疊）。
+- 驗證：`node test/position.mjs [16:9|9:16]`（全版型 × 九宮格 × 有無副文，檢查不出界、對齊、副文不重疊）（本倉庫未收錄此腳本）。
 
 ## 預設組合
 
@@ -193,7 +193,7 @@
 
 **音樂節拍**：有給 `--audio`（或 `--video`）時，會自動分析音樂的低頻（約 40–150 Hz），
 讓面板的「節拍來源 → 音訊低頻偵測」在輸出時同樣有效，文字光暈也會跟著低頻起伏。
-分析結果已與瀏覽器內建的 AnalyserNode 比對（平均差 0、最大差 1／255，可用 `node test/audio-check.mjs 音樂檔 6` 重跑驗證），
+分析結果已與瀏覽器內建的 AnalyserNode 比對（平均差 0、最大差 1／255，可用 `node test/audio-check.mjs 音樂檔 6` 重跑驗證（本倉庫未收錄此腳本）），
 且不受渲染 fps 影響。節拍來源選「固定 BPM」時照舊使用 BPM。
 
 **自訂字體**：網頁版上傳的字體不會跟著設定檔走。請把**同一個字體檔**（檔名不要改）放進 `input/fonts/`，
@@ -228,11 +228,11 @@
 
 - **登記入口**：新版型用 `registerLayout(名稱, 函式, {brace:1, full:1})`——`brace:1`＝`{}` 是關鍵字（寫入 `BRACE_LAYOUTS`）、`full:1`＝滿版（寫入 `FULLBLEED`）。舊版型維持原本的分散登記，不動。`pv-lyric`／`pv-vertical` 就在 `[LAY-G]` 區段用這個入口登記。
 - **自我檢查**：網址加 `?check=1`（或在主控台呼叫 `window.__selfCheck()`），會列出漏登記的項目：`NL` 與 `LAYOUTS` 不一致、`BRACE_LAYOUTS`／`FULLBLEED` 不在 `LAYOUTS`、`LAYOUTS` 重複，以及 `CONFIG` 有但 `CFG_DEFAULTS` 沒有的欄位（匯入設定時舊值會殘留）。
-- **區段目錄**：用 `grep -n "===== \[" index.html` 取得最新行號，再只讀需要的區段。
+- **區段目錄與檔案地圖**：見 `src/00-header.js` 開頭的註解；用 `grep -n "===== \["` 搜 `src/` 下的 `.js` 檔取得區段位置，再只讀需要的檔案。`index.html` 是 `node build.mjs` 由 `src/` 串接出來的產物，不要直接編輯，也不要整份讀它。
 - **設定鍵**：新增設定要同時進 `CONFIG` 與 `CFG_DEFAULTS`（後者是匯入設定時的底）。
 
-- **滿版性質**（整個畫面都是它的一部分，例如邊框、滿版掃描）：把版型名稱加進 `index.html` 的 `FULLBLEED` 集合，位置設定會被忽略。
-- **有獨立裝飾元素**（底色框、裝飾線、圖章）：想讓它跟著文字一起對齊就標 `data-pm`（`.ln` 線條自動算）；氛圍性質、不該影響對齊的（星點、整層光暈）標 `data-nm`。標完跑 `node test/coverage.mjs` 確認。
+- **滿版性質**（整個畫面都是它的一部分，例如邊框、滿版掃描）：把版型名稱加進 `FULLBLEED` 集合（用 `registerLayout(..., {full:1})`，或在 `src/` 對應版型檔補登），位置設定會被忽略。
+- **有獨立裝飾元素**（底色框、裝飾線、圖章）：想讓它跟著文字一起對齊就標 `data-pm`（`.ln` 線條自動算）；氛圍性質、不該影響對齊的（星點、整層光暈）標 `data-nm`。標完跑 `node test/coverage.mjs` 確認（本倉庫未收錄此腳本）。
 - **預設組合**：套用時位置一律還原；文字縮放、文字陰影、鎖定版型只在「上一個組合設過」時才還原，其餘保留使用者手調的值（`CONFIG.presetName` 記錄上一個組合）。新增組合若要設這三個欄位之外、使用者常手調的欄位，請比照 `applyPreset` 的 `PRESET_KEEP`。
 
 ## 常見問題
@@ -243,17 +243,20 @@
 
 ## 驗證
 
-    node render/run.mjs --selftest --seconds 12        # 同一專案渲染兩次，逐格比對，必須完全相同
-    node test/baseline.mjs                  # 與原版逐像素比對（結果在 test/out/）
-    node test/combos.mjs                    # 逐一渲染新版型與樣式組合，檢查錯誤（截圖在 test/out/c/）
-    node test/allsheet.mjs 1523 886         # 以指定畫面比例渲染所有版型，檢查排版（截圖在 test/out/all/）
-    node test/position.mjs 16:9             # 文字位置：標記語法、全部非滿版版型 × 九宮格、單句覆蓋、預設組合（另跑 9:16）
-    node test/project-export.mjs            # 匯出渲染專案：欄位、來回、指令提示、run.mjs 逐格比對（30 項，另需 ffmpeg）
-    node test/post.mjs                      # 離線後製：指令不變、決定論、與 blur／alpha 並用、缺濾鏡報錯（另需 ffmpeg，約 4 分鐘）
-    node test/chroma.mjs                    # 綠幕：指令不變、全部版型×兩種比例背景純色、陰影發光移除、MP4 解碼偏差、決定論（另需 ffmpeg，約 4 分鐘）
-    node test/coverage.mjs 16:9             # 量測涵蓋：找出「看得見卻沒被位置功能量到」的裝飾元素（0 才算過）
-    node test/regress.mjs 舊.html 新.html   # 回歸：兩份 index.html 渲染 34 句比對截圖雜湊（改動不該影響外觀時使用）
-    node test/phases.mjs "#constellation 星座連線" 0.2,0.6,1.2   # 以時間軸檢視單一版型
+本倉庫實際收錄的驗證（需先 `npm install` 與 `npx playwright install chromium`；`baseline.html` 是凍結基準，不要改）：
+
+    npm run check                           # 建置＋全部回歸檢查（見 package.json 的 scripts.check）
+    npm run build:check                     # 只檢查 index.html 是否與 src/ 同步（CI 也跑這個）
+    node test/ui-parity.mjs                 # UI 功能對等：舊的面板項目、快捷項目、頂欄項目一個不少
+    node test/spec-sync.mjs                 # 功能手冊與程式的清單同步
+    node test/scene.mjs                     # 場景層
+    node test/styles.mjs [16:9|9:16]        # 風格包・全域底層・版型池
+    node test/beatfx-layouts.mjs [9:16]     # 節拍後製與版型
+    node verify-kit/regress-all.mjs baseline.html index.html 16:9   # 與凍結基準逐像素回歸
+    node render/run.mjs --selftest --seconds 12   # 同一專案渲染兩次，逐格比對，必須完全相同
+
+以下是早期版本使用過的腳本，**本倉庫目前未收錄**（保留名稱供查找；需要時請補檔，或以上面的項目取代）：
+`test/baseline.mjs`、`combos.mjs`、`allsheet.mjs`、`position.mjs`、`project-export.mjs`、`post.mjs`、`chroma.mjs`、`coverage.mjs`、`regress.mjs`、`phases.mjs`、`layers.mjs`、`audio-check.mjs`。
 
 ## 分層輸出（--layers）
 
@@ -269,7 +272,7 @@
 - 氛圍狀態只推進一次，兩層必定同步；`--selftest --layers` 會比對兩層的逐格雜湊。可與 `--blur`、`--video`、`--audio`、`--frames-dir`（存 `text_*.png`、`amb_*`）並用。
 - 與 `--alpha`／`--chroma`／透明背景互相矛盾 → 警告並忽略 `--layers`；`--glow` 等後製參數會警告並忽略。
 - 渲染時間約為單層的 1.3–2 倍（多一次截圖與一個 ffmpeg）。
-- 驗證：`node test/layers.mjs`。
+- 驗證：`node test/layers.mjs`（本倉庫未收錄此腳本）。
 
 ## 目前已知限制
 
@@ -284,7 +287,8 @@
 ## 風格包・場景層・後製（第二／三階段新增）
 
 - **風格包**：面板「風格包・場景層・後製」或 Ctrl+K 搜尋「風格」可一鍵套用 16 個風格包（藍色衝擊、斬擊、藍色構成、城市文字雨、夜色、波普、青墨、電腦、戰場、幾何、全息、賽博監控、情緒電影、剪影極簡、歇斯底里之夜、戒尺）。＝調色盤＋字體＋全域底層場景（`sceneAll`）＋版型池（`layoutPool`）＋節拍後製，並開啟「自動變化版型」。沒有自己標記的句子依句子順序從版型池輪流取版型；有自己 `#` 標記或 `&` 的句子照自己的。離開風格包時，它動過的欄位會還原。
+- **一鍵清除**：面板「風格包・場景層・後製」有「清除風格包」「一鍵清除全部」，以及全域底層場景、版型池各自的「清除」；風格包下拉改回「（無風格包）」等同清除風格包。句子編輯器工具列有「清除勾選句子的場景」「清除全部句子的場景」，「＋場景」挑選窗也有「清除」。Ctrl+K 搜尋「清除」可找到全部入口。清除風格包只還原**該風格包自己定義過的欄位**（套用後你自己換的字體會保留）；句子自己的標記不會被清除風格包動到。注意兩種「清除」不同：句子的場景清空＝跟隨全域底層；`&none`＝這句明確不要場景。
 - **場景層 `&`**：`#center&halftone:60:1.5,burst 歌詞`；參數 `名稱:強度:速度:節拍連動:X偏移:Y偏移`。編輯器每句有「＋場景」挑選窗，面板有全域底層挑選。實驗室（P2／P3）場景與版型預設收合。
 - **節拍後製**：`beatShake／beatZoom／beatTilt／beatHue`；單句覆寫 `&bfx-shake:3`、`&bfx-off`。錄製時色相濾鏡自動關閉。
 - **自動取主色**：面板可從圖片取主色寫入強調色；勾「載入影片時自動取主色」則載入影片時自動寫入。
-- 驗證：`npm run check`（需 `baseline.html`＝凍結基準）；規格書與程式的同步檢查：`node test/spec-sync.mjs`。細節見 `整合備註.md`。
+- 驗證：`npm run check`（需 `baseline.html`＝凍結基準）；規格書與程式的同步檢查：`node test/spec-sync.mjs`（會比對功能手冊與程式內的版型／場景／風格包清單，手冊落後時會失敗）。
