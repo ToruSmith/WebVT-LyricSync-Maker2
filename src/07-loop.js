@@ -13,7 +13,7 @@ function step(ts,dt){
  if(Math.abs(t-lastT)>.5){lastBeat=Math.floor((t-CONFIG.offset)*CONFIG.bpm/60)}
  lastT=t;
  const i=subs.findIndex(s=>t>=s.s&&t<s.e);
- if(i!==cur){cur=i;if(i>=0&&i!==selIdx)setSel(i);if(i>=0&&i!==lastBuilt)transition();lastBuilt=i;if(i>=0){let sb=subs[i];if(CONFIG.auto&&sb.auto){sb.lay=LAYOUTS[i%LAYOUTS.length]}build(sb)}else{L.innerHTML="";anims=[]}}
+ if(i!==cur){cur=i;if(i>=0&&i!==selIdx)setSel(i);if(i>=0&&i!==lastBuilt)transition();lastBuilt=i;if(i>=0){let sb=subs[i];if(CONFIG.auto&&sb.auto){sb.lay=poolLay(i)}build(sb)}else{L.innerHTML="";anims=[]}}
  if(i>=0){const ct=(t-subs[i].s)*1000;if(ct!==lastCt){lastCt=ct;anims.forEach(a=>a.currentTime=ct);scr.forEach(o=>{o.c.textContent=ct>=o.end||/\s/.test(o.f)?o.f:"▒▓░#@%&*"[Math.floor(Math.random()*8)]})}}
  ambient(ts,dt);beatTick(t);
  unEl.style.display=CONFIG.lock?"":"none";TICKS.forEach(f=>f(t));beatFx(t);tmEl.textContent=t.toFixed(1);if(!seeking)seekEl.value=endT()?t/endT()*1000:0;

@@ -21,11 +21,13 @@ const chroma = await run(S('center'), { bpm: 120, beatHue: 60, chroma: '#00ff00'
 ok(chroma === 'none', '綠幕時色相濾鏡關閉：' + chroma);
 const reset = await run(S('center'), { bpm: 120 }, 1.0, p => p.evaluate(() => $('#stage').style.scale + '|' + $('#stage').style.translate)); ok(reset === '|', '預設不寫入任何 stage 樣式：' + reset);
 // 新文字版型：不報錯、版面在畫面內、各位置錨點可用
-const LAY = ['scatter', 'strip', 'cards', 'glow-cards', 'layered', 'falling', 'formula'];
+const LAY = ['scatter', 'strip', 'cards', 'glow-cards', 'layered', 'falling', 'formula', 'staggered-text', 'noise-text', 'victim-outline', 'cute-outline', 'vertical-sub', 'hero-text', 'shatter-text', 'crayon-shatter'];
+{ const miss = await run(S('center'), {}, 0.5, p => p.evaluate(L2 => L2.filter(l => !LAYOUTS.includes(l) || !NL[l]), LAY)); ok(!miss.length, '新版型都已登記：' + miss.join()) }
 for (const l of LAY) for (const pos of ['', '^tl', '^br', '^bc:0:-5']) {
   const r = await run(S(l + pos), {}, 1.9, p => p.evaluate(() => { const G = groupRect(L), n = SWd(), h = SHd(); return G ? { l: G.l, t: G.t, r: G.r, b: G.b, W: n, H: h } : null }));
   ok(r && r.r > r.l && r.l >= -2 && r.t >= -2 && r.r <= r.W + 2 && r.b <= r.H + 2, `${l}${pos} 版面在畫面內：${JSON.stringify(r)}`);
 }
 const a = await run(S('scatter'), {}, 1.9, shot), b = await run(S('scatter'), {}, 1.9, shot); ok(a === b, 'scatter 確定性');
+for (const l of LAY.slice(7)) { const x = await run(S(l), {}, 1.9, shot), y = await run(S(l), {}, 1.9, shot), z = await run(S('center'), {}, 1.9, shot); ok(x === y, l + ' 確定性'); ok(x !== z, l + ' 與 center 畫面不同') }
 ok(!errs.length, '無頁面錯誤：' + errs.slice(0, 3).join('|'));
 console.log(`${aspect}｜節拍後製＋新版型｜通過 ${pass}、失敗 ${fail}`); await browser.close(); process.exit(fail ? 1 : 0);

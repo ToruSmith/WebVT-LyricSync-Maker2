@@ -3,34 +3,42 @@
    layer："under"＝畫在 #cv（文字之下，氛圍層）、"over"＝畫在 #cv2（文字之上）。三種輸出模式（alpha／chroma／ambonly）由畫布 CSS 規則自動達成。
    全部是「時間的純函數」：只用 t（本句已播秒數）、節拍相位與種子亂數 sr()，不用 Math.random、不累積狀態。顏色一律取 CONFIG.accent／color／ghostA／ghostB。
    新增場景：regScene(名稱,層,同類群組,預設強度,(ctx,p)=>{…})；p＝{t,env,a,W,H,R,C,G1,G2,bp,lite,seed,r}，env＝淡入淡出包絡（用 globalAlpha 乘上去，見 al()）。 ===== */
-const SCENES={},SCENE_NAMES=[];
-function regScene(n,layer,grp,def,draw){SCENES[n]={layer,grp,def,draw};SCENE_NAMES.push(n)}
+const SCENES={},SCENE_NAMES=[],SCENE_COST={輕:1,中:2,重:4};
+/* regScene(名稱,層,同類群組,預設強度,繪製函式,{lab:實驗室,cost:"輕"|"中"|"重"})；cost 預設「輕」。同一句的成本總和超過 CONFIG.sceneBudget（預設 6）時，這句所有場景以 lite 繪製（純函數：只看場景清單）。 */
+function regScene(n,layer,grp,def,draw,o){o=o||{};SCENES[n]={layer,grp,def,draw,lab:!!o.lab,cost:SCENE_COST[o.cost]?o.cost:"輕"};SCENE_NAMES.push(n)}
+/* 場景來源字串：該句自己的 &；沒有就用全域底層 CONFIG.sceneAll（句子索引的純函數）。"none"＝這句明確不要場景（也不套全域）。
+   語法：名稱[:強度[:速度[:節拍連動[:X偏移%[:Y偏移%]]]]]；強度 0–100（預設各場景）、速度 0–4 倍（預設 1）、節拍連動 0–100（預設 100）、偏移 −100–100（畫面 %）。舊的「名稱:強度」完全相容。
+   保留字：none；bfx-shake／bfx-zoom／bfx-tilt／bfx-hue:數值（單句節拍後製覆寫）、bfx-off（這句關閉節拍後製）——不算場景、不佔層數。 */
+const sceneSrc=sb=>(sb&&(sb.scene||CONFIG.sceneAll))||"";
+function sceneBfx(sb){const s=sceneSrc(sb);if(!s)return null;let o=null;s.split(",").forEach(t=>{const q=t.split(":"),n=q[0];if(n==="bfx-off")o={shake:0,zoom:0,tilt:0,hue:0};else if(/^bfx-(shake|zoom|tilt|hue)$/.test(n)&&q[1]!==undefined&&q[1]!==""&&isFinite(+q[1])){o=o||{};o[n.slice(4)]=+q[1]}});return o}
 function sceneList(sb){
- const mx=Math.max(1,Math.round(+CONFIG.sceneMax||3)),key=sb.scene+"|"+mx;
+ const mx=Math.max(1,Math.round(+CONFIG.sceneMax||3)),src=sceneSrc(sb),key=src+"|"+mx;
  if(sb._scK===key)return sb._sc;
- const out=[];
- (sb.scene||"").split(",").filter(Boolean).forEach(tok=>{
+ const out=[],num=(q,i,d,lo,hi)=>q[i]!==undefined&&q[i]!==""&&isFinite(+q[i])?Math.max(lo,Math.min(hi,+q[i])):d;
+ src.split(",").filter(Boolean).forEach(tok=>{
   const q=tok.split(":"),n=q[0],S=SCENES[n];
+  if(n==="none"||/^bfx-/.test(n))return;
   if(!S){console.warn("[scene] 未知場景名稱，已忽略："+n);return}
-  const a=q[1]!==undefined&&q[1]!==""&&isFinite(+q[1])?Math.max(0,Math.min(100,+q[1])):S.def,i=out.findIndex(o=>SCENES[o.n].grp===S.grp);
-  if(i>=0)out.splice(i,1);out.push({n,amt:a})});
+  const o={n,amt:num(q,1,S.def,0,100),sp:num(q,2,1,0,4),bl:num(q,3,100,0,100)/100,dx:num(q,4,0,-100,100),dy:num(q,5,0,-100,100)},i=out.findIndex(x=>SCENES[x.n].grp===S.grp);
+  if(i>=0)out.splice(i,1);out.push(o)});
  if(out.length>mx){console.warn("[scene] 單句最多 "+mx+" 層，已忽略多餘的");out.length=mx}
  sb._scK=key;sb._sc=out;return out}
 const hashN=s=>{let h=7;for(const c of s)h=(h*31+c.charCodeAt(0))%100003;return h};
 function drawScenes(layer,ctx){
- const sb=cur>=0&&subs[cur];if(!sb||!sb.scene)return false;
- const L=sceneList(sb).filter(o=>SCENES[o.n].layer===layer);if(!L.length)return false;
+ const sb=cur>=0&&subs[cur];if(!sb)return false;
+ const all=sceneList(sb),L=all.filter(o=>SCENES[o.n].layer===layer);if(!L.length)return false;
  const t=now(),ct=Math.max(0,t-sb.s),dur=sb.e-sb.s,ein=Math.max(.05,CONFIG.enter/(+CONFIG.speed||1)*tK),eout=Math.max(.05,CONFIG.exit*tK),
   env=Math.max(0,Math.min(1,ct/ein,(dur-ct)/eout));
  if(env<=0)return false;
- const b=(t-CONFIG.offset)*CONFIG.bpm/60,ph=b-Math.floor(b),
-  P0={t:ct,env,W,H,R:CONFIG.accent,C:CONFIG.color,G1:CONFIG.ghostOn?CONFIG.ghostA:"#ff285a",G2:CONFIG.ghostOn?CONFIG.ghostB:"#00dcff",bp:b<0?0:Math.exp(-ph*5),lite:perfLite};
- L.forEach(o=>{const seed=cur*17+hashN(o.n),p=Object.assign({},P0,{a:o.amt/100,seed,r:sr(seed/1000)});
-  ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";SCENES[o.n].draw(ctx,p);ctx.restore()});
+ const bud=+CONFIG.sceneBudget||0,over=bud>0&&all.reduce((s,o)=>s+SCENE_COST[SCENES[o.n].cost],0)>bud,
+  b=(t-CONFIG.offset)*CONFIG.bpm/60,ph=b-Math.floor(b),bp0=b<0?0:Math.exp(-ph*5),
+  P0={env,W,H,R:CONFIG.accent,C:CONFIG.color,G1:CONFIG.ghostOn?CONFIG.ghostA:"#ff285a",G2:CONFIG.ghostOn?CONFIG.ghostB:"#00dcff",lite:perfLite||over};
+ L.forEach(o=>{const seed=cur*17+hashN(o.n),p=Object.assign({},P0,{t:ct*o.sp,bp:bp0*o.bl,speed:o.sp,beatLink:o.bl,a:o.amt/100,seed,r:sr(seed/1000)});
+  ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";if(o.dx||o.dy)ctx.translate(o.dx/100*W,o.dy/100*H);SCENES[o.n].draw(ctx,p);ctx.restore()});
  return true}
 let scOv=false;
 function sceneOver(){   /* 文字之上的場景層：overlays() 這一幀若沒有清過 #cv2（had 為 false）就由這裡負責清 */
- const sb=cur>=0&&subs[cur],want=!!(sb&&sb.scene&&sceneList(sb).some(o=>SCENES[o.n].layer==="over"));
+ const sb=cur>=0&&subs[cur],want=!!(sb&&sceneList(sb).some(o=>SCENES[o.n].layer==="over"));
  if(!want){if(scOv&&!had)c2.clearRect(0,0,W,H);scOv=false;return}
  if(!had)c2.clearRect(0,0,W,H);scOv=true;drawScenes("over",c2)}
 const al=(c,p,v)=>{c.globalAlpha=Math.max(0,Math.min(1,v*p.env))},PI=Math.PI,S=Math.sin;
@@ -110,3 +118,5 @@ regScene("color-wash","over","wash",30,(c,p)=>{   /* 整面染色（強調色）
  c.fillStyle=p.R;al(c,p,.05+.4*p.a);c.fillRect(0,0,p.W,p.H)});
 regScene("gradient-fade","over","grad",50,(c,p)=>{   /* 底部漸層遮罩（強調色向上淡出） */
  const g=c.createLinearGradient(0,p.H,0,p.H*.35);g.addColorStop(0,p.R);g.addColorStop(1,"rgba(0,0,0,0)");c.fillStyle=g;al(c,p,.15+.6*p.a);c.fillRect(0,0,p.W,p.H)});
+/* 自動變化版型的候選池：CONFIG.layoutPool（逗號分隔版型名；空＝全部版型，與舊行為相同）。句子索引的純函數。 */
+function poolLay(i){const p=(CONFIG.layoutPool||"").split(",").filter(x=>LAYOUTS.includes(x));return p.length?p[i%p.length]:LAYOUTS[i%LAYOUTS.length]}

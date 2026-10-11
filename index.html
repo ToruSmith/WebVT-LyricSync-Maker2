@@ -126,7 +126,7 @@ const FONTS={明體:'"Noto Serif TC","Source Han Serif TC","Songti TC",PMingLiU,
  楷體:'BiauKai,DFKai-SB,"Kaiti TC",cursive',
  等寬:'Consolas,Menlo,"Courier New",monospace',
  英文展示:'Impact,Georgia,Futura,"Helvetica Neue",sans-serif'};
-Object.assign(CONFIG,{bokeh:0,leak:0,lightning:0,scratch:0,crt:0,vhs:0,invBar:0,guides:false,snap:true,lock:"",presetName:"",emFont:"（版型預設）",waterRefract:true,textScale:100,bgMode:"gradient",bgColor:"#050608",maskColor:"#000000",brightness:100,vidBright:100,vidContrast:100,vidSat:100,vidBlur:0,textShadow:false,shX:0,shY:.2,shBlur:1.1,shAlpha:35,shLayers:1,glowAcc:25,shColor:"#000000",ghostOn:false,ghostA:"#ff285a",ghostB:"#00dcff",alphaOnly:false,posAnchor:"",posX:0,posY:0,posSafe:6,recFps:60,recLite:false,aspect:"fill",particles:50,pMode:"dots",scan:0,grain:.05,vignette:.5,beatRot:0,tone:"",beatSrc:"bpm",trans:"cut",kb:false,autoPerf:true,sceneMax:3,beatShake:0,beatZoom:0,beatTilt:0,beatHue:0});
+Object.assign(CONFIG,{bokeh:0,leak:0,lightning:0,scratch:0,crt:0,vhs:0,invBar:0,guides:false,snap:true,lock:"",presetName:"",emFont:"（版型預設）",waterRefract:true,textScale:100,bgMode:"gradient",bgColor:"#050608",maskColor:"#000000",brightness:100,vidBright:100,vidContrast:100,vidSat:100,vidBlur:0,textShadow:false,shX:0,shY:.2,shBlur:1.1,shAlpha:35,shLayers:1,glowAcc:25,shColor:"#000000",ghostOn:false,ghostA:"#ff285a",ghostB:"#00dcff",alphaOnly:false,posAnchor:"",posX:0,posY:0,posSafe:6,recFps:60,recLite:false,aspect:"fill",particles:50,pMode:"dots",scan:0,grain:.05,vignette:.5,beatRot:0,tone:"",beatSrc:"bpm",trans:"cut",kb:false,autoPerf:true,sceneMax:3,beatShake:0,beatZoom:0,beatTilt:0,beatHue:0,sceneAll:"",layoutPool:"",sceneBudget:6,autoAccent:false});
 const CFG_DEFAULTS=JSON.parse(JSON.stringify(CONFIG));   /* 出廠預設：匯入設定檔時以此為底，避免瀏覽器記住的舊值殘留 */
 const LS_CFG="klcfg",LS_QK="klqk",LS_PO="klpo";   /* localStorage 鍵名集中於此：設定、快捷選單「最近使用」、面板分組展開狀態 */
 if(!RENDER)try{Object.assign(CONFIG,JSON.parse(localStorage.getItem(LS_CFG)||"{}"))}catch(e){}
@@ -445,7 +445,7 @@ function step(ts,dt){
  if(Math.abs(t-lastT)>.5){lastBeat=Math.floor((t-CONFIG.offset)*CONFIG.bpm/60)}
  lastT=t;
  const i=subs.findIndex(s=>t>=s.s&&t<s.e);
- if(i!==cur){cur=i;if(i>=0&&i!==selIdx)setSel(i);if(i>=0&&i!==lastBuilt)transition();lastBuilt=i;if(i>=0){let sb=subs[i];if(CONFIG.auto&&sb.auto){sb.lay=LAYOUTS[i%LAYOUTS.length]}build(sb)}else{L.innerHTML="";anims=[]}}
+ if(i!==cur){cur=i;if(i>=0&&i!==selIdx)setSel(i);if(i>=0&&i!==lastBuilt)transition();lastBuilt=i;if(i>=0){let sb=subs[i];if(CONFIG.auto&&sb.auto){sb.lay=poolLay(i)}build(sb)}else{L.innerHTML="";anims=[]}}
  if(i>=0){const ct=(t-subs[i].s)*1000;if(ct!==lastCt){lastCt=ct;anims.forEach(a=>a.currentTime=ct);scr.forEach(o=>{o.c.textContent=ct>=o.end||/\s/.test(o.f)?o.f:"▒▓░#@%&*"[Math.floor(Math.random()*8)]})}}
  ambient(ts,dt);beatTick(t);
  unEl.style.display=CONFIG.lock?"":"none";TICKS.forEach(f=>f(t));beatFx(t);tmEl.textContent=t.toFixed(1);if(!seeking)seekEl.value=endT()?t/endT()*1000:0;
@@ -471,6 +471,7 @@ document.addEventListener("keydown",e=>{if(/INPUT|SELECT|TEXTAREA/.test(e.target
  if(e.code==="Space"){e.preventDefault();$("#play").click()}
  else if((e.code==="ArrowLeft"||e.code==="ArrowRight")&&!e.ctrlKey&&!e.metaKey){if(e.target.type==="range"&&e.target.id!=="seek")return;e.preventDefault();const d=e.code==="ArrowLeft"?-5:5;hasMedia?m.currentTime=Math.max(0,m.currentTime+d):vt=Math.max(0,Math.min(endT(),vt+d));cur=-2}});
 /* ===== [UI-PANEL] 參數面板 panel/posPanel/bgPanel、字體載入（FontFace + IndexedDB）、套用到畫面 css/bgCss/toneCss/save ===== */
+let bfxHueF=false;   /* 這一幀是否有節拍色相（[BEATFX] 設定；toneCss 啟動時就會被呼叫，所以宣告放最前面） */
 const P=[["bpm","BPM",40,220,1],["offset","節拍起點 offset(秒)",0,5,.01],["pulse","脈衝強度",0,.3,.005],["bounce","彈跳振幅(px)",0,80,1],["flash","閃白強度",0,.6,.01],
  ["speed","全域速度",.25,4,.05],["enter","進場秒數",.05,4,.05],["exit","退場秒數",.05,3,.05],["bigRatio","大字高度比例",.03,.8,.01],["textScale","文字整體縮放%",20,300,5],["spacing","字距(em)",-.1,2,.05],["weight","字重",100,900,100]];
 /* 面板區段錨點：panel() 重建時一併重建；showSec(id) 供 [QUICK]「面板跳轉」使用（id 清單見 QK_SECS） */
@@ -642,7 +643,7 @@ function hex6(c,fb){const x=hex6.x||(hex6.x=document.createElement("canvas").get
 function css(){CONFIG.color=hex6(CONFIG.color,"#ffffff");CONFIG.accent=hex6(CONFIG.accent,"#7aa8ff");CONFIG.shColor=hex6(CONFIG.shColor,"#000000");CONFIG.ghostA=hex6(CONFIG.ghostA,"#ff285a");CONFIG.ghostB=hex6(CONFIG.ghostB,"#00dcff");document.querySelectorAll("#panel input[type=color][data-k]").forEach(i=>{const v=CONFIG[i.dataset.k];if(v&&i.value!==v)i.value=v});document.documentElement.style.setProperty("--c",CONFIG.color);document.documentElement.style.setProperty("--a",CONFIG.accent);$("#mask").style.background=`rgba(${rgbOf(CONFIG.maskColor)},${CONFIG.dim/100})`;bgCss()}
 function rgbOf(h){h=/^#[0-9a-f]{6}$/i.test(h||"")?h:"#000000";return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)).join(",")}
 function isChroma(){return document.documentElement.classList.contains("chroma")}
-function toneCss(){const T=RENDER?document.body:$("#stage");if(!RENDER)document.body.style.filter="";if(isChroma()){T.style.filter="";return}const f=[CONFIG.tone||"",(+CONFIG.brightness||100)!==100?`brightness(${CONFIG.brightness}%)`:"",+CONFIG.beatHue>0?"hue-rotate(var(--bhue,0deg))":""].filter(Boolean).join(" ");T.style.filter=f}
+function toneCss(){const T=RENDER?document.body:$("#stage");if(!RENDER)document.body.style.filter="";if(isChroma()){T.style.filter="";return}const f=[CONFIG.tone||"",(+CONFIG.brightness||100)!==100?`brightness(${CONFIG.brightness}%)`:"",(+CONFIG.beatHue>0||bfxHueF)&&!isRec()?"hue-rotate(var(--bhue,0deg))":""].filter(Boolean).join(" ");T.style.filter=f}
 function shCss(){const c=CONFIG,n=Math.max(1,Math.min(4,Math.round(+c.shLayers||1))),a=Math.max(0,Math.min(1,(+c.shAlpha)/100)),one=`${+c.shX||0}cqh ${+c.shY||0}cqh ${Math.max(0,+c.shBlur||0)}cqh rgba(${rgbOf(hex6(c.shColor,"#000000"))},${a})`;document.documentElement.style.setProperty("--tsh",Array(n).fill(one).join(","));document.documentElement.style.setProperty("--dsh",Array(n).fill(`drop-shadow(${+c.shX||0}cqh ${+c.shY||0}cqh ${Math.max(0,+c.shBlur||0)}cqh rgba(${rgbOf(hex6(c.shColor,"#000000"))},${a}))`).join(" "))}
 function bgCss(){shCss();const c=CONFIG,r=document.documentElement,bg=$("#bg");
  if(c.bgMode==="solid"){bg.style.background=c.bgColor;bg.style.animation="none"}else{bg.style.background="";bg.style.animation=""}
@@ -933,34 +934,42 @@ Object.assign(PRESETS.復古VHS,{vhs:1,scratch:1,crt:1});Object.assign(PRESETS.�
    layer："under"＝畫在 #cv（文字之下，氛圍層）、"over"＝畫在 #cv2（文字之上）。三種輸出模式（alpha／chroma／ambonly）由畫布 CSS 規則自動達成。
    全部是「時間的純函數」：只用 t（本句已播秒數）、節拍相位與種子亂數 sr()，不用 Math.random、不累積狀態。顏色一律取 CONFIG.accent／color／ghostA／ghostB。
    新增場景：regScene(名稱,層,同類群組,預設強度,(ctx,p)=>{…})；p＝{t,env,a,W,H,R,C,G1,G2,bp,lite,seed,r}，env＝淡入淡出包絡（用 globalAlpha 乘上去，見 al()）。 ===== */
-const SCENES={},SCENE_NAMES=[];
-function regScene(n,layer,grp,def,draw){SCENES[n]={layer,grp,def,draw};SCENE_NAMES.push(n)}
+const SCENES={},SCENE_NAMES=[],SCENE_COST={輕:1,中:2,重:4};
+/* regScene(名稱,層,同類群組,預設強度,繪製函式,{lab:實驗室,cost:"輕"|"中"|"重"})；cost 預設「輕」。同一句的成本總和超過 CONFIG.sceneBudget（預設 6）時，這句所有場景以 lite 繪製（純函數：只看場景清單）。 */
+function regScene(n,layer,grp,def,draw,o){o=o||{};SCENES[n]={layer,grp,def,draw,lab:!!o.lab,cost:SCENE_COST[o.cost]?o.cost:"輕"};SCENE_NAMES.push(n)}
+/* 場景來源字串：該句自己的 &；沒有就用全域底層 CONFIG.sceneAll（句子索引的純函數）。"none"＝這句明確不要場景（也不套全域）。
+   語法：名稱[:強度[:速度[:節拍連動[:X偏移%[:Y偏移%]]]]]；強度 0–100（預設各場景）、速度 0–4 倍（預設 1）、節拍連動 0–100（預設 100）、偏移 −100–100（畫面 %）。舊的「名稱:強度」完全相容。
+   保留字：none；bfx-shake／bfx-zoom／bfx-tilt／bfx-hue:數值（單句節拍後製覆寫）、bfx-off（這句關閉節拍後製）——不算場景、不佔層數。 */
+const sceneSrc=sb=>(sb&&(sb.scene||CONFIG.sceneAll))||"";
+function sceneBfx(sb){const s=sceneSrc(sb);if(!s)return null;let o=null;s.split(",").forEach(t=>{const q=t.split(":"),n=q[0];if(n==="bfx-off")o={shake:0,zoom:0,tilt:0,hue:0};else if(/^bfx-(shake|zoom|tilt|hue)$/.test(n)&&q[1]!==undefined&&q[1]!==""&&isFinite(+q[1])){o=o||{};o[n.slice(4)]=+q[1]}});return o}
 function sceneList(sb){
- const mx=Math.max(1,Math.round(+CONFIG.sceneMax||3)),key=sb.scene+"|"+mx;
+ const mx=Math.max(1,Math.round(+CONFIG.sceneMax||3)),src=sceneSrc(sb),key=src+"|"+mx;
  if(sb._scK===key)return sb._sc;
- const out=[];
- (sb.scene||"").split(",").filter(Boolean).forEach(tok=>{
+ const out=[],num=(q,i,d,lo,hi)=>q[i]!==undefined&&q[i]!==""&&isFinite(+q[i])?Math.max(lo,Math.min(hi,+q[i])):d;
+ src.split(",").filter(Boolean).forEach(tok=>{
   const q=tok.split(":"),n=q[0],S=SCENES[n];
+  if(n==="none"||/^bfx-/.test(n))return;
   if(!S){console.warn("[scene] 未知場景名稱，已忽略："+n);return}
-  const a=q[1]!==undefined&&q[1]!==""&&isFinite(+q[1])?Math.max(0,Math.min(100,+q[1])):S.def,i=out.findIndex(o=>SCENES[o.n].grp===S.grp);
-  if(i>=0)out.splice(i,1);out.push({n,amt:a})});
+  const o={n,amt:num(q,1,S.def,0,100),sp:num(q,2,1,0,4),bl:num(q,3,100,0,100)/100,dx:num(q,4,0,-100,100),dy:num(q,5,0,-100,100)},i=out.findIndex(x=>SCENES[x.n].grp===S.grp);
+  if(i>=0)out.splice(i,1);out.push(o)});
  if(out.length>mx){console.warn("[scene] 單句最多 "+mx+" 層，已忽略多餘的");out.length=mx}
  sb._scK=key;sb._sc=out;return out}
 const hashN=s=>{let h=7;for(const c of s)h=(h*31+c.charCodeAt(0))%100003;return h};
 function drawScenes(layer,ctx){
- const sb=cur>=0&&subs[cur];if(!sb||!sb.scene)return false;
- const L=sceneList(sb).filter(o=>SCENES[o.n].layer===layer);if(!L.length)return false;
+ const sb=cur>=0&&subs[cur];if(!sb)return false;
+ const all=sceneList(sb),L=all.filter(o=>SCENES[o.n].layer===layer);if(!L.length)return false;
  const t=now(),ct=Math.max(0,t-sb.s),dur=sb.e-sb.s,ein=Math.max(.05,CONFIG.enter/(+CONFIG.speed||1)*tK),eout=Math.max(.05,CONFIG.exit*tK),
   env=Math.max(0,Math.min(1,ct/ein,(dur-ct)/eout));
  if(env<=0)return false;
- const b=(t-CONFIG.offset)*CONFIG.bpm/60,ph=b-Math.floor(b),
-  P0={t:ct,env,W,H,R:CONFIG.accent,C:CONFIG.color,G1:CONFIG.ghostOn?CONFIG.ghostA:"#ff285a",G2:CONFIG.ghostOn?CONFIG.ghostB:"#00dcff",bp:b<0?0:Math.exp(-ph*5),lite:perfLite};
- L.forEach(o=>{const seed=cur*17+hashN(o.n),p=Object.assign({},P0,{a:o.amt/100,seed,r:sr(seed/1000)});
-  ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";SCENES[o.n].draw(ctx,p);ctx.restore()});
+ const bud=+CONFIG.sceneBudget||0,over=bud>0&&all.reduce((s,o)=>s+SCENE_COST[SCENES[o.n].cost],0)>bud,
+  b=(t-CONFIG.offset)*CONFIG.bpm/60,ph=b-Math.floor(b),bp0=b<0?0:Math.exp(-ph*5),
+  P0={env,W,H,R:CONFIG.accent,C:CONFIG.color,G1:CONFIG.ghostOn?CONFIG.ghostA:"#ff285a",G2:CONFIG.ghostOn?CONFIG.ghostB:"#00dcff",lite:perfLite||over};
+ L.forEach(o=>{const seed=cur*17+hashN(o.n),p=Object.assign({},P0,{t:ct*o.sp,bp:bp0*o.bl,speed:o.sp,beatLink:o.bl,a:o.amt/100,seed,r:sr(seed/1000)});
+  ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";if(o.dx||o.dy)ctx.translate(o.dx/100*W,o.dy/100*H);SCENES[o.n].draw(ctx,p);ctx.restore()});
  return true}
 let scOv=false;
 function sceneOver(){   /* 文字之上的場景層：overlays() 這一幀若沒有清過 #cv2（had 為 false）就由這裡負責清 */
- const sb=cur>=0&&subs[cur],want=!!(sb&&sb.scene&&sceneList(sb).some(o=>SCENES[o.n].layer==="over"));
+ const sb=cur>=0&&subs[cur],want=!!(sb&&sceneList(sb).some(o=>SCENES[o.n].layer==="over"));
  if(!want){if(scOv&&!had)c2.clearRect(0,0,W,H);scOv=false;return}
  if(!had)c2.clearRect(0,0,W,H);scOv=true;drawScenes("over",c2)}
 const al=(c,p,v)=>{c.globalAlpha=Math.max(0,Math.min(1,v*p.env))},PI=Math.PI,S=Math.sin;
@@ -1040,14 +1049,146 @@ regScene("color-wash","over","wash",30,(c,p)=>{   /* 整面染色（強調色）
  c.fillStyle=p.R;al(c,p,.05+.4*p.a);c.fillRect(0,0,p.W,p.H)});
 regScene("gradient-fade","over","grad",50,(c,p)=>{   /* 底部漸層遮罩（強調色向上淡出） */
  const g=c.createLinearGradient(0,p.H,0,p.H*.35);g.addColorStop(0,p.R);g.addColorStop(1,"rgba(0,0,0,0)");c.fillStyle=g;al(c,p,.15+.6*p.a);c.fillRect(0,0,p.W,p.H)});
+/* 自動變化版型的候選池：CONFIG.layoutPool（逗號分隔版型名；空＝全部版型，與舊行為相同）。句子索引的純函數。 */
+function poolLay(i){const p=(CONFIG.layoutPool||"").split(",").filter(x=>LAYOUTS.includes(x));return p.length?p[i%p.length]:LAYOUTS[i%LAYOUTS.length]}
+/* ===== [SCENE2] 場景層續：P1 補完（pink-stripes diag-fill diag-structure）＋「實驗室」P2／P3（lab:true）。
+   規約同 [SCENE]：只用 p.t／p.bp／p.r／p.seed，不用 Math.random、不累積狀態；顏色取 p.R／p.C／p.G1／p.G2；cost 標註成本（輕／中／重）。
+   實驗室效果的視覺為依名稱自行詮釋的近似（淨室，未對照 pv-tool 畫面），預設不寫進 AI 規格書。 ===== */
+const MONO='ui-monospace,Consolas,Menlo,monospace',TAU=PI*2,lw=(c,p,k,m)=>{c.lineWidth=Math.max(m||1,p.H*k)};
+/* ---- P1 補完 ---- */
+regScene("pink-stripes","under","stripe",50,(c,p)=>{   /* 粉紅條紋：ghostA／ghostB 交替的斜條，向左慢移 */
+ const{W,H,t}=p,sp=W/12,o=(t*sp*.35)%(sp*2),sl=H*.6;
+ for(let x=-sp*4-o,i=0;x<W+sp*2;x+=sp,i++){c.fillStyle=i%2?p.G2:p.G1;al(c,p,(.06+.26*p.a)*(i%2?.6:1));c.beginPath();c.moveTo(x,H);c.lineTo(x+sp*.7,H);c.lineTo(x+sp*.7+sl,0);c.lineTo(x+sl,0);c.closePath();c.fill()}});
+regScene("diag-fill","under","split",50,(c,p)=>{   /* 斜向填色：一道斜切色帶，色帶邊界隨拍推移，漸層向外淡出 */
+ const{W,H,t}=p,d=W*(.04*S(t*.6)+.05*p.bp),g=c.createLinearGradient(0,0,W,H);g.addColorStop(0,p.G1);g.addColorStop(.5,p.R);g.addColorStop(1,p.G2);
+ c.fillStyle=g;al(c,p,.1+.4*p.a);c.beginPath();c.moveTo(W*.55+d,0);c.lineTo(W,0);c.lineTo(W,H);c.lineTo(W*.25+d,H);c.closePath();c.fill()});
+regScene("diag-structure","under","struct",45,(c,p)=>{   /* 斜向結構線：粗細交錯的平行斜線＋反向細線，構成菱格骨架 */
+ const{W,H,t}=p,s=Math.max(30,H/(p.lite?5:7)),o=(t*s*.2)%s;c.strokeStyle=p.R;
+ c.beginPath();lw(c,p,.006,2);al(c,p,.1+.35*p.a);for(let x=-H+o;x<W;x+=s){c.moveTo(x,H);c.lineTo(x+H,0)}c.stroke();
+ c.beginPath();lw(c,p,.002);c.strokeStyle=p.C;al(c,p,.08+.25*p.a);for(let x=-o;x<W+H;x+=s/2){c.moveTo(x,0);c.lineTo(x-H,H)}c.stroke()});
+/* ---- P2：背景／圖案（實驗室）---- */
+const LAB={lab:true};
+regScene("organic-blob","under","blob",40,(c,p)=>{   /* 有機色塊：三團隨時間呼吸變形的圓潤塊 */
+ const{W,H,t,r}=p,n=p.lite?20:40;c.fillStyle=p.R;
+ for(let k=0;k<3;k++){const cx=W*(.2+.6*r()),cy=H*(.2+.6*r()),R=H*(.18+.14*r())*(1+.1*p.bp),f=2+k,ph=r()*TAU;al(c,p,(.08+.2*p.a)*(1-k*.2));c.beginPath();
+  for(let i=0;i<=n;i++){const a=i/n*TAU,q=R*(1+.18*S(a*f+t*.5+ph)+.1*S(a*(f+2)-t*.7));i?c.lineTo(cx+Math.cos(a)*q,cy+Math.sin(a)*q):c.moveTo(cx+Math.cos(a)*q,cy+Math.sin(a)*q)}c.fill()}},LAB);
+regScene("edge-clouds","under","cloud",40,(c,p)=>{   /* 邊緣雲：畫面上下緣一排層疊圓團，緩緩飄移 */
+ const{W,H,t,r}=p,n=p.lite?10:16;c.fillStyle=p.C;
+ for(const top of[1,0])for(let i=0;i<n;i++){const x=(i+.5)/n*W+S(t*.3+i*1.7)*W*.015,R=H*(.07+.06*r()),y=top?-R*.25+S(t*.4+i)*H*.01:H+R*.25-S(t*.4+i)*H*.01;al(c,p,.05+.14*p.a);c.beginPath();c.arc(x,y,R,0,TAU);c.arc(x+R*.8,y+(top?R*.15:-R*.15),R*.7,0,TAU);c.fill()}},LAB);
+regScene("scattered-shapes","under","shapes",45,(c,p)=>{   /* 散落幾何：三角、方、圓隨機散落並緩轉 */
+ const{W,H,t,r}=p,n=p.lite?10:16,cl=[p.R,p.G1,p.G2];
+ for(let i=0;i<n;i++){const x=r()*W,y=r()*H,z=H*(.03+.05*r()),k=r()*3|0,fill=r()<.5;c.save();c.translate(x,y+S(t*.4+i)*H*.01);c.rotate(t*(.15+.1*(i%3))*(i%2?1:-1)+i);c.fillStyle=c.strokeStyle=cl[i%3];lw(c,p,.003,1.5);al(c,p,(.15+.4*p.a)*(.6+.4*r()));c.beginPath();
+  if(k===0){c.moveTo(0,-z);c.lineTo(z,z*.8);c.lineTo(-z,z*.8);c.closePath()}else if(k===1)c.rect(-z*.8,-z*.8,z*1.6,z*1.6);else c.arc(0,0,z*.9,0,TAU);fill?c.fill():c.stroke();c.restore()}},LAB);
+regScene("diamond-shapes","under","diamond",45,(c,p)=>{   /* 菱形群：斜向排列的菱形，交替脹縮 */
+ const{W,H,t}=p,s=Math.min(W,H)/(p.lite?5:7);c.fillStyle=p.R;c.strokeStyle=p.R;lw(c,p,.003,1.5);
+ for(let j=-1;j*s<H+s;j++)for(let i=-1;i*s<W+s;i++){const x=i*s+(j%2?s/2:0),y=j*s*.5+s*.5,z=s*(.22+.2*S(t*1.4+i+j*.8))*(1+.2*p.bp);al(c,p,(.06+.25*p.a)*((i+j)%2?1:.5));c.beginPath();c.moveTo(x,y-z);c.lineTo(x+z,y);c.lineTo(x,y+z);c.lineTo(x-z,y);c.closePath();(i+j)%2?c.fill():c.stroke()}},LAB);
+regScene("shadow-shapes","under","shadow",40,(c,p)=>{   /* 陰影幾何：大塊傾斜方塊，帶強調色錯位投影 */
+ const{W,H,t,r}=p;
+ for(let i=0;i<4;i++){const x=r()*W,y=r()*H,w=W*(.12+.12*r()),h=H*(.2+.2*r()),a=(r()-.5)*.8+S(t*.2+i)*.05,d=H*.012*(1+p.bp);c.save();c.translate(x,y);c.rotate(a);
+  c.fillStyle=p.R;al(c,p,.1+.22*p.a);c.fillRect(-w/2+d*2,-h/2+d*2,w,h);c.fillStyle="#000";al(c,p,.1+.25*p.a);c.fillRect(-w/2,-h/2,w,h);c.restore()}},LAB);
+regScene("balancing-circles","under","circles",45,(c,p)=>{   /* 平衡圓：橫桿隨時間傾斜，兩端圓大小相反 */
+ const{W,H,t}=p,a=S(t*.7)*.12*(1+.4*p.bp),L=W*.28,cx=W/2,cy=H*.78;c.save();c.translate(cx,cy);c.rotate(a);c.strokeStyle=c.fillStyle=p.R;lw(c,p,.004,2);al(c,p,.2+.5*p.a);
+ c.beginPath();c.moveTo(-L,0);c.lineTo(L,0);c.stroke();c.beginPath();c.arc(-L,-H*.06,H*.06*(1+.3*S(t*.7)),0,TAU);c.fill();c.beginPath();c.arc(L,-H*.045,H*.045*(1-.3*S(t*.7)),0,TAU);c.fill();c.restore();
+ c.beginPath();c.moveTo(cx,cy);c.lineTo(cx-H*.04,H);c.lineTo(cx+H*.04,H);c.closePath();al(c,p,.15+.3*p.a);c.fill()},LAB);
+regScene("web-lines","under","web",45,(c,p)=>{   /* 蛛網連線：漂移的節點，距離近的連線 */
+ const{W,H,t,r}=p,n=p.lite?10:18,pts=[];for(let i=0;i<n;i++){const x0=r(),y0=r(),sx=.2+r()*.4,sy=.2+r()*.4,ph=r()*TAU;pts.push([(x0+.08*S(t*sx+ph))*W,(y0+.08*S(t*sy+ph*1.3))*H])}
+ const D=Math.min(W,H)*.32;c.strokeStyle=p.R;lw(c,p,.002);
+ for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){const d=Math.hypot(pts[i][0]-pts[j][0],pts[i][1]-pts[j][1]);if(d<D){al(c,p,(1-d/D)*(.15+.5*p.a));c.beginPath();c.moveTo(...pts[i]);c.lineTo(...pts[j]);c.stroke()}}
+ c.fillStyle=p.C;al(c,p,.3+.4*p.a);pts.forEach(q=>{c.beginPath();c.arc(q[0],q[1],H*.005*(1+p.bp),0,TAU);c.fill()})},{lab:true,cost:"中"});
+regScene("cross-pattern","under","cross",45,(c,p)=>{   /* 十字圖案：規則的加號陣列，緩慢旋轉 */
+ const{W,H,t}=p,s=Math.min(W,H)/(p.lite?8:12),z=s*.18;c.strokeStyle=p.C;lw(c,p,.003,1.5);al(c,p,.06+.3*p.a);c.beginPath();
+ for(let y=s/2;y<H;y+=s)for(let x=s/2;x<W;x+=s){const a=t*.3*((x+y)/s%2?1:-1)*.2;const ca=Math.cos(a),sa=Math.sin(a);c.moveTo(x-z*ca,y-z*sa);c.lineTo(x+z*ca,y+z*sa);c.moveTo(x+z*sa,y-z*ca);c.lineTo(x-z*sa,y+z*ca)}c.stroke()},LAB);
+regScene("triangle-grid","under","tri",45,(c,p)=>{   /* 三角網格：三個方向的線構成三角格，向上緩移 */
+ const{W,H,t}=p,s=H/(p.lite?5:8),hh=s*.866,o=(t*s*.15)%hh;c.strokeStyle=p.R;lw(c,p,.002);al(c,p,.08+.3*p.a);c.beginPath();
+ for(let y=-hh+o;y<H+hh;y+=hh){c.moveTo(0,y);c.lineTo(W,y)}
+ for(let x=-H*1.2;x<W+H*1.2;x+=s){c.moveTo(x,H);c.lineTo(x+H/Math.tan(PI/3),0);c.moveTo(x,0);c.lineTo(x+H/Math.tan(PI/3),H)}c.stroke()},LAB);
+regScene("pink-grid","under","gridp",45,(c,p)=>{   /* 粉紅方格：ghostA 格線，部分格子隨節拍閃爍填色 */
+ const{W,H,t}=p,cn=p.lite?8:12,s=W/cn,rn=Math.ceil(H/s);c.strokeStyle=p.G1;lw(c,p,.002);al(c,p,.1+.3*p.a);c.beginPath();
+ for(let i=0;i<=cn;i++){c.moveTo(i*s,0);c.lineTo(i*s,H)}for(let j=0;j<=rn;j++){c.moveTo(0,j*s);c.lineTo(W,j*s)}c.stroke();
+ c.fillStyle=p.G1;const k=Math.floor(t*4);
+ for(let j=0;j<rn;j++)for(let i=0;i<cn;i++){const h=sr(hashN(i+","+j)/1000+k*.31)();if(h<.1){al(c,p,(.1+.35*p.a)*(.6+.4*p.bp));c.fillRect(i*s,j*s,s,s)}}},LAB);
+regScene("jigsaw-grid","under","jig",40,(c,p)=>{   /* 拼圖格：格線上交錯的圓形凸／凹榫（每條邊的方向由格座標雜湊決定） */
+ const{W,H,t}=p,cn=p.lite?5:7,s=W/cn,rn=Math.ceil(H/s),b=s*.1,o=S(t*.5)*s*.02;c.strokeStyle=p.R;lw(c,p,.003,1.5);al(c,p,.1+.35*p.a);c.beginPath();
+ for(let j=0;j<=rn;j++)for(let i=0;i<cn;i++){const x=i*s+o,y=j*s,d=hashN(i+":"+j)%2?1:-1;c.moveTo(x,y);c.lineTo(x+s*.5-b,y);c.moveTo(x+s*.5+b,y);c.lineTo(x+s,y);c.moveTo(x+s*.5+b,y-d*b);c.arc(x+s*.5,y-d*b,b,0,TAU)}
+ for(let i=0;i<=cn;i++)for(let j=0;j<rn;j++){const x=i*s+o,y=j*s,d=hashN(j+"|"+i)%2?1:-1;c.moveTo(x,y);c.lineTo(x,y+s*.5-b);c.moveTo(x,y+s*.5+b);c.lineTo(x,y+s);c.moveTo(x+d*b+b,y+s*.5);c.arc(x+d*b,y+s*.5,b,0,TAU)}c.stroke()},{lab:true,cost:"中"});
+regScene("texture-bg","under","tex",40,(c,p)=>{   /* 紙質紋理：種子斑點與細纖維，整體微微漂移 */
+ const{W,H,t,r}=p,n=p.lite?120:300,ox=S(t*.1)*W*.004,oy=Math.cos(t*.08)*H*.004;c.fillStyle=p.C;c.strokeStyle=p.C;lw(c,p,.0012);
+ for(let i=0;i<n;i++){const x=r()*W+ox,y=r()*H+oy,z=H*(.001+.003*r()),q=r();al(c,p,(.08+.3*p.a)*q);if(i%4){c.beginPath();c.arc(x,y,z,0,TAU);c.fill()}else{const a=r()*TAU,l=H*(.01+.03*r());c.beginPath();c.moveTo(x,y);c.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l);c.stroke()}}},{lab:true,cost:"中"});
+regScene("pixel-bg","under","pix",40,(c,p)=>{   /* 像素背景：粗像素格的值雜訊，每 0.25 秒換一格 */
+ const{W,H,t}=p,cs=Math.max(8,H/(p.lite?16:26)),k=Math.floor(t*4);c.fillStyle=p.R;
+ for(let y=0;y<H;y+=cs)for(let x=0;x<W;x+=cs){const v=sr(hashN((x/cs|0)+","+(y/cs|0))/1000+k*.173)();if(v>.55){al(c,p,(v-.55)*(.2+.7*p.a));c.fillRect(x,y,cs-1,cs-1)}}},{lab:true,cost:"中"});
+regScene("star-trail","under","star",45,(c,p)=>{   /* 星軌：繞著畫面外極點旋轉的星點與弧形拖尾 */
+ const{W,H,t,r}=p,n=p.lite?24:48,px=W*.7,py=-H*.2,w=.05;c.strokeStyle=p.C;lw(c,p,.0025,1);
+ for(let i=0;i<n;i++){const R=H*(.35+r()*1.1),a0=r()*TAU,a=a0+t*w,l=.12+.25*r(),tw=.6+.4*S(t*2+i);al(c,p,(.3+.65*p.a)*tw);c.beginPath();c.arc(px,py,R,a-l,a);c.stroke()}},LAB);
+regScene("light-spot","under","light",40,(c,p)=>{   /* 光斑：兩道緩動聚光，中心較亮 */
+ const{W,H,t}=p;for(let k=0;k<2;k++){const x=W*(.5+.3*S(t*.31+k*2.4)),y=H*(.45+.25*Math.cos(t*.27+k*1.7)),R=H*(.45+.1*p.bp),g=c.createRadialGradient(x,y,0,x,y,R);g.addColorStop(0,k?p.R:p.C);g.addColorStop(1,"rgba(0,0,0,0)");c.fillStyle=g;al(c,p,.08+.35*p.a);c.fillRect(0,0,W,H)}},LAB);
+/* ---- P2：邊框／HUD（over）---- */
+regScene("screen-border","over","border",45,(c,p)=>{   /* 螢幕邊框：雙層內縮邊框，四角缺口 */
+ const{W,H}=p,m=H*.035,q=m*.5;c.strokeStyle=p.R;lw(c,p,.006,2);al(c,p,.3+.6*p.a);c.strokeRect(m,m,W-2*m,H-2*m);lw(c,p,.002);al(c,p,.2+.4*p.a);c.strokeRect(m+q,m+q,W-2*(m+q),H-2*(m+q));
+ c.fillStyle=p.R;al(c,p,.4+.5*p.a);[[m,m],[W-m,m],[m,H-m],[W-m,H-m]].forEach(([x,y])=>c.fillRect(x-q*.5,y-q*.5,q,q))},LAB);
+regScene("scalloped-border","over","border",45,(c,p)=>{   /* 波浪花邊：四邊一排半圓扇貝 */
+ const{W,H,t}=p,r=H*.022,o=(t*r*.5)%(r*2);c.fillStyle=p.R;al(c,p,.25+.55*p.a);c.beginPath();
+ for(let x=-r*2+o;x<W+r;x+=r*2){c.moveTo(x+r,0);c.arc(x,0,r,0,PI);c.moveTo(x+r,H);c.arc(x,H,r,PI,TAU)}
+ for(let y=-r*2+o;y<H+r;y+=r*2){c.moveTo(0,y+r);c.arc(0,y,r,PI/2,PI*1.5,true);c.moveTo(W,y+r);c.arc(W,y,r,PI*1.5,PI/2,true)}c.fill()},LAB);
+regScene("hud-corners","over","hudc",50,(c,p)=>{   /* HUD 四角：L 形角標＋刻度，隨拍閃一下 */
+ const{W,H,t}=p,m=H*.04,l=H*.09;c.strokeStyle=p.R;lw(c,p,.004,2);al(c,p,.35+.5*p.a+.1*p.bp);c.beginPath();
+ [[m,m,1,1],[W-m,m,-1,1],[m,H-m,1,-1],[W-m,H-m,-1,-1]].forEach(([x,y,sx,sy])=>{c.moveTo(x,y+sy*l);c.lineTo(x,y);c.lineTo(x+sx*l,y);for(let i=1;i<4;i++){c.moveTo(x+sx*l*(.2+i*.15),y);c.lineTo(x+sx*l*(.2+i*.15),y+sy*l*.1)}});c.stroke()},LAB);
+regScene("hud-info","over","hudi",50,(c,p)=>{   /* HUD 資訊面板（右上）：標題、數據列與條 */
+ const{W,H,t}=p,w=W*(W>H?.2:.36),h=H*.16,x=W-w-H*.04,y=H*.04,f=Math.max(9,H*.02);c.strokeStyle=p.R;lw(c,p,.002);al(c,p,.3+.5*p.a);c.strokeRect(x,y,w,h);c.fillStyle=p.R;c.font=`${f}px ${MONO}`;c.textBaseline="top";
+ c.fillText("SYSTEM INFO",x+f*.6,y+f*.5);for(let i=0;i<3;i++){const v=.5+.45*S(t*(.7+i*.3)+i*2);c.fillStyle=p.C;c.fillText(["CPU","MEM","NET"][i]+" "+String(Math.round(v*100)).padStart(3," ")+"%",x+f*.6,y+f*(1.9+i*1.3));c.fillStyle=p.R;c.fillRect(x+w*.58,y+f*(2.05+i*1.3),w*.36*v,f*.5)}},LAB);
+regScene("hud-status","over","huds",50,(c,p)=>{   /* HUD 狀態文字（左下）：REC 計時＋BPM */
+ const{W,H,t}=p,f=Math.max(10,H*.024),x=H*.05,y=H-H*.05,ct=Math.floor(t),ms=Math.floor(t%1*10);c.font=`${f}px ${MONO}`;c.textBaseline="alphabetic";c.fillStyle=p.G1;al(c,p,(Math.floor(t*2)%2?.35:.9)*(.5+.5*p.a));c.beginPath();c.arc(x+f*.4,y-f*1.25,f*.32,0,TAU);c.fill();
+ c.fillStyle=p.R;al(c,p,.4+.55*p.a);c.fillText("REC  00:"+String(Math.floor(ct/60)).padStart(2,"0")+":"+String(ct%60).padStart(2,"0")+"."+ms,x+f*1.1,y-f);c.fillStyle=p.C;al(c,p,.3+.4*p.a);c.fillText("BPM "+Math.round(CONFIG.bpm)+"  ·  STANDBY",x,y)},LAB);
+regScene("data-monitors","over","mon",45,(c,p)=>{   /* 資料監視器（右下）：波形折線＋長條 */
+ const{W,H,t}=p,w=W*(W>H?.2:.4),h=H*.1,x=W-w-H*.04,y=H-h-H*.04;c.strokeStyle=p.R;lw(c,p,.002);al(c,p,.3+.5*p.a);c.strokeRect(x,y,w,h);c.beginPath();
+ for(let i=0;i<=40;i++){const u=i/40,v=.5+.3*S(u*9+t*3)*S(u*3-t)+.1*p.bp;i?c.lineTo(x+u*w,y+h*(1-v)):c.moveTo(x+u*w,y+h*(1-v))}c.stroke();
+ c.fillStyle=p.G2;for(let i=0;i<8;i++){const v=.2+.7*Math.abs(S(t*(1+i*.2)+i));al(c,p,.35+.4*p.a);c.fillRect(x+w*.05+i*w*.045,y-h*.1-h*.5*v,w*.03,h*.5*v)}},LAB);
+regScene("pixel-window","over","win",40,(c,p)=>{   /* 像素視窗（左上）：復古作業系統小視窗，標題列＋三顆按鈕 */
+ const{W,H,t}=p,w=W*(W>H?.2:.42),h=H*.14,x=H*.05,y=H*.05+S(t*.5)*H*.004,tb=h*.22;c.fillStyle="#000";al(c,p,.45*p.a+.1);c.fillRect(x,y,w,h);c.fillStyle=p.R;al(c,p,.5+.4*p.a);c.fillRect(x,y,w,tb);
+ c.strokeStyle=p.R;lw(c,p,.003,2);c.strokeRect(x,y,w,h);c.fillStyle=p.C;[0,1,2].forEach(i=>c.fillRect(x+w-(i+1)*tb*1.1,y+tb*.2,tb*.6,tb*.6));
+ c.font=`${Math.max(9,tb*.7)}px ${MONO}`;c.textBaseline="middle";c.fillStyle="#000";c.fillText("lyrics.exe",x+tb*.4,y+tb*.5);c.fillStyle=p.C;for(let i=0;i<3;i++)c.fillRect(x+tb*.4,y+tb*(1.6+i*.8),w*(.4+.4*Math.abs(S(i*2+Math.floor(t))))*.8,tb*.3)},LAB);
+regScene("desktop-icon","over","icon",40,(c,p)=>{   /* 桌面圖示（左側一排）：資料夾圖示＋檔名 */
+ const{H,t}=p,s=H*.07,x=H*.05,f=Math.max(9,s*.2);c.font=`${f}px ${MONO}`;c.textAlign="center";c.textBaseline="top";
+ ["LYRICS","MEMO","MUSIC","TRASH"].forEach((n,i)=>{const y=H*.3+i*s*1.5,hl=Math.floor(t*.5)%4===i;c.fillStyle=p.R;al(c,p,(.4+.5*p.a)*(hl?1:.7));c.fillRect(x,y+s*.15,s*.45,s*.12);c.fillRect(x,y+s*.25,s,s*.6);c.fillStyle=p.C;al(c,p,.5+.4*p.a);c.fillText(n,x+s/2,y+s*.95)});c.textAlign="start"},LAB);
+/* ---- P3（實驗室，最複雜；成本較高）---- */
+regScene("smear-brush","under","smear",35,(c,p)=>{   /* 塗抹筆刷：數道粗筆觸，邊緣以多重細筆毛刺模擬，緩緩橫移 */
+ const{W,H,t,r}=p,n=p.lite?3:5;c.lineCap="round";c.strokeStyle=p.R;
+ for(let k=0;k<n;k++){const y=H*(.15+.7*r()),x0=W*(-.1+.3*r()),L=W*(.5+.5*r()),th=H*(.05+.06*r()),sh=(t*W*.02+k*37)%(W*.08);
+  for(let b=0;b<(p.lite?4:9);b++){const yy=y+(b-4)*th/9,wob=S(b*1.7+k)*th*.1;al(c,p,(.04+.1*p.a)*(.6+.4*r()));c.lineWidth=th/9*1.4;c.beginPath();c.moveTo(x0+sh+wob,yy);c.quadraticCurveTo(x0+L*.5+sh,yy+S(t*.4+k+b)*th*.15,x0+L+sh-wob*2,yy+wob);c.stroke()}}},{lab:true,cost:"中"});
+regScene("paper-tear","over","tear",40,(c,p)=>{   /* 撕紙邊：畫面下緣一條不規則撕裂的紙邊＋陰影 */
+ const{W,H,r}=p,n=p.lite?30:60,y0=H*.93,pts=[];for(let i=0;i<=n;i++)pts.push([i/n*W,y0+(r()-.5)*H*.022+S(i*.7)*H*.006]);
+ c.beginPath();c.moveTo(0,H);pts.forEach(q=>c.lineTo(q[0],q[1]));c.lineTo(W,H);c.closePath();c.shadowColor="rgba(0,0,0,.6)";c.shadowBlur=H*.015;c.shadowOffsetY=-H*.004;c.fillStyle=p.C;al(c,p,.35+.55*p.a);c.fill()},{lab:true,cost:"中"});
+regScene("blood-splatter","under","splat",40,(c,p)=>{   /* 噴濺：中心大滴＋放射小滴＋向下流淌的血痕（用 ghostA 色，不寫死紅色） */
+ const{W,H,t,r}=p,cx=W*(.3+.4*r()),cy=H*(.3+.3*r()),n=p.lite?16:34,g=Math.min(1,t*1.5+.2);c.fillStyle=p.G1;al(c,p,.35+.5*p.a);
+ c.beginPath();c.arc(cx,cy,H*.05*g,0,TAU);c.fill();
+ for(let i=0;i<n;i++){const a=r()*TAU,d=H*(.07+.3*r())*g,z=H*(.004+.016*r())*(1-d/(H*.4)*.5);c.beginPath();c.arc(cx+Math.cos(a)*d,cy+Math.sin(a)*d,Math.max(1,z),0,TAU);c.fill()}
+ for(let i=0;i<4;i++){const x=cx+(r()-.5)*H*.1,l=H*(.1+.2*r())*Math.min(1,t*.4),w=H*.008;c.fillRect(x-w/2,cy,w,l);c.beginPath();c.arc(x,cy+l,w*.8,0,TAU);c.fill()}},{lab:true,cost:"中"});
+regScene("crime-tape","over","tape",45,(c,p)=>{   /* 警戒膠帶：兩條交叉斜帶，黑色斜紋＋文字（帶色取強調色，位於畫面邊緣不蓋主文） */
+ const{W,H,t}=p,h=H*.06,f=h*.55,txt="  LYRIC SCENE · DO NOT CROSS ·",L=txt.length*f*.62;
+ for(const[x0,y0,x1,y1] of[[-W*.05,H*.18,W*1.05,H*.06],[-W*.05,H*.9,W*1.05,H*.8]]){c.save();c.translate(x0,y0);c.rotate(Math.atan2(y1-y0,x1-x0));const ln=Math.hypot(x1-x0,y1-y0);
+  c.fillStyle=p.R;al(c,p,.5+.45*p.a);c.fillRect(0,-h/2,ln,h);c.fillStyle="#000";al(c,p,.5+.4*p.a);for(let x=-h+(t*h*.3)%(h*1.6);x<ln;x+=h*1.6){c.beginPath();c.moveTo(x,-h/2);c.lineTo(x+h*.5,-h/2);c.lineTo(x+h*.5-h*.4,h/2);c.lineTo(x-h*.4,h/2);c.fill()}
+  c.font=`bold ${f}px ${MONO}`;c.textBaseline="middle";c.fillStyle="#000";al(c,p,.85);for(let x=-L+(t*f*2)%L;x<ln;x+=L)c.fillText(txt,x,0);c.restore()}},{lab:true,cost:"中"});
+regScene("planet","under","planet",45,(c,p)=>{   /* 行星：右下大球（漸層球體）＋傾斜光環＋一顆繞行小衛星 */
+ const{W,H,t}=p,x=W*.78,y=H*.7,R=H*.2*(1+.015*p.bp),g=c.createRadialGradient(x-R*.35,y-R*.35,R*.1,x,y,R);g.addColorStop(0,p.C);g.addColorStop(.45,p.R);g.addColorStop(1,"#000");
+ c.save();c.translate(x,y);c.rotate(-.35);c.strokeStyle=p.C;lw(c,p,.004,2);al(c,p,.15+.3*p.a);c.beginPath();c.ellipse(0,0,R*1.7,R*.4,0,PI,TAU);c.stroke();c.restore();
+ c.fillStyle=g;al(c,p,.2+.6*p.a);c.beginPath();c.arc(x,y,R,0,TAU);c.fill();
+ c.save();c.translate(x,y);c.rotate(-.35);c.strokeStyle=p.C;lw(c,p,.004,2);al(c,p,.2+.4*p.a);c.beginPath();c.ellipse(0,0,R*1.7,R*.4,0,0,PI);c.stroke();c.restore();
+ const a=t*.5;c.fillStyle=p.C;al(c,p,.5+.4*p.a);c.beginPath();c.arc(x+Math.cos(a)*R*2.1,y+Math.sin(a)*R*.7,R*.1,0,TAU);c.fill()},{lab:true,cost:"中"});
 /* ===== [BEATFX] 節拍後製：震動／縮放／傾斜／色相（CONFIG.beatShake／beatZoom／beatTilt／beatHue，預設 0＝關）。
    作用於 #stage 的獨立屬性 translate／scale／rotate，與色相走 CSS 變數 --bhue（併入 toneCss 的濾鏡，綠幕時自動關閉）。
    時間純函數：只由 t、BPM、offset 與種子亂數 sr() 決定（不吃音訊節拍／不累積狀態），離線渲染與預覽一致；錄製時建議關閉色相（重濾鏡）。 ===== */
-let bfxOn=false;
+let bfxOn=false,bfxRec=false,bfxAb=0,bfxHit=-9;
+function isRec(){return!RENDER&&document.body.classList.contains("rec")}   /* 預覽錄製中（非離線）：色相濾鏡太重，自動關閉 */
 function beatFx(t){
- const o=CONFIG,sh=+o.beatShake||0,zm=+o.beatZoom||0,tl=+o.beatTilt||0,hu=+o.beatHue||0,s=$("#stage").style;
+ const o=CONFIG,ov=cur>=0&&subs[cur]?sceneBfx(subs[cur]):null,rec=isRec();   /* 單句覆寫：&bfx-shake:2 等（見 [SCENE]）；沒有覆寫就用全域值 */
+ const sh=+(ov&&"shake"in ov?ov.shake:o.beatShake)||0,zm=+(ov&&"zoom"in ov?ov.zoom:o.beatZoom)||0,tl=+(ov&&"tilt"in ov?ov.tilt:o.beatTilt)||0,hu=rec?0:+(ov&&"hue"in ov?ov.hue:o.beatHue)||0,s=$("#stage").style;
+ if(rec!==bfxRec||(hu!==0)!==bfxHueF){bfxRec=rec;bfxHueF=hu!==0;toneCss()}
  if(!(sh||zm||tl||hu)){if(bfxOn){s.translate=s.scale=s.rotate="";document.documentElement.style.removeProperty("--bhue");bfxOn=false}return}
- bfxOn=true;const b=(t-o.offset)*o.bpm/60,n=Math.floor(b),e=b<0?0:Math.exp(-(b-n)*6),rr=sr((n+.5)/1000),dx=rr()*2-1,dy=rr()*2-1,sg=n%2?1:-1;
+ bfxOn=true;const b=(t-o.offset)*o.bpm/60;let n=Math.floor(b),e=b<0?0:Math.exp(-(b-n)*6);
+ if(o.beatSrc==="audio"&&an){   /* 音訊驅動：以 abeat（偵測到的低頻拍）計數與其發生時間做衰減；沒有音訊分析器時退回 BPM。離線渲染的 __setAudio 路徑逐格確定，預覽與離線一致性待整合階段實測 */
+  if(abeat!==bfxAb){bfxAb=abeat;bfxHit=t}
+  n=abeat;e=t>=bfxHit?Math.exp(-(t-bfxHit)*6):0}
+ const rr=sr((n+.5)/1000),dx=rr()*2-1,dy=rr()*2-1,sg=n%2?1:-1;
  s.translate=sh?`${(dx*sh*e).toFixed(3)}% ${(dy*sh*e).toFixed(3)}%`:"";
  s.scale=(sh||zm)?String((1+2*sh/100+zm/100*e).toFixed(4)):"";
  s.rotate=tl?`${(sg*tl*e).toFixed(3)}deg`:"";
@@ -1484,6 +1625,45 @@ registerLayout("formula",(sb,c,w,big,sm,dur,list)=>{   /* 公式覆蓋：主文�
   delete e.dataset.t;e.dataset.nm=1;e.textContent=tk.join(" ");c.appendChild(e);
   A(e,[{opacity:0},{opacity:.35}],{duration:D(),delay:i*120/CONFIG.speed});A(e,[{translate:"-2cqw 0"},{translate:"2cqw 0"}],{duration:6000,delay:-r()*6000,iterations:Infinity,direction:"alternate",easing:"ease-in-out"})}
  const e=CE(c,`font-size:${z}px;letter-spacing:.1em`);list.push(...chars(sb.plain,e));if(sb.en)enter(e,sb.en,list)});
+/* ===== [LAY-I] 版型 I（P2／P3 文字型，「實驗室」，自行詮釋，未對照 pv-tool 畫面）：staggered-text noise-text victim-outline cute-outline vertical-sub hero-text shatter-text crayon-shatter。
+   皆為時間純函數（A() 暫停動畫＋種子亂數 sr()）；顏色取 --c／--a 與 ghostA／ghostB；非主文裝飾標 data-nm。不吃 {}、非滿版。實驗室版型預設不寫進 AI 規格書（LAB_LAYOUTS）。 ===== */
+const LAB_LAYOUTS=new Set(["staggered-text","noise-text","victim-outline","cute-outline","vertical-sub","hero-text","shatter-text","crayon-shatter"]);
+const _gh=()=>[CONFIG.ghostOn?CONFIG.ghostA:"#ff285a",CONFIG.ghostOn?CONFIG.ghostB:"#00dcff"];
+registerLayout("staggered-text",(sb,c,w,big,sm,dur,list)=>{   /* 交錯字：奇偶字上下錯位，從相反方向滑入 */
+ const z=_fz(sb,big,1),e=CE(c,`font-size:${z}px;letter-spacing:.08em`),ch=chars(sb.plain,e);list.push(...ch);
+ ch.forEach((x,i)=>{x.style.position="relative";x.style.top=(i%2?.26:-.26)+"em";if(!sb.en)A(x,[{opacity:0,transform:`translateX(${i%2?8:-8}cqw)`},{opacity:1,transform:"none"}],{duration:D(),delay:i*70/CONFIG.speed})});
+ if(sb.en)enter(e,sb.en,list)});
+registerLayout("noise-text",(sb,c,w,big,sm,dur,list)=>{   /* 雜訊字：主文加兩層色差殘影，每 80ms 換一次抖動位置 */
+ const z=_fz(sb,big,1),[g1,g2]=_gh(),r=sr(sb.s),J=()=>{const a=[];for(let i=0;i<8;i++)a.push({translate:`${((r()-.5)*.14).toFixed(3)}em ${((r()-.5)*.06).toFixed(3)}em`});return a};
+ [g1,g2].forEach(col=>{const e=CE(c,`font-size:${z}px;letter-spacing:.1em;color:${col};opacity:.75`);e.textContent=sb.plain;e.dataset.nm=1;delete e.dataset.t;
+  A(e,J(),{duration:640,iterations:Infinity,easing:"steps(1)"})});
+ const e=CE(c,`font-size:${z}px;letter-spacing:.1em`);list.push(...chars(sb.plain,e));enter(e,sb.en||"fade",list)});
+registerLayout("victim-outline",(sb,c,w,big,sm,dur,list)=>{   /* 受害者描邊：空心粗描邊字，後方錯位的強調色描邊像粉筆輪廓，輕微抖動 */
+ const z=_fz(sb,big,1.05),st=`font-size:${z}px;letter-spacing:.1em;font-weight:600;color:transparent;`;
+ const b=CE(c,st+`-webkit-text-stroke:max(1.5px,.022em) var(--a)`);b.textContent=sb.plain;b.dataset.nm=1;delete b.dataset.t;A(b,[{translate:".03em .04em",rotate:"-.4deg"},{translate:".05em .02em",rotate:".4deg"}],{duration:420,iterations:Infinity,direction:"alternate",easing:"steps(2)"});
+ const e=CE(c,st+`-webkit-text-stroke:max(1.5px,.018em) var(--c)`);list.push(...chars(sb.plain,e));enter(e,sb.en||"fade",list)});
+registerLayout("cute-outline",(sb,c,w,big,sm,dur,list)=>{   /* 可愛描邊：圓潤白色厚描邊貼紙字＋彩色字心，逐字彈跳、交替傾斜 */
+ const z=_fz(sb,big,1),e=CE(c,`font-size:${z}px;letter-spacing:.04em;font-weight:900;color:var(--a);-webkit-text-stroke:.16em #fff;paint-order:stroke fill;text-shadow:.05em .08em 0 rgba(0,0,0,.28)`),ch=chars(sb.plain,e);list.push(...ch);
+ ch.forEach((x,i)=>{x.style.rotate=(i%2?4:-4)+"deg";if(!sb.en)A(x,[{opacity:0,transform:"translateY(8cqh) scale(.4)"},{opacity:1,transform:"translateY(-2cqh) scale(1.15)",offset:.6},{opacity:1,transform:"none"}],{duration:D(),delay:i*80/CONFIG.speed})});
+ if(sb.en)enter(e,sb.en,list)});
+registerLayout("vertical-sub",(sb,c,w,big,sm,dur,list)=>{   /* 直式副文：主文橫排偏左，右側一條直排淡色回聲字＋細線 */
+ const z=_fz(sb,big,.85),vh=SHd(),e=txtEl(`left:6cqw;top:50%;margin-top:${-z*.6}px;font-size:${z}px;line-height:1.2;letter-spacing:.1em;white-space:nowrap`);c.appendChild(e);list.push(...chars(sb.plain,e));enter(e,sb.en||"rise",list);
+ const v=txtEl(`right:7cqw;top:10cqh;writing-mode:vertical-rl;font-size:${Math.min(z*.55,vh*.085)}px;letter-spacing:.3em;opacity:.6;color:var(--a);max-height:80cqh`);delete v.dataset.t;v.dataset.nm=1;v.textContent=sb.plain;c.appendChild(v);A(v,[{opacity:0},{opacity:.55}],{duration:D()*1.3,delay:D()*.4});
+ const ln=document.createElement("div");ln.style.cssText="position:absolute;right:4cqw;top:10cqh;bottom:10cqh;width:1px;background:var(--a);opacity:.5;transform-origin:top";ln.dataset.nm=1;c.appendChild(ln);A(ln,[{transform:"scaleY(0)"},{transform:"scaleY(1)"}],{duration:D()*1.5})});
+registerLayout("hero-text",(sb,c,w,big,sm,dur,list)=>{   /* 英雄字：粗體巨字＋六層強調色擠出立體陰影，重重砸入 */
+ const z=_fz(sb,big,1.15),ex=[];for(let i=1;i<=6;i++)ex.push(`${(i*.018).toFixed(3)}em ${(i*.022).toFixed(3)}em 0 color-mix(in srgb,var(--a) ${100-i*9}%,#000)`);
+ const e=CE(c,`font-size:${z}px;letter-spacing:.06em;font-weight:900;text-shadow:${ex.join(",")}`);list.push(...chars(sb.plain,e));
+ if(sb.en)enter(e,sb.en,list);else A(e,[{opacity:0,transform:"scale(2.4) rotate(-3deg)"},{opacity:1,transform:"scale(.94) rotate(0)",offset:.6},{opacity:1,transform:"none"}],{duration:D()*.9,easing:"cubic-bezier(.2,.9,.2,1)"})});
+const SHARDS=["0 0,100% 0,50% 50%","100% 0,100% 100%,50% 50%","100% 100%,0 100%,50% 50%","0 100%,0 0,50% 50%"];
+function shatterBuild(sb,c,big,list,crayon){   /* 每個字拆成 4 片三角碎片，從隨機位置與角度飛回拼合 */
+ const z=_fz(sb,big,1),r=sr(sb.s),e=CE(c,`font-size:${z}px;letter-spacing:.06em;font-weight:${crayon?800:900}`),ch=[...sb.plain].filter(x=>!/\s/.test(x));
+ ch.forEach((t,i)=>{const w=document.createElement("span");w.className="ch";w.textContent=t;w.style.cssText="position:relative;display:inline-block;color:transparent;-webkit-text-fill-color:transparent";e.appendChild(w);list.push(w);
+  if(crayon)w.style.rotate=((r()-.5)*7)+"deg";
+  SHARDS.forEach((p,k)=>{const s=document.createElement("span");s.textContent=t;s.dataset.nm=1;
+   s.style.cssText=`position:absolute;inset:0;clip-path:polygon(${p});color:${crayon?"var(--a)":"var(--c)"};-webkit-text-fill-color:${crayon?"var(--a)":"var(--c)"};`+(crayon?"-webkit-text-stroke:.025em var(--c);text-shadow:.025em .02em 0 rgba(255,255,255,.35),-.02em .03em 0 rgba(0,0,0,.3)":"");w.appendChild(s);
+   A(s,[{opacity:0,transform:`translate(${(r()-.5)*60}cqw,${(r()-.5)*50}cqh) rotate(${(r()-.5)*360}deg) scale(${.4+r()*1.2})`},{opacity:1,transform:"none"}],{duration:D()*1.2,delay:(i*60+k*30)/CONFIG.speed,easing:"cubic-bezier(.2,.8,.2,1)"})})})}
+registerLayout("shatter-text",(sb,c,w,big,sm,dur,list)=>shatterBuild(sb,c,big,list,false));   /* 碎裂字（P3）：4 片碎片拼合 */
+registerLayout("crayon-shatter",(sb,c,w,big,sm,dur,list)=>shatterBuild(sb,c,big,list,true));   /* 蠟筆碎裂（P3）：同上，字心強調色、粗糙描邊與微傾斜 */
 /* ===== [MISC] 預設組合補登（電影字幕・街頭拼貼）/ 畫面比例 applyStage / 啟動序列（css→applyScene→panel）===== */
 PRESETS["電影字幕（底部置中）"]={font:"黑體",weight:500,spacing:.06,pulse:0,bounce:0,flash:0,particles:0,grain:0,vignette:0,trans:"cut",dim:30,textScale:35,textShadow:true,posAnchor:"bc",posSafe:8,lock:"center"};
 PRESETS.街頭拼貼={font:"英文展示",weight:700,spacing:.05,grain:.12,scratch:1,pulse:.06,accent:"#ffd166"};

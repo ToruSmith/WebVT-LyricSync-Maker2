@@ -1,4 +1,5 @@
 /* ===== [UI-PANEL] 參數面板 panel/posPanel/bgPanel、字體載入（FontFace + IndexedDB）、套用到畫面 css/bgCss/toneCss/save ===== */
+let bfxHueF=false;   /* 這一幀是否有節拍色相（[BEATFX] 設定；toneCss 啟動時就會被呼叫，所以宣告放最前面） */
 const P=[["bpm","BPM",40,220,1],["offset","節拍起點 offset(秒)",0,5,.01],["pulse","脈衝強度",0,.3,.005],["bounce","彈跳振幅(px)",0,80,1],["flash","閃白強度",0,.6,.01],
  ["speed","全域速度",.25,4,.05],["enter","進場秒數",.05,4,.05],["exit","退場秒數",.05,3,.05],["bigRatio","大字高度比例",.03,.8,.01],["textScale","文字整體縮放%",20,300,5],["spacing","字距(em)",-.1,2,.05],["weight","字重",100,900,100]];
 /* 面板區段錨點：panel() 重建時一併重建；showSec(id) 供 [QUICK]「面板跳轉」使用（id 清單見 QK_SECS） */
@@ -170,7 +171,7 @@ function hex6(c,fb){const x=hex6.x||(hex6.x=document.createElement("canvas").get
 function css(){CONFIG.color=hex6(CONFIG.color,"#ffffff");CONFIG.accent=hex6(CONFIG.accent,"#7aa8ff");CONFIG.shColor=hex6(CONFIG.shColor,"#000000");CONFIG.ghostA=hex6(CONFIG.ghostA,"#ff285a");CONFIG.ghostB=hex6(CONFIG.ghostB,"#00dcff");document.querySelectorAll("#panel input[type=color][data-k]").forEach(i=>{const v=CONFIG[i.dataset.k];if(v&&i.value!==v)i.value=v});document.documentElement.style.setProperty("--c",CONFIG.color);document.documentElement.style.setProperty("--a",CONFIG.accent);$("#mask").style.background=`rgba(${rgbOf(CONFIG.maskColor)},${CONFIG.dim/100})`;bgCss()}
 function rgbOf(h){h=/^#[0-9a-f]{6}$/i.test(h||"")?h:"#000000";return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)).join(",")}
 function isChroma(){return document.documentElement.classList.contains("chroma")}
-function toneCss(){const T=RENDER?document.body:$("#stage");if(!RENDER)document.body.style.filter="";if(isChroma()){T.style.filter="";return}const f=[CONFIG.tone||"",(+CONFIG.brightness||100)!==100?`brightness(${CONFIG.brightness}%)`:"",+CONFIG.beatHue>0?"hue-rotate(var(--bhue,0deg))":""].filter(Boolean).join(" ");T.style.filter=f}
+function toneCss(){const T=RENDER?document.body:$("#stage");if(!RENDER)document.body.style.filter="";if(isChroma()){T.style.filter="";return}const f=[CONFIG.tone||"",(+CONFIG.brightness||100)!==100?`brightness(${CONFIG.brightness}%)`:"",(+CONFIG.beatHue>0||bfxHueF)&&!isRec()?"hue-rotate(var(--bhue,0deg))":""].filter(Boolean).join(" ");T.style.filter=f}
 function shCss(){const c=CONFIG,n=Math.max(1,Math.min(4,Math.round(+c.shLayers||1))),a=Math.max(0,Math.min(1,(+c.shAlpha)/100)),one=`${+c.shX||0}cqh ${+c.shY||0}cqh ${Math.max(0,+c.shBlur||0)}cqh rgba(${rgbOf(hex6(c.shColor,"#000000"))},${a})`;document.documentElement.style.setProperty("--tsh",Array(n).fill(one).join(","));document.documentElement.style.setProperty("--dsh",Array(n).fill(`drop-shadow(${+c.shX||0}cqh ${+c.shY||0}cqh ${Math.max(0,+c.shBlur||0)}cqh rgba(${rgbOf(hex6(c.shColor,"#000000"))},${a}))`).join(" "))}
 function bgCss(){shCss();const c=CONFIG,r=document.documentElement,bg=$("#bg");
  if(c.bgMode==="solid"){bg.style.background=c.bgColor;bg.style.animation="none"}else{bg.style.background="";bg.style.animation=""}
