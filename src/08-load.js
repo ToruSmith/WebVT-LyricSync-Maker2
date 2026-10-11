@@ -1,9 +1,9 @@
 /* ===== [LOAD] 載入 SRT・媒體・範例 / 播放暫停 / 快捷鍵 ===== */
 const txt=f=>f.arrayBuffer().then(b=>new TextDecoder("utf-8").decode(b));
-$("#fs").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(f){subs=parseSRT(await txt(f));cur=-2;note(subs.length+" 句已載入")}};
+$("#fs").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(f){subs=parseSRT(await txt(f));cur=-2;subsReplaced();note(subs.length+" 句已載入")}};
 $("#fm").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;mUrl&&URL.revokeObjectURL(mUrl);m.src=mUrl=URL.createObjectURL(f);mediaInfo={name:f.name,video:f.type.startsWith("video")};hasMedia=true;pause();m.style.display=f.type.startsWith("video")?"block":"none";cur=-2;note("媒體已載入")};
 $("#demo").onclick=()=>{CONFIG.lock="";CONFIG.auto=false;Object.assign(CONFIG,{posAnchor:"",posX:0,posY:0});save();panel(); /* 範例要照標記呈現，先解除鎖定與自動變化 */
- subs=parseSRT(DEMO);hasMedia=false;m.removeAttribute("src");m.style.display="none";vt=0;cur=-2;Object.assign(CONFIG,{bpm:120,offset:0});play()};
+ subs=parseSRT(DEMO);subsReplaced();hasMedia=false;m.removeAttribute("src");m.style.display="none";vt=0;cur=-2;Object.assign(CONFIG,{bpm:120,offset:0});play()};
 function play(){if(!hasMedia&&vt>=endT())vt=0;playing=true;hasMedia&&(m.play(),initAudio());$("#play").textContent="暫停"}
 function pause(){playing=false;hasMedia&&m.pause();$("#play").textContent="播放"}
 $("#play").onclick=()=>playing?pause():play();

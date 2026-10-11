@@ -28,11 +28,11 @@ function panel(){
  const au=document.createElement("label");au.innerHTML='<input type="checkbox" id="auto"> 自動變化版型';p.append(au);$("#auto").checked=CONFIG.auto;$("#auto").onchange=e=>{CONFIG.auto=e.target.checked;cur=-2};
  const tap=document.createElement("button");tap.textContent="Tap 打拍子";let taps=[];tap.onclick=()=>{const n=performance.now();if(taps.length&&n-taps[taps.length-1]>2000)taps=[];taps.push(n);if(taps.length>=4){const iv=(taps[taps.length-1]-taps[0])/(taps.length-1);CONFIG.bpm=Math.round(60000/iv);panel();save()}};p.append(tap);extra(p);extra3(p);extra4(p);posPanel(p);bgPanel(p);foldPanel(p);
 }
-let selIdx=-1,posRef=null;const EDR=[],r2p=v=>String(Math.round((+v||0)*100)/100);
+let selIdx=-1,posRef=null,edOnSel=null;const EDR=[],r2p=v=>String(Math.round((+v||0)*100)/100);
 const layOf=x=>{const l=CONFIG.lock||x.lay;return LAYOUTS.includes(l)?l:"lowerleft"};
-function setSel(i){if(i>=0&&i<subs.length){selIdx=i;posRef&&posRef()}}
+function setSel(i){if(i>=0&&i<subs.length){selIdx=i;posRef&&posRef();edOnSel&&edOnSel(i)}}
 function jumpTo(i){const x=subs[i];if(!x)return;pause();const t=x.s+(x.e-x.s)*.5;if(hasMedia)m.currentTime=t;else vt=t;cur=-2;setSel(i)}   /* 跳到該句中段並暫停，方便看著畫面微調 */
-function edSync(i){const r=EDR[i];if(!r||!$("#edm"))return;const q=(subs[i].pos||"").split(":");r.pS.value=q[0]||"";r.pX.value=q[1]||"";r.pY.value=q[2]||""}
+function edSync(i){$("#edm")&&edRowUpdate(i)}   /* 位置等欄位被面板／拖曳改動後，同步編輯器該列與詳細欄（實作在 13-editor.js） */
 /* ===== 位置微調工具：復原／重做（快照）、位置預設、有效位置換算 ===== */
 const POSPRE=[["mc","正中"],["bc","下中（電影字幕）"],["bc:0:-10","下中偏上"],["bl","左下（歌詞）"],["br","右下"],["tl","左上"],["tc","上中"],["tr","右上"],["ml","左中"],["mr","右中"],["auto","版型原位"],["alt:bl|br","左下／右下 交替"],["alt:tc|bc","上中／下中 交替"]];
 const presetPos=(v,k)=>v.startsWith("alt:")?v.slice(4).split("|")[k%2]:v;
@@ -121,7 +121,7 @@ function posPanel(p){secAnchor(p,"pos");
  bt("把目前全域位置寫入「沒有自訂位置」的句子",bakePos,"把「全域錨點＋微調」寫成這些句子各自的 ^位置:X:Y，並把全域微調歸零（畫面不變）。已有自訂位置的句子不動。之後用編輯器的「匯出帶標記的 SRT」存檔");
  bt("清除所有句子的位置",clearPos,"移除每句的 ^位置 標記（含 ^auto），全部改為跟隨全域")}
 /* 位置寫入／清除：只改記憶體中的字幕；要存檔請用編輯器的「匯出帶標記的 SRT」 */
-function refreshEditor(){const d=$("#edm");if(d){const st=d.scrollTop,h=d.style.height;editor();editor();const n=$("#edm");if(n){n.scrollTop=st;n.style.height=h}}}
+function refreshEditor(){$("#edm")&&edRender()}   /* 字幕被外部改動（載入／復原／批次）後，重畫編輯器列表與詳細欄，保留捲動與選取 */
 function bakePos(){
  const g=CONFIG.posAnchor||"",gx=+CONFIG.posX||0,gy=+CONFIG.posY||0;
  if(!subs.length)return;

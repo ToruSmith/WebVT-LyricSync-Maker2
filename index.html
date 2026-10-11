@@ -7,9 +7,9 @@
  1. 載入 SRT 與音樂/影片；未載入時為示範模式（靜音）。空白鍵播放/暫停，←→ 跳轉 5 秒。
  2. 句首標記：#版型+進場+退場~特效1,特效2^位置*字體@樣式，例：#neon+fade+blur-out~float^bc；{字}{字} 用於 split / keyword / marker。
     ^位置：tl tc tr / ml mc mr / bl bc br 九宮格錨點，可加 :X:Y 微調（畫面寬高的 %），auto＝版型原位。
- 3. 「句子編輯器」可逐句改設定並匯出帶標記的 SRT；「隨機化」找靈感；面板有預設組合與設定匯出入。
+ 3. 「句子編輯器」（列表＋詳細欄）可逐句改文字、時間、動畫、樣式、場景、位置、風格包並匯出帶標記的 SRT；「更多 ▾ → 隨機化」找靈感；面板有預設組合與設定匯出入。
  4. 面板可設畫面比例（16:9 / 9:16）、錄製幀率、錄製輕量模式；所有參數集中在檔案頂部 CONFIG。
- 5. 「全螢幕錄製」：授權時選「此分頁」並勾選分享分頁音訊；結束自動下載。示範模式錄出的影片為靜音。
+ 5. 「⬆ 匯出…」精靈：依用途（錄製／離線 MP4／透明字層／綠幕／SRT）給對應做法。錄製時授權選「此分頁」並勾選分享分頁音訊；結束自動下載。示範模式錄出的影片為靜音。
  6. 錄製掉幀時：改 30 fps、開輕量模式、縮小比例、避開模糊類版型與全開疊加層。 
 -->
 <style>
@@ -93,15 +93,95 @@ body.rec #qk,html.rendering #qk{display:none!important}
 .chips{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0}.chip{padding:1px 6px;font-size:11px;border-radius:10px;opacity:.75}.chip.on{opacity:1;background:#3a4a9a;color:#fff;border-color:#7aa8ff}
 .scpop{position:fixed;z-index:60;width:360px;max-height:250px;overflow:auto;background:rgba(10,12,20,.97);border:1px solid #3a4470;border-radius:8px;padding:8px;font-size:12px;color:#dfe6ff}
 body.rec .scpop,html.rendering .scpop{display:none!important}
+
+/* ===== 頂欄分區（載入／播放／編輯／匯出）與浮出選單 ===== */
+#bar .grp{display:flex;gap:6px;align-items:center;padding-right:8px;border-right:1px solid #2a3252;flex:none}
+#bar .grp:last-child{border-right:0;padding-right:0}
+#bar .grp.grow{flex:1;min-width:150px}
+#bar button.primary{background:#2c4fd0;border-color:#5b82ff}#bar button.primary:hover{background:#3a60e8}
+.menu{position:fixed;display:none;flex-direction:column;gap:2px;z-index:9;min-width:230px;max-width:92vw;padding:6px;background:rgba(10,12,20,.98);border:1px solid #3a4470;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.55);font-size:13px;color:#fff}
+.menu.on{display:flex}
+.menu .mi{text-align:left;border:0;background:transparent;padding:7px 10px;border-radius:5px;white-space:nowrap;cursor:pointer;display:block}
+.menu .mi:hover{background:#2a3566}.menu .mi:disabled{opacity:.4;cursor:default}.menu .mi:disabled:hover{background:transparent}
+body.rec .menu,html.rendering .menu{display:none!important}
+
+/* ===== 句子編輯器：上方工具列＋左列表／右詳細欄 ===== */
+#edm{position:fixed;inset:auto 240px 0 0;display:flex;flex-direction:column;background:rgba(10,12,20,.95);z-index:6;overflow:hidden;font-size:12px}
+.edtb{flex:none;padding:6px 10px;border-bottom:1px solid #3a4470;display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:rgba(10,12,20,.98)}
+.edtb .sep{width:1px;height:18px;background:#3a4470;margin:0 2px}
+.edtb label{display:inline-flex;gap:4px;align-items:center;margin:0}
+.edbatch{flex:none;border-bottom:1px solid #3a4470;background:rgba(255,255,255,.03)}
+.edbatch>summary{cursor:pointer;padding:5px 10px;opacity:.85;user-select:none}
+.edbatch .in{padding:4px 10px 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.edbody{flex:1;min-height:0;display:flex}
+.edlist{flex:1 1 58%;min-width:0;overflow:auto;outline:none}
+.edside{flex:0 0 min(420px,44%);min-width:260px;overflow:auto;border-left:1px solid #3a4470;padding:8px 10px}
+.er{display:flex;gap:8px;align-items:center;padding:4px 8px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)}
+.er:hover{background:rgba(255,255,255,.05)}.er.sel{background:#26336b}.er.now{box-shadow:inset 3px 0 0 #ffd23a}
+.er .n{width:26px;flex:none;text-align:right;opacity:.5}
+.er .t{width:118px;flex:none;opacity:.8;font-variant-numeric:tabular-nums}
+.er .x{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.er .g{flex:none;display:flex;gap:3px;max-width:46%;overflow:hidden}
+.tg{padding:0 6px;border-radius:9px;font-size:10px;line-height:16px;background:#2a3252;white-space:nowrap}
+.tg.l{background:#2d4a9a}.tg.s{background:#6a3a8a}.tg.c{background:#2f6a52}.tg.p{background:#7a5a2a}.tg.a{opacity:.5}
+.edside .hd{font-weight:700;margin:0 0 6px;display:flex;justify-content:space-between;gap:8px}
+.edside details{border:1px solid #2a3252;border-radius:6px;margin:0 0 6px;background:rgba(255,255,255,.03)}
+.edside summary{cursor:pointer;padding:6px 8px;font-weight:700;list-style:none;user-select:none;display:flex;justify-content:space-between}
+.edside summary::-webkit-details-marker{display:none}.edside summary::after{content:"▸";opacity:.6}
+.edside details[open]>summary{border-bottom:1px solid #2a3252}.edside details[open]>summary::after{content:"▾"}
+.edside .gb{padding:4px 8px 8px}
+.edf{margin:5px 0}.edf>label{display:block;opacity:.7;margin:0 0 2px;font-size:11px}
+.edside select,.edside textarea,.edside input[type=text],.edside input[type=number]{font:inherit;color:#fff;background:#141a30;border:1px solid #3a4470;border-radius:4px;padding:4px 6px;width:100%}
+.edside textarea{resize:vertical;min-height:54px}
+.edrow2{display:flex;gap:6px;align-items:flex-end}.edrow2>.edf{flex:1;min-width:0}
+.edbtns{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}.edbtns button{font-size:11px;padding:2px 7px}
+.edhint{opacity:.65;font-size:11px;line-height:1.5;margin:3px 0}.edwarn{color:#ffb86b}
+.edside .chips .chip{font-size:11px}
+.packs{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}.packs button{font-size:11px;padding:2px 8px}
+
+/* ===== 匯出精靈 ===== */
+#exwiz{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}
+#exwiz.on{display:flex}
+#exwiz .xb{width:min(940px,94vw);max-height:90vh;display:flex;flex-direction:column;background:#0d1224;border:1px solid #3a4470;border-radius:10px;color:#fff;font-size:13px;box-shadow:0 12px 40px rgba(0,0,0,.6)}
+#exwiz .xh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #2a3252;font-size:15px;font-weight:700}
+#exwiz .xm{display:flex;min-height:0;flex:1}
+#exwiz .xl{flex:0 0 300px;overflow:auto;padding:10px;border-right:1px solid #2a3252}
+#exwiz .xr{flex:1;min-width:0;overflow:auto;padding:12px 16px;line-height:1.7}
+#exwiz .xo{display:block;width:100%;text-align:left;margin:0 0 6px;padding:8px 10px;border-radius:7px;background:#161d38;border:1px solid #2a3252}
+#exwiz .xo:hover{background:#1e2850}#exwiz .xo.on{background:#26336b;border-color:#7aa8ff}
+#exwiz .xo b{display:block}#exwiz .xo span{opacity:.65;font-size:11px}
+#exwiz .xr h3{margin:0 0 4px;font-size:15px}
+#exwiz .xr .why{opacity:.8;margin:0 0 8px}
+#exwiz .xr .opt{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0}
+#exwiz .xr label{display:inline-flex;gap:4px;align-items:center}
+#exwiz .xr ul{margin:6px 0 6px 18px;padding:0;opacity:.85}
+#exwiz .cmd{font-family:Consolas,Menlo,monospace;background:rgba(255,255,255,.08);padding:6px 8px;border-radius:5px;word-break:break-all;user-select:all;margin:6px 0}
+#exwiz .go{background:#2c4fd0;border-color:#5b82ff}
+@media (max-width:720px){#exwiz .xm{flex-direction:column}#exwiz .xl{flex:none;max-height:38%;border-right:0;border-bottom:1px solid #2a3252}}
+body.rec #exwiz,html.rendering #exwiz{display:none!important}
+#bar{z-index:7}   /* 浮出選單屬於 #bar 的堆疊層，要壓過右側面板（z 5）與編輯器（z 6） */
 </style></head><body>
 <div id="stage"><div id="bg"></div><video id="m" playsinline></video><div id="mask"></div>
 <canvas id="cv"></canvas><div id="pulse"><div id="L"></div></div>
 <canvas id="cv2"></canvas><div id="guides"><i id="vc"></i><i id="vl"></i><i id="vr"></i><i id="hc"></i><i id="ht"></i><i id="hb"></i></div></div>
 <div id="bar">
- <label class="fb" title="載入 SRT 字幕">📄 載入 SRT<input type="file" id="fs" accept=".srt,.txt"></label>
- <label class="fb" title="載入音樂或影片">🎵 載入媒體<input type="file" id="fm" accept="audio/*,video/*"></label>
- <button id="play">播放</button><input type="range" id="seek" min="0" max="1000" value="0">
- <span id="tm">0.0</span><button id="demo">載入範例</button><button id="rec">全螢幕錄製</button><button id="ed">句子編輯器</button><button id="rnd">隨機化</button><button id="unlock" style="display:none;background:#7a2a3a">🔒 版型已鎖定，按此解除</button><button id="qkb" title="所有工具與匯出功能（Ctrl+K）">⚡ 快捷</button><button id="tg">參數</button>
+ <!-- 頂欄分四區：載入／播放／編輯／匯出（右側是快捷與面板）。所有舊 id 都保留在 #bar 內；選單用 position:fixed 浮出，不被 #bar 的橫向捲動裁掉 -->
+ <div class="grp"><button class="mb" data-menu="mload" title="載入字幕、音樂或範例">載入 ▾</button>
+  <div class="menu" id="mload">
+   <label class="fb mi" title="載入 SRT 字幕">📄 載入 SRT 字幕<input type="file" id="fs" accept=".srt,.txt"></label>
+   <label class="fb mi" title="載入音樂或影片">🎵 載入音樂／影片<input type="file" id="fm" accept="audio/*,video/*"></label>
+   <button id="demo" class="mi">✨ 載入範例</button>
+  </div></div>
+ <div class="grp grow"><button id="play">播放</button><input type="range" id="seek" min="0" max="1000" value="0"><span id="tm">0.0</span></div>
+ <div class="grp"><button id="ed" title="逐句編輯文字、時間、動畫、樣式、場景、位置">句子編輯器</button><button class="mb" data-menu="medit" title="更多編輯功能">更多 ▾</button>
+  <div class="menu" id="medit">
+   <button id="rnd" class="mi" title="隨機指定每一句的版型、進退場與特效（會覆寫逐句設定，可復原）">🎲 隨機化版型與動畫（覆寫逐句設定，可復原）</button>
+   <button id="barUndo" class="mi hbU">↶ 復原（Ctrl+Z）</button>
+   <button id="barRedo" class="mi hbR">↷ 重做（Ctrl+Y）</button>
+  </div>
+  <button id="unlock" style="display:none;background:#7a2a3a">🔒 版型已鎖定，按此解除</button></div>
+ <div class="grp"><button id="exw" class="primary" title="你要拿去做什麼？錄製、離線 MP4、透明字層、綠幕、SRT…">⬆ 匯出…</button><button id="rec" style="display:none" title="全螢幕錄製（從「匯出…」進入）">全螢幕錄製</button></div>
+ <div class="grp"><button id="qkb" title="所有工具與匯出功能（Ctrl+K）">⚡ 快捷</button><button id="tg">參數</button></div>
 </div>
 <div id="panel"></div><div id="note"></div><div id="cd"></div>
 <div id="qk"><input id="qks" type="text" placeholder="搜尋功能…（例：srt、錄製、位置、霓虹）" autocomplete="off"><div id="qkl"></div></div>
@@ -119,8 +199,9 @@ body.rec .scpop,html.rendering .scpop{display:none!important}
    04-anim 05-build 06-beat 07-loop 08-load   [ANIM] [BUILD]（build() 建一句畫面）[BEAT] [LOOP]（主迴圈 step）[LOAD]（載入 SRT／媒體、note()、快捷鍵）
    09-ui-panel    [UI-PANEL] panel()、位置工具 posPanel、復原重做 pushHist／undo／redo、畫面拖曳、字體載入、css()／save()、refreshEditor()
    10-lay-a 11-fx-enter-exit 16-lay-c 17-lay-d 21-lay-e 22-lay-f 23-lay-g 23-lay-h 23-lay-i   各組版型（17 也有種子亂數 sr()；23-lay-i 是實驗室版型）
-   12-ui-editor   [UI-EDITOR] PRESETS 預設組合表、randomize、帶標記 SRT 的 tag／srtText／exportSRT（句子編輯器本體不在這，在 13）
-   13-export      [EXPORT]   project.json 匯出、句子編輯器 editor()、edLayout()、applyPreset()、extra()（預設組合・匯出入面板）
+   12-ui-editor   [UI-EDITOR] PRESETS 預設組合表、randomize、帶標記 SRT 的 tag／reparse／srtText／exportSRT／exportSRTPlain（句子編輯器本體在 13-editor）
+   13-editor      [EDITOR]   句子編輯器（列表＋詳細欄）：editor／edRender／edRowFill／edDetail／applyPackTo／subsReplaced／edLayout
+   13-export      [EXPORT]   project.json 匯出、applyPreset()、extra()（預設組合・匯出入面板）
    14-ambient     [AMBIENT]  粒子／音訊／效能降級、applyScene()、extra3()（畫面・粒子・轉場面板）
    15-overlay     [OVERLAY]  transition() 與疊加層 overlays()
    15-scene 15-scene2   [SCENE] [SCENE2]  場景層（&）：regScene、sceneList、sceneBfx、poolLay（自動變化版型的版型池）
@@ -128,6 +209,7 @@ body.rec .scpop,html.rendering .scpop{display:none!important}
    18-style 19-pos 20-water   [STYLE]（@ 樣式、|| 副文）[POS]（^ 位置）[WATER]（水波 WebGL）
    23-styles      [STYLES]   風格包 regPack／PACK_KEEP、清除（packReset／clearPack／clearSceneSubs／clearAllLayers）、場景挑選器、extra4()（風格包・場景層・後製面板）
    24-misc        [MISC]     補登預設組合、applyStage（畫面比例）、啟動序列
+   25-wizard      [WIZARD]   頂欄浮出選單、「⬆ 匯出…」精靈（WZ_OPTS：用途→做法與限制，來自 README）
    25-quick       [QUICK]    ⚡快捷選單（Ctrl+K）：所有工具／匯出／清除的單一入口 quickActions()
    26-record      [RECORD]   全螢幕錄製、selfCheck()
    27-render-api  [RENDER-API] 離線渲染介面（render/run.mjs 呼叫）
@@ -142,6 +224,7 @@ body.rec .scpop,html.rendering .scpop{display:none!important}
    新增風格包：regPack(名稱,{…})。清除風格包時會自動還原該包定義過的所有欄位，不需另外維護清單；PACK_KEEP 只用於「從風格包切到別的預設組合」。
    共用函式：匯出＝exportSRT / exportConfig / exportProjectUI；重設＝resetSettings；localStorage 鍵＝LS_CFG / LS_QK / LS_PO。
    面板分組：panel() 結尾的 foldPanel() 依 secAnchor 把扁平內容折成可收合分組（標題見 PANEL_TITLES）；新增區段記得補標題。
+   頂欄分四區（載入▾／播放／編輯／匯出…）；舊的 #rec 按鈕藏在頂欄內，只由精靈與快捷選單觸發。字幕整份被換掉要呼叫 subsReplaced()，局部被改要呼叫 refreshEditor()。
    慣例：cur=-2 表示「下一幀要重建這一句的畫面」，改了字幕或設定後要設；selIdx＝編輯器／位置工具目前選的句子索引。
    改完：node build.mjs；用網址加 ?check=1 開啟，F12 主控台會跑 selfCheck()（含快捷表驗證）；完整驗證 npm run check。 */
 /* ===== [RENDER] 離線渲染模式（?render=1）：由 render/run.mjs 逐幀驅動；一般使用時完全不影響（介面端在檔尾 [RENDER-API]）===== */
@@ -485,10 +568,10 @@ $("#seek").oninput=e=>{seeking=true;const t=e.target.value/1000*endT();hasMedia?
 $("#seek").onchange=()=>seeking=false;
 /* ===== [LOAD] 載入 SRT・媒體・範例 / 播放暫停 / 快捷鍵 ===== */
 const txt=f=>f.arrayBuffer().then(b=>new TextDecoder("utf-8").decode(b));
-$("#fs").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(f){subs=parseSRT(await txt(f));cur=-2;note(subs.length+" 句已載入")}};
+$("#fs").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(f){subs=parseSRT(await txt(f));cur=-2;subsReplaced();note(subs.length+" 句已載入")}};
 $("#fm").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;mUrl&&URL.revokeObjectURL(mUrl);m.src=mUrl=URL.createObjectURL(f);mediaInfo={name:f.name,video:f.type.startsWith("video")};hasMedia=true;pause();m.style.display=f.type.startsWith("video")?"block":"none";cur=-2;note("媒體已載入")};
 $("#demo").onclick=()=>{CONFIG.lock="";CONFIG.auto=false;Object.assign(CONFIG,{posAnchor:"",posX:0,posY:0});save();panel(); /* 範例要照標記呈現，先解除鎖定與自動變化 */
- subs=parseSRT(DEMO);hasMedia=false;m.removeAttribute("src");m.style.display="none";vt=0;cur=-2;Object.assign(CONFIG,{bpm:120,offset:0});play()};
+ subs=parseSRT(DEMO);subsReplaced();hasMedia=false;m.removeAttribute("src");m.style.display="none";vt=0;cur=-2;Object.assign(CONFIG,{bpm:120,offset:0});play()};
 function play(){if(!hasMedia&&vt>=endT())vt=0;playing=true;hasMedia&&(m.play(),initAudio());$("#play").textContent="暫停"}
 function pause(){playing=false;hasMedia&&m.pause();$("#play").textContent="播放"}
 $("#play").onclick=()=>playing?pause():play();
@@ -530,11 +613,11 @@ function panel(){
  const au=document.createElement("label");au.innerHTML='<input type="checkbox" id="auto"> 自動變化版型';p.append(au);$("#auto").checked=CONFIG.auto;$("#auto").onchange=e=>{CONFIG.auto=e.target.checked;cur=-2};
  const tap=document.createElement("button");tap.textContent="Tap 打拍子";let taps=[];tap.onclick=()=>{const n=performance.now();if(taps.length&&n-taps[taps.length-1]>2000)taps=[];taps.push(n);if(taps.length>=4){const iv=(taps[taps.length-1]-taps[0])/(taps.length-1);CONFIG.bpm=Math.round(60000/iv);panel();save()}};p.append(tap);extra(p);extra3(p);extra4(p);posPanel(p);bgPanel(p);foldPanel(p);
 }
-let selIdx=-1,posRef=null;const EDR=[],r2p=v=>String(Math.round((+v||0)*100)/100);
+let selIdx=-1,posRef=null,edOnSel=null;const EDR=[],r2p=v=>String(Math.round((+v||0)*100)/100);
 const layOf=x=>{const l=CONFIG.lock||x.lay;return LAYOUTS.includes(l)?l:"lowerleft"};
-function setSel(i){if(i>=0&&i<subs.length){selIdx=i;posRef&&posRef()}}
+function setSel(i){if(i>=0&&i<subs.length){selIdx=i;posRef&&posRef();edOnSel&&edOnSel(i)}}
 function jumpTo(i){const x=subs[i];if(!x)return;pause();const t=x.s+(x.e-x.s)*.5;if(hasMedia)m.currentTime=t;else vt=t;cur=-2;setSel(i)}   /* 跳到該句中段並暫停，方便看著畫面微調 */
-function edSync(i){const r=EDR[i];if(!r||!$("#edm"))return;const q=(subs[i].pos||"").split(":");r.pS.value=q[0]||"";r.pX.value=q[1]||"";r.pY.value=q[2]||""}
+function edSync(i){$("#edm")&&edRowUpdate(i)}   /* 位置等欄位被面板／拖曳改動後，同步編輯器該列與詳細欄（實作在 13-editor.js） */
 /* ===== 位置微調工具：復原／重做（快照）、位置預設、有效位置換算 ===== */
 const POSPRE=[["mc","正中"],["bc","下中（電影字幕）"],["bc:0:-10","下中偏上"],["bl","左下（歌詞）"],["br","右下"],["tl","左上"],["tc","上中"],["tr","右上"],["ml","左中"],["mr","右中"],["auto","版型原位"],["alt:bl|br","左下／右下 交替"],["alt:tc|bc","上中／下中 交替"]];
 const presetPos=(v,k)=>v.startsWith("alt:")?v.slice(4).split("|")[k%2]:v;
@@ -623,7 +706,7 @@ function posPanel(p){secAnchor(p,"pos");
  bt("把目前全域位置寫入「沒有自訂位置」的句子",bakePos,"把「全域錨點＋微調」寫成這些句子各自的 ^位置:X:Y，並把全域微調歸零（畫面不變）。已有自訂位置的句子不動。之後用編輯器的「匯出帶標記的 SRT」存檔");
  bt("清除所有句子的位置",clearPos,"移除每句的 ^位置 標記（含 ^auto），全部改為跟隨全域")}
 /* 位置寫入／清除：只改記憶體中的字幕；要存檔請用編輯器的「匯出帶標記的 SRT」 */
-function refreshEditor(){const d=$("#edm");if(d){const st=d.scrollTop,h=d.style.height;editor();editor();const n=$("#edm");if(n){n.scrollTop=st;n.style.height=h}}}
+function refreshEditor(){$("#edm")&&edRender()}   /* 字幕被外部改動（載入／復原／批次）後，重畫編輯器列表與詳細欄，保留捲動與選取 */
 function bakePos(){
  const g=CONFIG.posAnchor||"",gx=+CONFIG.posX||0,gy=+CONFIG.posY||0;
  if(!subs.length)return;
@@ -757,15 +840,223 @@ const PRESETS={動畫PV:{font:"圓體",pulse:.05,accent:"#7aa8ff",weight:300,spa
  極簡海報:{font:"明體",accent:"#ffffff",pulse:.01,bounce:0,weight:200,spacing:.7,speed:.8},
  仿PV歌詞:{font:"黑體",accent:"#a9c8ff",pulse:.015,bounce:0,flash:0,speed:.85,enter:.8,exit:.5,weight:300,spacing:.1,dim:35,particles:0,grain:.03,vignette:.35,trans:"crossfade"}};
 const pick=a=>a[Math.floor(Math.random()*a.length)];
-function randomize(){pushHist();subs.forEach(x=>{x.lay=pick(LAYOUTS);x.en=pick(ENTERS);x.ex=pick(EXITS);x.fx=Math.random()<.4?pick(FXS):"";x.auto=false});cur=-2;note("已隨機化版型、動畫與特效")}
+function randomize(){if(!subs.length)return note("請先載入 SRT 或範例");if(subs.some(x=>!x.auto)&&!confirm("會覆寫全部 "+subs.length+" 句的版型、進場、退場與特效（逐句設定會被取代；可按復原還原）。繼續？"))return;pushHist();subs.forEach(x=>{x.lay=pick(LAYOUTS);x.en=pick(ENTERS);x.ex=pick(EXITS);x.fx=Math.random()<.4?pick(FXS):"";x.auto=false;reparse(x)});cur=-2;refreshEditor();note("已隨機化版型、動畫與特效（可復原）")}
 $("#rnd").onclick=randomize;
+$("#barUndo").onclick=()=>undo();$("#barRedo").onclick=()=>redo();
 const tc=t=>{const z=(n,l=2)=>String(n).padStart(l,"0"),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return`${z(h)}:${z(m)}:${z(Math.floor(s))},${z(Math.round(s%1*1000),3)}`};
 const fTag=x=>x.font?"*"+encodeURIComponent(x.font).replace(/\*/g,"%2A"):"";
 const scTag=x=>x.scene?"&"+x.scene:"";
 const tag=x=>x.auto&&!x.en&&!x.ex&&!x.fx?(x.font||x.scene?"#"+fTag(x)+scTag(x)+" ":""):"#"+x.lay+(x.en||x.ex?"+"+(x.en||"fade"):"")+(x.ex?"+"+x.ex:"")+(x.fx?"~"+x.fx:"")+(x.pos?"^"+x.pos:"")+fTag(x)+(x.st?"@"+x.st:"")+scTag(x)+" ";
+/* 依目前欄位重新解析一句的文字衍生欄位（raw／plain／br／hl／sub；auto 句同步 lay）。版型或文字改了之後 plain 會不同（BRACE_LAYOUTS 會把 {} 內文字抽走），
+   這樣與「匯出 SRT 再匯入」的結果一致。改標記語法時，tag() 與 parseTag 要一起看。 */
+function reparse(x){const t=tag(x),n=parseTag((t||(/^\s*#/.test(x.raw)?"# ":""))+x.raw+(x.sub?"||"+x.sub:""),x.s,x.e);x.raw=n.raw;x.plain=n.plain;x.br=n.br;x.hl=n.hl;x.sub=n.sub;if(x.auto)x.lay=n.lay}
 const srtText=()=>subs.map((x,i)=>`${i+1}\n${tc(x.s)} --> ${tc(x.e)}\n${tag(x)}${x.raw}${x.sub?"||"+x.sub:""}\n`).join("\n");
 function exportSRT(){dl(new Blob([srtText()],{type:"text/plain"}),"lyrics_tagged.srt")}
-/* ===== [EXPORT] 匯出渲染專案：srt（帶標記）＋ config ＋ 已上傳字體（base64）→ project.json，給 node render/run.mjs --project 用（buildProject / exportProject / projBox）；同區段還有 editor() 句子編輯器、applyPreset()、extra()（預設組合・鎖定版型・設定匯出入面板）===== */
+/* 純文字 SRT：不含 # 標記（{} 強調括號也拿掉），副文接在第二行；給一般播放器／平台用 */
+const srtPlainText=()=>subs.map((x,i)=>`${i+1}\n${tc(x.s)} --> ${tc(x.e)}\n${x.raw.replace(/[{}]/g,"").trim()}${x.sub?"\n"+x.sub:""}\n`).join("\n");
+function exportSRTPlain(){dl(new Blob([srtPlainText()],{type:"text/plain"}),"lyrics.srt")}
+/* ===== [EDITOR] 句子編輯器：上方工具列＋左側句子列表＋右側詳細欄（Aegisub 式）。
+   本檔原本在 13-export.js 內，現獨立成檔（檔名排序在 13-export.js 之前；本檔只在使用者開啟編輯器時才執行，不依賴載入順序）。
+   結構：
+     editor()        開／關編輯器，建立外框（工具列 edToolbar、批次區 edBatchBox、列表 .edlist、詳細欄 .edside）
+     edRender()      重畫列表與詳細欄（保留捲動與選取）。字幕被外部改動後（載入／復原／隨機化／批次）呼叫 refreshEditor() 即可
+     edRowFill(i)    只更新第 i 列（時間、文字、標籤）；edRowUpdate(i)＝edRowFill＋同步詳細欄的位置欄位（edSync 轉呼叫它）
+     edDetail(i)     詳細欄：文字・時間／動畫／樣式・字體／場景層／位置／風格包 六個群組
+     applyPackTo()   把風格包的「版型＋場景＋節拍後製＋字體」套到指定句子（逐句版本；全域設定仍用面板）
+     subsReplaced()  字幕整份被換掉（載入 SRT／範例／匯入專案）時呼叫：清勾選、重設選取、重畫編輯器
+   慣例：所有改動都走 E(fn,key)＝pushHist→改欄位→cur=-2→更新該列，所以每個動作都能復原；改文字或版型後用 reparse(x)（見 12-ui-editor.js）重算 plain／br／hl。 ===== */
+const edOpen={txt:1,anim:1,sty:1,scn:0,pos:0,pack:1},   /* 詳細欄各群組的展開狀態（編輯器關掉再開仍記得） */
+ edPackOpt={lay:true,scene:true,font:true};   /* 「套用風格包」要套哪些內容 */
+let edFollow=true,edForce=false,edCurUI=null,edCurI=-1,edTmr=0;
+const edMk=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+const fmtT=t=>{const m=Math.floor(t/60),s=(t-m*60).toFixed(2);return m+":"+(s<10?"0":"")+s};
+const defLay=x=>x.br&&x.br.length?"split":"lowerleft";
+const edClean=s=>String(s).replace(/\r/g,"").replace(/\|{2,}/g,"|").replace(/\n\s*\n+/g,"\n").trim();   /* 空行會讓 SRT 斷句、|| 是副文分隔，所以先清掉 */
+const ED_COPY=["lay","en","ex","fx","st","font","scene","pos"];   /* 「外觀」＝這些欄位（不含文字與時間） */
+
+/* ---------- 列表 ---------- */
+function edTags(i){const x=subs[i],a=[],pv=subs[i-1];
+ a.push(x.auto?["a","自動"]:["l",x.lay]);
+ if(x.fx)a.push(["",x.fx.split(",")[0]+(x.fx.includes(",")?"+":"")]);
+ if(x.st)a.push(["s","@"+x.st.split(",")[0]+(x.st.includes(",")?"+":"")]);
+ if(x.scene){const t=x.scene.split(",").filter(z=>!/^(bfx-|none)/.test(z));a.push(["c","場景 "+(t.length?t[0].split(":")[0]+(t.length>1?"+"+(t.length-1):""):"…")])}
+ if(x.pos)a.push(["p","位置 "+x.pos]);
+ if(x.font)a.push(["","字 "+x.font]);
+ if(pv&&x.s<pv.e-.001)a.push(["w","⚠ 重疊"]);
+ return a}
+function edRowFill(i){const r=EDR[i];if(!r)return;const x=subs[i];
+ r.t.textContent=fmtT(x.s)+" – "+fmtT(x.e);r.x.textContent=x.raw.replace(/\s+/g," ").trim();
+ r.g.textContent="";edTags(i).forEach(([c,t])=>r.g.append(edMk("span","tg "+c,t)));r.r.title=(tag(x)+x.raw).replace(/\n/g," ")}
+function edMarkSel(i,scroll){EDR.forEach((r,k)=>r&&r.r.classList.toggle("sel",k===i));if(scroll&&EDR[i])EDR[i].r.scrollIntoView({block:"nearest"})}
+function edPick(i){edForce=true;try{jumpTo(i)}finally{edForce=false}}   /* 使用者點選：跳到該句並暫停（jumpTo→setSel→edOnSel→edSelect） */
+edOnSel=i=>{   /* 播放中選取句改變：跟隨播放；正在詳細欄打字時不搶走編輯中的句子 */
+ if(!edForce){if(!edFollow)return;const a=document.activeElement,sd=document.querySelector("#edm .edside");if(sd&&a&&sd.contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return}
+ edSelect(i)};
+function edSelect(i){if(!$("#edm"))return;edMarkSel(i,1);if(i!==edCurI||!edCurUI)edDetail(i)}
+
+/* ---------- 重畫 ---------- */
+function edRender(){const d=$("#edm");if(!d)return;clearTimeout(edTmr);
+ const ls=d.querySelector(".edlist"),keep=ls.scrollTop;ls.textContent="";EDR.length=0;
+ if(!subs.length){ls.append(edMk("div","edhint","尚無字幕：用頂欄「載入 ▾」載入 SRT 或範例。"));edDetail(-1);cntUpd();return}
+ if(selIdx>=subs.length)selIdx=subs.length-1;if(selIdx<0)selIdx=0;
+ subs.forEach((x,i)=>{const r=edMk("div","er"),ck=edMk("input");ck.type="checkbox";ck.checked=EDSEL.has(i);
+  ck.onclick=ev=>{ev.stopPropagation();const on=ck.checked;
+   if(ev.shiftKey&&lastCk>=0){for(let k=Math.min(lastCk,i);k<=Math.max(lastCk,i);k++){on?EDSEL.add(k):EDSEL.delete(k);if(EDR[k])EDR[k].ck.checked=on}}else on?EDSEL.add(i):EDSEL.delete(i);
+   lastCk=i;cntUpd()};
+  const t=edMk("span","t"),tx=edMk("span","x"),g=edMk("span","g");r.append(ck,edMk("span","n",i+1),t,tx,g);r.onclick=()=>edPick(i);
+  EDR[i]={r,ck,t,x:tx,g};ls.append(r);edRowFill(i)});
+ ls.scrollTop=keep;edMarkSel(selIdx,0);edDetail(selIdx);cntUpd();histBtn()}
+function edRowUpdate(i){edRowFill(i);if(edCurUI&&edCurUI.i===i)edCurUI.syncPos()}   /* 面板／拖曳／方向鍵改了位置後（edSync）同步這一列與詳細欄 */
+function subsReplaced(){EDSEL.clear();lastCk=-1;selIdx=subs.length?0:-1;posRef&&posRef();histBtn();edRender()}
+
+/* ---------- 風格包：逐句套用 ---------- */
+/* 一個風格包拆成可逐句寫進 SRT 的三樣東西：版型（版型池輪流，單句重按會換下一個）、場景層＋節拍後製（bfx-*）、字體。其餘（色彩、粒子、後製…）屬全域，請用面板整套套用 */
+function packPieces(name,i,cur){const P=PRESETS[name];if(!P)return null;
+ const pool=(P.layoutPool||"").split(",").filter(l=>LAYOUTS.includes(l)),k=pool.indexOf(cur);
+ const bf=[["beatShake","shake"],["beatZoom","zoom"],["beatTilt","tilt"],["beatHue","hue"]].filter(([q])=>P[q]).map(([q,n])=>"bfx-"+n+":"+P[q]);
+ return{lay:pool.length?(cur!==undefined&&k>=0?pool[(k+1)%pool.length]:pool[i%pool.length]):"",scene:[P.sceneAll||"",...bf].filter(Boolean).join(","),font:P.font&&FONTS[P.font]?P.font:""}}
+function applyPackTo(list,name,o){o=o||edPackOpt;
+ if(!PRESETS[name])return note("找不到風格包："+name);if(!list.length)return note("先在編輯器勾選要套用的句子");
+ if(!o.lay&&!o.scene&&!o.font)return note("至少勾一項要套用的內容（版型／場景／字體）");
+ pushHist();
+ list.forEach(i=>{const x=subs[i];if(!x)return;const pc=packPieces(name,i,list.length===1?x.lay:undefined);
+  if(o.lay&&pc.lay){x.lay=pc.lay;x.auto=false}
+  if(o.scene&&pc.scene)x.scene=pc.scene;
+  if(o.font&&pc.font)x.font=pc.font;
+  reparse(x)});
+ cur=-2;edRender();posRef&&posRef();
+ note("已把風格包「"+name+"」套到 "+list.length+" 句"+(CONFIG.lock?"（注意：目前鎖定版型，版型不會生效）":"")+"；色彩／粒子等全域設定請用面板整套套用。匯出帶標記的 SRT 可存檔")}
+function edPackBtns(parent,getList){   /* 風格包按鈕列（詳細欄與批次區共用）：按一下＝套用 */
+ const w=edMk("div","packs");[...STYLE_PACKS].forEach(n=>{const P=PRESETS[n],b=edMk("button","",n);b.type="button";
+  b.title=n+"｜字體 "+(P.font||"－")+"｜版型池 "+(P.layoutPool||"－")+"｜場景 "+(P.sceneAll||"－");b.onclick=()=>applyPackTo(getList(),n,edPackOpt);w.append(b)});parent.append(w)}
+function edPackOptBoxes(parent){const w=edMk("div","edbtns");
+ [["lay","版型"],["scene","場景＋節拍後製"],["font","字體"]].forEach(([k,t])=>{const l=edMk("label"),c=edMk("input");c.type="checkbox";c.checked=!!edPackOpt[k];c.onchange=()=>{edPackOpt[k]=c.checked};l.append(c,t);w.append(l)});parent.append(w)}
+
+/* ---------- 詳細欄 ---------- */
+function edDetail(i){const d=$("#edm"),sd=d&&d.querySelector(".edside");if(!sd)return;
+ clearTimeout(edTmr);const top=edCurI===i?sd.scrollTop:0;sd.textContent="";edCurUI=null;edCurI=i;
+ const x=subs[i];if(!x){sd.append(edMk("div","edhint","選一句開始編輯。"));return}
+ const E=(fn,key)=>{if(subs[i]!==x)return false;pushHist(key);fn();cur=-2;edRowFill(i);posRef&&posRef();return true},   /* 唯一的寫入入口 */
+  G=(id,title,build)=>{const g=edMk("details"),b=edMk("div","gb");g.open=!!edOpen[id];g.append(edMk("summary","",title),b);g.addEventListener("toggle",()=>{edOpen[id]=g.open?1:0});build(b);sd.append(g)},
+  F=(label,el,parent)=>{const f=edMk("div","edf");if(label)f.append(edMk("label","",label));f.append(el);parent.append(f);return f},
+  inp=(t,v,ph)=>{const e=edMk("input");e.type=t;e.value=v==null?"":v;if(ph)e.placeholder=ph;return e},
+  btn=(t,f,tt)=>{const b=edMk("button","",t);b.type="button";if(tt)b.title=tt;b.onclick=f;return b},
+  sel=(opts,val,onch,blank)=>{const e=edMk("select");if(blank!=null)e.add(new Option(blank,""));opts.forEach(o=>Array.isArray(o)?e.add(new Option(o[1],o[0])):e.add(new Option(o,o)));e.value=val||"";e.onchange=()=>onch(e.value);return e},
+  debounce=f=>{clearTimeout(edTmr);edTmr=setTimeout(f,300)};
+ /* 標頭：第幾句、上一句／下一句 */
+ {const hd=edMk("div","hd"),nv=edMk("span");hd.append(edMk("span","",`第 ${i+1}／${subs.length} 句`));
+  nv.append(btn("◀",()=>subs[i-1]&&edPick(i-1),"上一句"),btn("▶",()=>subs[i+1]&&edPick(i+1),"下一句"));hd.append(nv);sd.append(hd)}
+ if(CONFIG.lock)sd.append(edMk("div","edhint edwarn","目前鎖定版型「"+CONFIG.lock+"」：所有句子的版型都會被它蓋掉（頂欄可解除）。"));
+ /* 1. 文字・時間 */
+ G("txt","文字・時間",b=>{
+  const ta=edMk("textarea");ta.value=x.raw.trim();
+  const applyT=()=>{if(subs[i]!==x)return;const v=edClean(ta.value);if(!v){ta.style.borderColor="#e55";return note("歌詞不能是空的")}ta.style.borderColor="";if(v===x.raw.trim())return;
+   E(()=>{x.raw=v;reparse(x)},"txt"+i)};
+  ta.oninput=()=>debounce(applyT);ta.onchange=()=>{clearTimeout(edTmr);applyT()};
+  F("歌詞（{字} 標記強調關鍵字；可換行）",ta,b);
+  const sb=inp("text",x.sub,"拼音、英文、日期…");const applyS=()=>{if(subs[i]!==x)return;const v=edClean(sb.value).replace(/\n/g," ");if(v===(x.sub||""))return;E(()=>{x.sub=v},"sub"+i)};
+  sb.oninput=()=>debounce(applyS);sb.onchange=()=>{clearTimeout(edTmr);applyS()};F("副文（主文下方的小字）",sb,b);
+  const si=inp("number"),ei=inp("number"),info=edMk("div","edhint");[si,ei].forEach(e=>{e.step=.01;e.min=0});
+  const upT=()=>{si.value=x.s.toFixed(2);ei.value=x.e.toFixed(2);const pv=subs[i-1],nx=subs[i+1],gp=(a,z)=>a<0?"重疊 "+(-a).toFixed(2):"間隔 "+a.toFixed(2);
+   info.textContent="長度 "+(x.e-x.s).toFixed(2)+" 秒"+(pv?"｜與上一句"+gp(x.s-pv.e)+" 秒":"")+(nx?"｜與下一句"+gp(nx.s-x.e)+" 秒":"");
+   info.classList.toggle("edwarn",!!((pv&&x.s<pv.e-.001)||(nx&&nx.s<x.e-.001)))};
+  const setT=(k,v)=>{v=Math.round(parseFloat(v)*1000)/1000;if(!isFinite(v)||v<0){upT();return}const s=k==="s"?v:x.s,e=k==="e"?v:x.e;if(e<=s+.009){note("結束時間必須大於開始時間");upT();return}
+   if(v===x[k]){upT();return}E(()=>{x[k]=v},"tm"+i+k);edRowFill(i-1);edRowFill(i+1);upT()};
+  si.onchange=()=>setT("s",si.value);ei.onchange=()=>setT("e",ei.value);
+  const r=edMk("div","edrow2");F("開始（秒）",si,r);F("結束（秒）",ei,r);b.append(r,info);upT();
+  const bx=edMk("div","edbtns"),st=ev=>ev.shiftKey?.01:.1;
+  bx.append(btn("開始 −",ev=>setT("s",x.s-st(ev)),"−0.1 秒；按住 Shift＝0.01"),btn("開始 ＋",ev=>setT("s",x.s+st(ev)),"＋0.1 秒；按住 Shift＝0.01"),btn("結束 −",ev=>setT("e",x.e-st(ev)),"−0.1 秒；按住 Shift＝0.01"),btn("結束 ＋",ev=>setT("e",x.e+st(ev)),"＋0.1 秒；按住 Shift＝0.01"),
+   btn("開始＝現在",()=>setT("s",now()),"把開始時間設成目前播放位置（對拍用）"),btn("結束＝現在",()=>setT("e",now()),"把結束時間設成目前播放位置"),
+   btn("接上句結尾",()=>subs[i-1]&&setT("s",subs[i-1].e),"開始時間＝上一句的結束"),btn("接下句開頭",()=>subs[i+1]&&setT("e",subs[i+1].s),"結束時間＝下一句的開始"));b.append(bx)});
+ /* 2. 動畫 */
+ G("anim","動畫",b=>{
+  F("版型",sel(LAYOUTS,x.auto?"":x.lay,v=>E(()=>{x.lay=v||defLay(x);x.auto=!v;reparse(x)},"lay"+i),"（自動：依預設／版型池）"),b);
+  const r=edMk("div","edrow2");
+  F("進場",sel(ENTERS,x.en,v=>E(()=>{x.en=v;if(v)x.auto=false},"en"+i),"（預設）"),r);F("退場",sel(EXITS,x.ex,v=>E(()=>{x.ex=v;if(v)x.auto=false},"ex"+i),"（預設）"),r);b.append(r);
+  const fi=inp("text",x.fx,"float,shake"),setFx=v=>{E(()=>{x.fx=v;if(v)x.auto=false},"fx"+i);fi.value=v};fi.onchange=()=>setFx(fi.value.replace(/\s/g,""));
+  F("持續特效（可複選）",chipBox(FXS,()=>x.fx||"",setFx,n=>"特效 ~"+n),b);F("",fi,b)});
+ /* 3. 樣式・字體 */
+ G("sty","樣式・字體",b=>{
+  const si=inp("text",x.st,"neon,outline"),setSt=v=>{if(v.split(",").filter(Boolean).length>3){note("樣式最多 3 個");si.value=x.st||"";return false}E(()=>{x.st=v;if(v)x.auto=false},"st"+i);si.value=v;return true};
+  si.onchange=()=>setSt(si.value.replace(/\s/g,""));
+  F("樣式 @（最多 3 個，可疊加）",chipBox([...Object.keys(ST),...Object.keys(STC)],()=>x.st||"",v=>{setSt(v)},n=>"樣式 @"+n),b);F("",si,b);
+  const fs=edMk("select"),fill=()=>{const v=x.font||"";fs.innerHTML="";fs.add(new Option("（跟隨全域字體）",""));Object.keys(FONTS).forEach(k=>fs.add(new Option(k,k)));fs.value=FONTS[v]?v:""};fill();fs.onmousedown=fill;   /* 展開前重建：之後才上傳的字體也看得到 */
+  fs.onchange=()=>E(()=>{x.font=fs.value},"font"+i);F("這一句的字體",fs,b)});
+ /* 4. 場景層 */
+ G("scn","場景層（&）",b=>{
+  const sc=inp("text",x.scene,"halftone:60,burst"),setSc=v=>{E(()=>{x.scene=v},"sc"+i);sc.value=v};sc.onchange=()=>setSc(sc.value.replace(/\s/g,""));
+  sc.title="名稱[:強度]，逗號分隔，最多 "+(CONFIG.sceneMax||3)+" 層；也可寫 bfx-shake:3 這類節拍後製";F("場景層",sc,b);
+  const bx=edMk("div","edbtns"),pb=btn("＋ 挑選場景",()=>openScenePop(pb,()=>x.scene||"",v=>setSc(v)),"開啟場景層挑選窗");bx.append(pb,btn("清除這句場景",()=>setSc(""),"改為跟隨全域底層"));b.append(bx);
+  b.append(edMk("div","edhint","留空＝跟隨全域底層（目前："+(CONFIG.sceneAll||"無")+"）。Ctrl+K 搜尋「場景層」可一鍵套用。"))});
+ /* 5. 位置 */
+ G("pos","位置",b=>{
+  const pS=sel([["auto","版型原位"],...Object.entries(ANCH)],"",()=>commit(),"跟隨全域"),mkN=ph=>{const e=inp("number","",ph);Object.assign(e,{step:.5,min:-100,max:100});e.title=ph+"（畫面寬／高的 %；相對這句的錨點，不與全域微調相加）";return e},pX=mkN("X%"),pY=mkN("Y%");
+  const syncPos=()=>{const p=(x.pos||"").split(":");pS.value=(p[0]===""||p[0]==="auto"||ANCH[p[0]])?p[0]:"";pX.value=p[1]||"";pY.value=p[2]||""};
+  const commit=()=>{const a=pS.value,xs=pX.value,ys=pY.value;E(()=>{x.pos=[a,...(xs!==""||ys!==""?[xs||0,ys||0]:[])].join(":");if(x.pos)x.auto=false},"pos"+i)};
+  pX.onchange=pY.onchange=commit;syncPos();edCurUI={i,syncPos};
+  F("錨點",pS,b);const r=edMk("div","edrow2");F("水平 X%",pX,r);F("垂直 Y%",pY,r);b.append(r);
+  const ps=sel(POSPRE,"",v=>{if(!v)return;E(()=>{x.pos=presetPos(v,i);x.auto=false},"pos"+i);syncPos();ps.value=""},"位置預設 → 套用到這一句…");F("",ps,b);
+  b.append(btn("這句回到跟隨全域",()=>{E(()=>{x.pos=""},"pos"+i);syncPos()}));
+  if(FULLBLEED.has(layOf(x)))b.append(edMk("div","edhint edwarn","此版型為滿版，位置不生效。"));
+  b.append(edMk("div","edhint","也可以直接在畫面上拖曳文字，或 Ctrl／⌘＋方向鍵微調。"))});
+ /* 6. 風格包 */
+ G("pack","風格包（一鍵套用到這一句）",b=>{
+  b.append(edMk("div","edhint","勾選要套用的內容後，按風格包名稱：版型從該包的版型池挑（再按一次換下一個）、場景層＋節拍後製、字體。色彩、粒子、後製等全域項目請用面板「風格包・場景層・後製」整套套用。"));
+  edPackOptBoxes(b);edPackBtns(b,()=>[i]);
+  b.append(btn("這句回到自動（清除所有逐句設定）",()=>{pushHist();Object.assign(x,{auto:true,en:"",ex:"",fx:"",pos:"",st:"",font:"",scene:""});reparse(x);cur=-2;edRender();posRef&&posRef()},"清除版型、進退場、特效、位置、樣式、字體、場景；文字與時間不動"))});
+ sd.scrollTop=top}
+
+/* ---------- 工具列與批次區 ---------- */
+function edToolbar(){const bar=edMk("div","edtb"),b=(t,f,c,tt)=>{const e=edMk("button",c||"",t);e.type="button";e.onclick=f;if(tt)e.title=tt;bar.append(e);return e},sep=()=>bar.append(edMk("span","sep"));
+ const setCk=fn=>{EDSEL.clear();subs.forEach((x,i)=>{if(fn(x,i))EDSEL.add(i);if(EDR[i])EDR[i].ck.checked=EDSEL.has(i)});cntUpd()};
+ b("切換高度",()=>{const e=$("#edm");e.style.height=e.style.height!=="46vh"?"46vh":"calc(100vh - 48px)"});b("復原",undo,"hbU");b("重做",redo,"hbR");sep();
+ b("全選",()=>setCk(()=>1));b("全不選",()=>setCk(()=>0));b("勾選同版型（以目前句）",()=>{const l=subs[selIdx]?layOf(subs[selIdx]):"";setCk(x=>layOf(x)===l)});
+ const c=edMk("span");c.id="edcnt";c.style.opacity=".8";bar.append(c);sep();
+ const fl=edMk("label"),fc=edMk("input");fc.type="checkbox";fc.checked=edFollow;fc.onchange=()=>{edFollow=fc.checked};fl.title="播放時，詳細欄自動跟到正在播放的那一句（正在打字時不會搶走）";fl.append(fc,"跟隨播放");bar.append(fl);
+ {const sp=edMk("span");sp.style.flex="1";bar.append(sp)}
+ b("匯出帶標記的 SRT",exportSRT);b("⬆ 匯出…",()=>$("#exw").click(),"","你要拿去做什麼？錄製、離線 MP4、透明字層、綠幕…");
+  return bar}
+function edApply(fn,msg){const l=selList();if(!l.length)return note("先在編輯器勾選要套用的句子");pushHist();l.forEach((i,k)=>fn(subs[i],k,i));cur=-2;edRender();posRef&&posRef();note(msg||"已套用到 "+l.length+" 句；請用編輯器的「匯出帶標記的 SRT」存檔")}
+function edBatchBox(){const dt=edMk("details","edbatch"),w=edMk("div","in"),b=(t,f,tt)=>{const e=edMk("button","",t);e.type="button";e.onclick=f;if(tt)e.title=tt;w.append(e);return e};
+ dt.append(edMk("summary","","批次：套用到已勾選的句子（先用列表左側勾選框選句；Shift 連選）"),w);
+ const ps=edMk("select");ps.add(new Option("位置預設…",""));POSPRE.forEach(([v,t])=>ps.add(new Option(t,v)));w.append(ps);
+ b("套用預設到勾選",()=>{if(!ps.value)return note("先選一個位置預設");applyTo((y,k)=>{y.pos=presetPos(ps.value,k);y.auto=false})});
+ b("把「目前這句」的位置套用到勾選",()=>{const src=subs[selIdx];if(!src)return;applyTo(y=>{y.pos=src.pos;if(y.pos)y.auto=false})});
+ b("複製「目前這句」的外觀到勾選",()=>{const src=subs[selIdx];if(!src)return;edApply(y=>{if(y===src)return;ED_COPY.forEach(k=>{y[k]=src[k]});y.auto=src.auto;reparse(y)},"已把這句的外觀（版型、進退場、特效、樣式、字體、場景、位置）複製到勾選句；文字與時間不動")},"版型、進場、退場、特效、樣式、字體、場景、位置；文字與時間不動");
+ w.append(edMk("span","sep"));
+ const pk=edMk("select");pk.add(new Option("風格包…",""));[...STYLE_PACKS].forEach(n=>pk.add(new Option(n,n)));w.append(pk);
+ b("套用風格包到勾選",()=>{if(!pk.value)return note("先選一個風格包");applyPackTo(selList(),pk.value,edPackOpt)});edPackOptBoxes(w);w.append(edMk("span","sep"));
+ b("清除勾選句子的位置",()=>applyTo(y=>{y.pos=""}));
+ b("清除勾選句子的場景",()=>{const l=selList();if(!l.length)return note("先在編輯器勾選要套用的句子");clearSceneSubs(l)});
+ b("清除全部句子的場景",()=>clearSceneSubs());
+ return dt}
+
+/* ---------- 編輯器本體 ---------- */
+function editor(){let d=$("#edm");if(d){d.remove();edCurUI=null;edCurI=-1;edLayout();return}
+ d=edMk("div");d.id="edm";d.style.height="46vh";EDR.length=0;   /* 預設半高：上半部留給預覽，方便邊看邊調 */
+ const body=edMk("div","edbody"),ls=edMk("div","edlist"),sd=edMk("div","edside");ls.tabIndex=0;ls.title="點列表＝跳到該句並暫停（↑↓ 切換）；勾選框可 Shift 連選；詳細欄改的每個動作都能復原；位置與面板「這一句的位置」雙向同步";
+ ls.onkeydown=e=>{if(e.key!=="ArrowDown"&&e.key!=="ArrowUp")return;e.preventDefault();const n=Math.max(0,Math.min(subs.length-1,selIdx+(e.key==="ArrowDown"?1:-1)));if(subs[n])edPick(n)};
+ body.append(ls,sd);d.append(edToolbar(),edBatchBox(),body);document.body.append(d);
+ edRender();histBtn();edLayout();edRO&&edRO.observe(d)}
+/* 句子編輯器 × 預覽並排：編輯器開著（且高度 ≤72% 視窗）時，把預覽縮進頂欄下方、編輯器上方；錄製／離線渲染時一律還原。
+   做法：在 body 設 --edt/--edh/--edr，CSS 的 #stage 與 applyStage() 依此計算可用區；沒設定時＝原本全視窗。 */
+const edRO=typeof ResizeObserver==="function"?new ResizeObserver(()=>edLayout()):null;
+function edLayout(){const d=$("#edm"),b=document.body,vs=["--edt","--edh","--edr"];
+ const on=!RENDER&&d&&!recording&&!b.classList.contains("rec")&&d.offsetHeight>0&&d.offsetHeight<=innerHeight*.72;
+ let g=$("#edgrip");
+ if(d&&!recording&&!b.classList.contains("rec")){if(!g){g=document.createElement("div");g.id="edgrip";g.title="拖曳調整預覽與編輯器的比例";document.body.append(g);
+   g.onpointerdown=e=>{e.preventDefault();g.setPointerCapture(e.pointerId);g.classList.add("drag");
+    const mv=ev=>{const ed=$("#edm");if(ed){ed.style.height=Math.round(Math.max(140,Math.min(Math.floor(innerHeight*.7),innerHeight-ev.clientY)))+"px";edLayout()}},
+     up=()=>{g.classList.remove("drag");g.removeEventListener("pointermove",mv);g.removeEventListener("pointerup",up)};g.addEventListener("pointermove",mv);g.addEventListener("pointerup",up)}}
+  g.style.bottom=(d.offsetHeight-4)+"px"}else if(g)g.remove();
+ const key=on?[$("#bar").offsetHeight,d.offsetHeight,innerWidth,innerHeight].join():"";
+ if(key===edLayout.k)return;edLayout.k=key;
+ if(on){b.style.setProperty("--edt",$("#bar").offsetHeight+"px");b.style.setProperty("--edh",d.offsetHeight+"px");b.style.setProperty("--edr","240px")}else vs.forEach(k=>b.style.removeProperty(k));
+ applyStage()}
+edLayout.k="";
+if(!RENDER){addEventListener("resize",()=>edLayout());new MutationObserver(()=>edLayout()).observe(document.body,{attributes:true,attributeFilter:["class"]})}   /* 視窗縮放、錄製開始／結束（body.rec）時重算 */
+$("#ed").onclick=editor;
+/* ===== [EXPORT] 匯出渲染專案：srt（帶標記）＋ config ＋ 已上傳字體（base64）→ project.json，給 node render/run.mjs --project 用（buildProject / exportProject / projBox）；同區段還有 applyPreset()、extra()（預設組合・鎖定版型・設定匯出入面板）。句子編輯器已移到 13-editor.js===== */
 let mediaInfo=null,projInfo=null;
 const b64Of=buf=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>{const u=String(r.result);ok(u.slice(u.indexOf(",")+1))};r.onerror=()=>no(r.error);r.readAsDataURL(new Blob([buf]))});
 async function buildProject(){
@@ -798,55 +1089,6 @@ const exportConfig=()=>dl(new Blob([JSON.stringify(CONFIG)],{type:"application/j
 let projFill=()=>{};   /* projBox() 回傳的重畫函式（panel() 重建後指向新的提示框）；匯出後呼叫它更新提示 */
 async function exportProjectUI(){await exportProject();projFill()}
 function resetSettings(msg){if(confirm(msg||"清除已儲存的設定並重新載入頁面？")){try{localStorage.removeItem(LS_CFG)}catch(e){}location.reload()}}
-function editor(){let d=$("#edm");if(d){d.remove();edLayout();return}
- d=document.createElement("div");d.id="edm";EDR.length=0;d.style.cssText="position:fixed;inset:auto 240px 0 0;height:46vh;background:rgba(10,12,20,.95);z-index:6;overflow:auto;padding:10px;font-size:12px";   /* 預設半高：上半部留給預覽，方便邊看邊調位置 */
- const sel=(o,v,f)=>{const e=document.createElement("select");["",...o].forEach(x=>e.add(new Option(x||"（預設）",x)));e.value=v||"";e.onchange=()=>{f(e.value);cur=-2};return e};
- {const h=document.createElement("div");h.style.cssText="opacity:.7;margin-bottom:6px";h.textContent="可用樣式（@，最多 3 個，逗號分隔）："+[...Object.keys(ST),...Object.keys(STC)].join("、");d.append(h)}
- d.addEventListener("change",e=>{if(e.target.type==="checkbox"||e.target.dataset.nohist)return;pushHist()},true);   /* 捕獲階段：先存快照，再讓各欄位寫入，編輯器內的任何修改都能復原 */
- {const bar=document.createElement("div");bar.style.cssText="position:sticky;top:-10px;z-index:2;background:rgba(10,12,20,.98);padding:6px 0;margin-bottom:6px;border-bottom:1px solid #3a4470;display:flex;flex-wrap:wrap;gap:6px;align-items:center";
-  const b=(t,f,c)=>{const e=document.createElement("button");e.textContent=t;e.onclick=f;if(c)e.className=c;bar.append(e);return e};
-  const setCk=fn=>{EDSEL.clear();subs.forEach((x,i)=>{if(fn(x,i))EDSEL.add(i);if(EDR[i])EDR[i].ck.checked=EDSEL.has(i)});cntUpd()};
-  b("切換高度",()=>{d.style.height=d.style.height!=="46vh"?"46vh":"calc(100vh - 48px)"});b("復原",undo,"hbU");b("重做",redo,"hbR");
-  b("全選",()=>setCk(()=>1));b("全不選",()=>setCk(()=>0));b("勾選同版型（以目前句）",()=>{const l=subs[selIdx]?layOf(subs[selIdx]):"";setCk(x=>layOf(x)===l)});
-  const ps=document.createElement("select");ps.dataset.nohist=1;ps.add(new Option("位置預設…",""));POSPRE.forEach(([v,t])=>ps.add(new Option(t,v)));bar.append(ps);
-  b("套用預設到勾選",()=>{if(!ps.value)return note("先選一個位置預設");applyTo((y,k)=>{y.pos=presetPos(ps.value,k);y.auto=false})});
-  b("把「目前這句」的位置套用到勾選",()=>{const src=subs[selIdx];if(!src)return;applyTo(y=>{y.pos=src.pos;if(y.pos)y.auto=false})});
-  b("清除勾選句子的位置",()=>applyTo(y=>{y.pos=""}));
-  b("清除勾選句子的場景",()=>{const l=selList();if(!l.length)return note("先在編輯器勾選要套用的句子");clearSceneSubs(l)});
-  b("清除全部句子的場景",()=>clearSceneSubs());
-  const c=document.createElement("span");c.id="edcnt";c.style.opacity=".8";bar.append(c);
-  bar.append(Object.assign(document.createElement("div"),{textContent:"點左側句子＝跳到該句並暫停；勾選框可用 Shift 連選一段；位置欄與面板「這一句的位置」雙向同步",style:"opacity:.7;width:100%"}));d.append(bar);cntUpd();histBtn()}
-  subs.forEach((x,xi)=>{const r=document.createElement("div");r.style.cssText="display:flex;gap:6px;align-items:center;margin:4px 0";r.append(Object.assign(document.createElement("span"),{textContent:x.s.toFixed(1)+"s　"+x.raw.replace(/\s+/g," ").trim().slice(0,12),style:"width:150px;cursor:pointer;text-decoration:underline dotted",title:"點一下：跳到這句並暫停",onclick:()=>jumpTo(xi)}),
-  sel(LAYOUTS,x.lay,v=>{x.lay=v||"lowerleft";x.auto=!v}),sel(ENTERS,x.en,v=>{x.en=v;if(v)x.auto=false}),sel(EXITS,x.ex,v=>{x.ex=v;if(v)x.auto=false}),sel(Object.keys(FONTS),x.font,v=>x.font=v));
-  const f=document.createElement("input");f.placeholder="特效 float,shake";f.value=x.fx||"";f.onchange=()=>{x.fx=f.value;if(f.value)x.auto=false;cur=-2};
-   const sI=document.createElement("input");sI.placeholder="樣式 neon,outline";sI.value=x.st||"";sI.onchange=()=>{x.st=sI.value.replace(/\s/g,"");x.auto=false;cur=-2};
-   const scI=document.createElement("input");scI.placeholder="場景層 halftone:60,burst";scI.title="場景層（&）：名稱[:強度]，逗號分隔，最多 3 層；Ctrl+K 搜尋「場景層」可一鍵套用";scI.value=x.scene||"";scI.onchange=()=>{x.scene=scI.value.replace(/\s/g,"");cur=-2};const scB=document.createElement("button");scB.type="button";scB.textContent="＋場景";scB.title="開啟場景層挑選窗";scB.onclick=()=>openScenePop(scB,()=>x.scene||"",v=>{x.scene=v;scI.value=v;cur=-2});
-   const bI=document.createElement("input");bI.placeholder="副文";bI.value=x.sub||"";bI.onchange=()=>{x.sub=bI.value;cur=-2};
-   const pp=(x.pos||"").split(":"),pS=document.createElement("select");[["","位置：跟隨全域"],["auto","位置：版型原位"],...Object.entries(ANCH).map(([k,v])=>[k,"位置："+v])].forEach(([v,t])=>pS.add(new Option(t,v)));pS.value=pp[0]||"";
-   const nI=(ph,v)=>{const i=document.createElement("input");Object.assign(i,{type:"number",placeholder:ph,title:ph+"（畫面寬/高的 %；相對這句的錨點，不再與全域微調相加）",value:v||"",step:.5,min:-100,max:100});i.style.width="54px";return i},pX=nI("X%",pp[1]),pY=nI("Y%",pp[2]);
-   const sp=()=>{const a=pS.value,xs=pX.value,ys=pY.value;x.pos=[a,...(xs!==""||ys!==""?[xs||0,ys||0]:[])].join(":");if(x.pos)x.auto=false;cur=-2;jumpTo(xi)};pS.onchange=pX.onchange=pY.onchange=sp;
-   const ck=document.createElement("input");ck.type="checkbox";ck.checked=EDSEL.has(xi);
-   ck.onclick=ev=>{const on=ck.checked;if(ev.shiftKey&&lastCk>=0){for(let i=Math.min(lastCk,xi);i<=Math.max(lastCk,xi);i++){on?EDSEL.add(i):EDSEL.delete(i);if(EDR[i])EDR[i].ck.checked=on}}else on?EDSEL.add(xi):EDSEL.delete(xi);lastCk=xi;cntUpd()};
-   EDR[xi]={pS,pX,pY,ck};r.append(f,sI,scI,scB,bI,pS,pX,pY);r.prepend(ck);d.append(r)});
- const b=document.createElement("button");b.textContent="匯出帶標記的 SRT";b.onclick=exportSRT;d.append(b);document.body.append(d);edLayout();edRO&&edRO.observe(d)}
-/* 句子編輯器 × 預覽並排：編輯器開著（且高度 ≤72% 視窗）時，把預覽縮進頂欄下方、編輯器上方；錄製／離線渲染時一律還原。
-   做法：在 body 設 --edt/--edh/--edr，CSS 的 #stage 與 applyStage() 依此計算可用區；沒設定時＝原本全視窗。 */
-const edRO=typeof ResizeObserver==="function"?new ResizeObserver(()=>edLayout()):null;
-function edLayout(){const d=$("#edm"),b=document.body,vs=["--edt","--edh","--edr"];
- const on=!RENDER&&d&&!recording&&!b.classList.contains("rec")&&d.offsetHeight>0&&d.offsetHeight<=innerHeight*.72;
- let g=$("#edgrip");
- if(d&&!recording&&!b.classList.contains("rec")){if(!g){g=document.createElement("div");g.id="edgrip";g.title="拖曳調整預覽與編輯器的比例";document.body.append(g);
-   g.onpointerdown=e=>{e.preventDefault();g.setPointerCapture(e.pointerId);g.classList.add("drag");
-    const mv=ev=>{const ed=$("#edm");if(ed){ed.style.height=Math.round(Math.max(140,Math.min(Math.floor(innerHeight*.7),innerHeight-ev.clientY)))+"px";edLayout()}},
-     up=()=>{g.classList.remove("drag");g.removeEventListener("pointermove",mv);g.removeEventListener("pointerup",up)};g.addEventListener("pointermove",mv);g.addEventListener("pointerup",up)}}
-  g.style.bottom=(d.offsetHeight-4)+"px"}else if(g)g.remove();
- const key=on?[$("#bar").offsetHeight,d.offsetHeight,innerWidth,innerHeight].join():"";
- if(key===edLayout.k)return;edLayout.k=key;
- if(on){b.style.setProperty("--edt",$("#bar").offsetHeight+"px");b.style.setProperty("--edh",d.offsetHeight+"px");b.style.setProperty("--edr","240px")}else vs.forEach(k=>b.style.removeProperty(k));
- applyStage()}
-edLayout.k="";
-if(!RENDER){addEventListener("resize",()=>edLayout());new MutationObserver(()=>edLayout()).observe(document.body,{attributes:true,attributeFilter:["class"]})}   /* 視窗縮放、錄製開始／結束（body.rec）時重算 */
-$("#ed").onclick=editor;
 /* 套用預設組合：先把「氛圍類」欄位與位置還原成預設，再疊上組合內容。
    文字縮放／文字陰影／鎖定版型是使用者常手調的欄位：只有「上一個套用的組合設過它」才還原，
    否則保留使用者目前的值（CONFIG.presetName 記錄上一個組合，隨設定匯出入）。位置一律還原。 */
@@ -872,7 +1114,7 @@ function extra(p){secAnchor(p,"preset");
    if(J&&typeof J==="object"&&J.config&&typeof J.config==="object"&&"srt" in J){   /* 渲染專案（project.json）：字幕＋設定＋字體一起還原 */
     for(const ft of J.fonts||[]){try{const buf=await(await fetch("data:application/octet-stream;base64,"+(ft.b64||ft.data))).arrayBuffer();await addFont(ft.name,buf);idbPut(ft.name+".ttf",buf)}catch(e){console.error("字體還原失敗："+ft.name,e)}}
     Object.assign(CONFIG,JSON.parse(JSON.stringify(CFG_DEFAULTS)),J.config);   /* 在字體載入之後套用，config.font 才會是最後的值 */
-    subs=parseSRT(J.srt==="@demo"?DEMO:String(J.srt||""));
+    subs=parseSRT(J.srt==="@demo"?DEMO:String(J.srt||""));subsReplaced();
     let msg=`專案已還原：${subs.length} 句${J.fonts&&J.fonts.length?"，字體："+J.fonts.map(x=>x.name).join("、"):""}`;
     if(J.media&&J.media.name&&!hasMedia){mediaInfo=J.media;msg+=`。音樂／影片不會存在專案裡，請再載入「${J.media.name}」`;alert(msg)}
     css();cur=-2;save();panel();note(msg);return}
@@ -1842,7 +2084,9 @@ const QK_SECS=["rhythm","preset","export","scene","layers","pos","bg"];   /* 對
 function quickActions(){
  const needSubs=()=>subs.length?true:"請先載入 SRT 或範例",click=q=>()=>$(q).click(),jump=id=>()=>showSec(id),
  A=[
+  {id:"exp-wizard",g:"匯出",t:"匯出精靈：你要拿去做什麼？",h:"錄製／MP4／透明字層／綠幕／SRT",k:"wizard export 匯出 精靈 用途 錄製 mp4 透明 綠幕 srt 分層",run:openExportWizard},
   {id:"exp-srt",g:"匯出",t:"匯出帶標記的 SRT",h:"lyrics_tagged.srt",k:"srt export 字幕 標記 下載",on:needSubs,run:exportSRT},
+  {id:"exp-srt-plain",g:"匯出",t:"匯出純文字 SRT（無標記）",h:"lyrics.srt",k:"srt plain 純文字 字幕 無標記 下載",on:needSubs,run:exportSRTPlain},
   {id:"exp-cfg",g:"匯出",t:"匯出設定 JSON",h:"lyrics_config.json",k:"config json 設定 下載",run:exportConfig},
   {id:"exp-proj",g:"匯出",t:"匯出渲染專案 project.json",h:"字幕＋設定＋字體",k:"project render 離線 渲染 專案 備份",on:needSubs,run:async()=>{await exportProjectUI();showSec("export")}},
   {id:"exp-cmd",g:"匯出",t:"複製離線渲染指令",h:"node render/run.mjs …",k:"command cmd 指令 複製",run:async()=>{const c=projCmd().cmd;try{await navigator.clipboard.writeText(c);note("已複製離線渲染指令："+c)}catch(e){prompt("複製這行指令：",c)}}},
@@ -1881,6 +2125,9 @@ function quickActions(){
  [["","（清除）"],...SCENE_NAMES.map(n=>[n,n])].forEach(([n,t])=>{
   A.push({id:"scene-cur:"+n,g:null,t:"場景層：套用到目前這句 "+t,h:"",k:"scene 場景層 圖案 疊加 &",on:needSubs,run:()=>{const x=subs[selIdx];if(!x)return;pushHist();x.scene=n;cur=-2;refreshEditor()}});
   A.push({id:"scene-all:"+n,g:null,t:"場景層：套用到全部句子 "+t,h:"",k:"scene 場景層 圖案 疊加 &",on:needSubs,run:()=>{pushHist();subs.forEach(x=>x.scene=n);cur=-2;refreshEditor()}})});
+ [...STYLE_PACKS].forEach(n=>{
+  A.push({id:"pack-cur:"+n,g:null,t:"風格包：套用到目前這句 "+n,h:"版型＋場景＋字體",k:"style pack 風格包 風格 逐句 這句 "+n,on:needSubs,run:()=>applyPackTo([selIdx],n,edPackOpt)});
+  A.push({id:"pack-all:"+n,g:null,t:"風格包：套用到全部句子 "+n,h:"逐句寫入，可復原",k:"style pack 風格包 風格 逐句 全部 "+n,on:needSubs,run:()=>applyPackTo(subs.map((_,i)=>i),n,edPackOpt)})});
  return A}
 if(!RENDER)(()=>{
  const box=$("#qk"),inp=$("#qks"),list=$("#qkl"),btn=$("#qkb");let items=[],act=0;
@@ -1911,6 +2158,80 @@ if(!RENDER)(()=>{
  document.addEventListener("pointerdown",e=>{if(isOn()&&!box.contains(e.target)&&!btn.contains(e.target))close()});
 })();
 
+/* ===== [WIZARD] 頂欄浮出選單（載入▾／更多▾）＋「⬆ 匯出…」精靈：問「你要拿去做什麼？」再對應到錄製、離線 MP4、透明字層、分層、綠幕、SRT、備份。
+   README 的決策知識（什麼時候用哪種輸出、有哪些限制）寫在 WZ_OPTS 的 why／notes；要調整說明只改這張表。
+   精靈只負責「選擇與說明」，實際動作都呼叫既有函式：#rec（錄製）、exportProjectUI、exportSRT、exportSRTPlain、exportConfig。 ===== */
+if(!RENDER){
+ /* --- 浮出選單：position:fixed，不被 #bar 的橫向捲動裁掉 --- */
+ const closeMenus=()=>document.querySelectorAll(".menu.on").forEach(m=>m.classList.remove("on"));
+ document.querySelectorAll("#bar .mb").forEach(b=>b.onclick=e=>{e.stopPropagation();const m=$("#"+b.dataset.menu),on=!m.classList.contains("on");closeMenus();
+  if(on){m.classList.add("on");const r=b.getBoundingClientRect();m.style.top=(r.bottom+2)+"px";m.style.left=Math.max(4,Math.min(r.left,innerWidth-m.offsetWidth-4))+"px"}});
+ document.addEventListener("pointerdown",e=>{if(!e.target.closest(".menu,.mb"))closeMenus()});
+ document.querySelectorAll(".menu").forEach(m=>m.addEventListener("click",()=>setTimeout(closeMenus,0)));   /* 下一個 tick 才關：讓檔案選擇器（label→input）先被觸發 */
+ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenus()});
+}
+const WZ_OPTS=[
+ {id:"rec",ico:"🎥",t:"直接錄製（最快）",s:"分享、預覽、不想裝任何東西",
+  why:"在瀏覽器裡直接錄這個分頁，結束後自動下載 MP4／WebM。不用安裝任何東西。",
+  notes:["授權視窗請選「此分頁」，並勾選「分享分頁音訊」，否則沒有聲音（示範模式本來就是靜音）。","電腦吃力時可能掉幀：改 30 fps、開輕量模式、縮小畫面比例，或改用「高品質 MP4」離線渲染。","錄製中會隱藏所有工具列；按 Esc 或停止共用即可結束。"]},
+ {id:"mp4",ico:"🎬",t:"高品質 MP4（離線渲染）",s:"正式成品、不掉幀",
+  why:"不錄螢幕，逐幀截圖後用 ffmpeg 合成 MP4，不會掉幀，可指定解析度與 60 fps，還能加輝光、色差、調色與動態模糊。",
+  notes:["需要 Node.js 與 ffmpeg（終端機輸入 ffmpeg -version 要能執行）；第一次要 npm install 與 npx playwright install chromium。","流程：① 下載 project.json 放進專案的 input/　② 音樂（和背景影片）自己放進 input/　③ 在專案資料夾貼上指令。","解析度依目前畫面比例（短邊 1080）；比例和預覽不同，版面就會不同。","輝光／色差／調色／動態模糊只影響這支 MP4，網頁預覽看不到。"]},
+ {id:"alpha",ico:"🔲",t:"透明字層（疊在影片上）",s:"在剪輯軟體裡疊字",
+  why:"只輸出文字，背景透明（ProRes 4444 .mov，加 --webm 另出較小的 VP9 透明版）。放進 Premiere、DaVinci 等疊在你的影片上。",
+  notes:["不含背景與音訊；依賴背景的效果（整頁反白閃光等）不會出現。","背景影片、輝光／色差／調色在這個模式不適用（會被忽略）。"]},
+ {id:"layers",ico:"🧩",t:"分層輸出（文字層＋背景層）",s:"想在剪輯軟體分別調字與背景",
+  why:"同一輪渲染出兩個檔：text_alpha.mov（透明文字）與 ambient.mp4（背景、粒子、暗角、噪點等氛圍，含音訊），在剪輯軟體疊回去即可還原畫面。",
+  notes:["兩層同步（氛圍狀態只推進一次）。","渲染時間約為單層的 1.3–2 倍；不套用後製；整頁反白閃光這類依賴背景的效果在分層後無法還原。"]},
+ {id:"chroma",ico:"🟩",t:"綠幕（純色背景＋文字）",s:"剪輯軟體不吃透明檔",
+  why:"輸出一般 MP4：背景是純色，只留文字，在剪輯軟體用色鍵摳掉。",
+  notes:["在剪輯軟體用取樣工具從畫面上吸背景色，不要手打色碼（色彩空間轉換會讓數值偏掉）；摳像時開「去除溢色」。","發光與陰影（@neon、@glow-soft、@trail、@longshadow、@chromatic）、水波折射在綠幕下都不會出現。","文字顏色接近背景色時請換一個鍵色（例如藍幕）。","沒有在真實的剪輯軟體裡實際摳過像；背景影片畫面被忽略，音軌仍會混入。"]},
+ {id:"srt",ico:"📝",t:"字幕檔（SRT）",s:"丟給其他字幕工具或平台",
+  why:"「帶標記」保留版型、動畫、樣式、場景、位置、字體，之後能再匯入或離線渲染；「純文字」不含任何標記，給一般播放器與影片平台。",
+  notes:["純文字版會拿掉 {} 強調括號，副文接在第二行。"]},
+ {id:"backup",ico:"💾",t:"備份／換電腦",s:"保存整個專案",
+  why:"project.json 一次保存字幕、設定與已上傳的字體，可用面板的「匯入設定 JSON 或渲染專案」整包還原；設定 JSON 只有面板設定。",
+  notes:["音樂與背景影片不會包進檔案，還原後要重新載入。","字體檔可能很大（CJK 字體常達數 MB 到十幾 MB）。"]}];
+let wzSel="rec",wzO={fps:"30",blur:"",glow:false,aber:false,grade:"",webm:false,ck:"#00ff00"},wzDone=false;
+function wzCmd(k){let c=projCmd().cmd;
+ if(k==="mp4"){c=c.replace("--fps 30","--fps "+wzO.fps);if(wzO.blur)c+=" --blur "+wzO.blur;if(wzO.glow)c+=" --glow";if(wzO.aber)c+=" --aberration";if(wzO.grade)c+=" --grade "+wzO.grade}
+ else if(k==="alpha")c+=" --alpha"+(wzO.webm?" --webm":"");
+ else if(k==="layers")c+=" --layers";
+ else if(k==="chroma")c+=" --chroma"+(wzO.ck&&wzO.ck.toLowerCase()!=="#00ff00"?" "+wzO.ck.slice(1):"");
+ return c}
+function wzRender(){const box=$("#exwiz");if(!box)return;const L=box.querySelector(".xl"),R=box.querySelector(".xr");L.textContent="";R.textContent="";
+ const mk=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+ WZ_OPTS.forEach(o=>{const b=mk("button","xo"+(o.id===wzSel?" on":""));b.type="button";const t=mk("b","",o.ico+" "+o.t);b.append(t,mk("span","",o.s));b.onclick=()=>{wzSel=o.id;wzDone=false;wzRender()};L.append(b)});
+ const o=WZ_OPTS.find(x=>x.id===wzSel),k=o.id,btn=(t,f,c)=>{const b=mk("button",c||"",t);b.type="button";b.onclick=f;return b};
+ R.append(mk("h3","",o.ico+" "+o.t),mk("p","why",o.why));
+ if(!subs.length)R.append(mk("div","edwarn","還沒有字幕：請先用頂欄「載入 ▾」載入 SRT 或範例。"));
+ const row=()=>{const r=mk("div","opt");R.append(r);return r},chk=(p,t,key,after)=>{const l=mk("label"),c=mk("input");c.type="checkbox";c.checked=!!wzO[key];c.onchange=()=>{wzO[key]=c.checked;after?after():wzRender()};l.append(c,t);p.append(l)},
+  sel=(p,t,key,opts)=>{const l=mk("label","",t),e=mk("select");opts.forEach(([v,x])=>e.add(new Option(x,v)));e.value=wzO[key];e.onchange=()=>{wzO[key]=e.value;wzRender()};l.append(e);p.append(l)};
+ const cmdBox=()=>{R.append(mk("div","","終端機指令（在專案資料夾執行）："));const c=mk("div","cmd",wzCmd(k));R.append(c);
+  const r=row();r.append(btn("複製指令",()=>{try{navigator.clipboard.writeText(wzCmd(k));note("已複製離線渲染指令")}catch(e){prompt("複製這行指令：",wzCmd(k))}}))};
+ const dlProj=()=>{R.append(mk("div","","① 下載 project.json，放進專案的 input/ 資料夾"));const r=row();r.append(btn(wzDone?"✓ 已下載（再下載一次）":"下載 project.json",async()=>{if(!subs.length)return note("請先載入 SRT 或範例");await exportProjectUI();wzDone=true;wzRender()},"go"))};
+ if(k==="rec"){const r=row();sel(r,"錄製幀率","recFps",[["60","60 fps"],["30","30 fps（較不吃效能）"]]);
+  const l=mk("label"),c=mk("input");c.type="checkbox";c.checked=!!CONFIG.recLite;c.onchange=()=>{CONFIG.recLite=c.checked;save()};l.append(c,"輕量模式（半解析度畫布、關噪點與發光）");r.append(l);
+  R.querySelector("select").onchange=ev=>{CONFIG.recFps=ev.target.value;save()};R.querySelector("select").value=String(CONFIG.recFps||"60");
+  R.append(btn("開始錄製（倒數 3 秒）",()=>{closeWz();$("#rec").click()},"go"))}
+ else if(k==="mp4"){const r=row();sel(r,"幀率","fps",[["30","30 fps"],["60","60 fps"]]);sel(r,"動態模糊","blur",[["","無"],["4","4（建議）"],["8","8（更柔，更慢）"]]);
+  const r2=row();chk(r2,"輝光","glow");chk(r2,"色差","aber");sel(r2,"調色","grade",[["","無"],["warm","warm"],["cool","cool"],["film","film"]]);dlProj();cmdBox()}
+ else if(k==="alpha"){const r=row();chk(r,"同時輸出 --webm（VP9 透明，檔案小很多）","webm");dlProj();cmdBox();R.append(mk("div","edhint","輸出：output/text_alpha.mov"+(wzO.webm?"、output/text_alpha.webm":"")))}
+ else if(k==="layers"){dlProj();cmdBox();R.append(mk("div","edhint","輸出：output/text_alpha.mov ＋ output/ambient.mp4"))}
+ else if(k==="chroma"){const r=row(),l=mk("label","","鍵色"),c=mk("input");c.type="color";c.value=wzO.ck;c.oninput=()=>{wzO.ck=c.value;R.querySelector(".cmd").textContent=wzCmd(k)};l.append(c);r.append(l);dlProj();cmdBox();R.append(mk("div","edhint","輸出：output/preview.mp4（一般 MP4，背景為純色）"))}
+ else if(k==="srt"){const r=row();r.append(btn("下載帶標記的 SRT",()=>{if(!subs.length)return note("請先載入 SRT 或範例");exportSRT()},"go"),btn("下載純文字 SRT（無標記）",()=>{if(!subs.length)return note("請先載入 SRT 或範例");exportSRTPlain()}))}
+ else if(k==="backup"){const r=row();r.append(btn("下載 project.json（字幕＋設定＋字體）",async()=>{if(!subs.length)return note("請先載入 SRT 或範例");await exportProjectUI();wzDone=true;wzRender()},"go"),btn("下載設定 JSON",exportConfig));
+  if(wzDone)R.append(mk("div","edhint","✓ 已下載 project.json"))}
+ const ul=mk("ul");o.notes.forEach(n=>ul.append(mk("li","",n)));R.append(ul);
+ if(!hasMedia&&(k==="rec"||k==="mp4"||k==="layers"||k==="chroma"))R.append(mk("div","edhint edwarn",k==="rec"?"目前沒有載入音樂／影片：錄出來是靜音。":"目前沒有載入音樂／影片：指令不含 --audio，成品是靜音。有音樂請放進 input/ 並在指令加上 --audio input/檔名。"));
+ R.append(mk("div","edhint","想看全部細節：README「離線渲染」「綠幕輸出」「分層輸出」。"))}
+function openExportWizard(){let box=$("#exwiz");if(!box){box=document.createElement("div");box.id="exwiz";
+  box.innerHTML='<div class="xb"><div class="xh"><span>⬆ 匯出：你要拿去做什麼？</span><button type="button" id="exwx">關閉 ✕</button></div><div class="xm"><div class="xl"></div><div class="xr"></div></div></div>';
+  document.body.append(box);box.addEventListener("pointerdown",e=>{if(e.target===box)closeWz()});$("#exwx").onclick=closeWz;
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&box.classList.contains("on"))closeWz()})}
+ wzRender();box.classList.add("on")}
+function closeWz(){const b=$("#exwiz");b&&b.classList.remove("on")}
+$("#exw").onclick=openExportWizard;
 /* ===== [RECORD] 全螢幕錄製：同一次點擊內先全螢幕再 getDisplayMedia（倒數 → MediaRecorder → 下載）===== */
 let rec=null,chunks=[],stream=null,finishing=false,counting=false;
 $("#rec").onclick=async()=>{

@@ -6,7 +6,9 @@ const QK_SECS=["rhythm","preset","export","scene","layers","pos","bg"];   /* 對
 function quickActions(){
  const needSubs=()=>subs.length?true:"請先載入 SRT 或範例",click=q=>()=>$(q).click(),jump=id=>()=>showSec(id),
  A=[
+  {id:"exp-wizard",g:"匯出",t:"匯出精靈：你要拿去做什麼？",h:"錄製／MP4／透明字層／綠幕／SRT",k:"wizard export 匯出 精靈 用途 錄製 mp4 透明 綠幕 srt 分層",run:openExportWizard},
   {id:"exp-srt",g:"匯出",t:"匯出帶標記的 SRT",h:"lyrics_tagged.srt",k:"srt export 字幕 標記 下載",on:needSubs,run:exportSRT},
+  {id:"exp-srt-plain",g:"匯出",t:"匯出純文字 SRT（無標記）",h:"lyrics.srt",k:"srt plain 純文字 字幕 無標記 下載",on:needSubs,run:exportSRTPlain},
   {id:"exp-cfg",g:"匯出",t:"匯出設定 JSON",h:"lyrics_config.json",k:"config json 設定 下載",run:exportConfig},
   {id:"exp-proj",g:"匯出",t:"匯出渲染專案 project.json",h:"字幕＋設定＋字體",k:"project render 離線 渲染 專案 備份",on:needSubs,run:async()=>{await exportProjectUI();showSec("export")}},
   {id:"exp-cmd",g:"匯出",t:"複製離線渲染指令",h:"node render/run.mjs …",k:"command cmd 指令 複製",run:async()=>{const c=projCmd().cmd;try{await navigator.clipboard.writeText(c);note("已複製離線渲染指令："+c)}catch(e){prompt("複製這行指令：",c)}}},
@@ -45,6 +47,9 @@ function quickActions(){
  [["","（清除）"],...SCENE_NAMES.map(n=>[n,n])].forEach(([n,t])=>{
   A.push({id:"scene-cur:"+n,g:null,t:"場景層：套用到目前這句 "+t,h:"",k:"scene 場景層 圖案 疊加 &",on:needSubs,run:()=>{const x=subs[selIdx];if(!x)return;pushHist();x.scene=n;cur=-2;refreshEditor()}});
   A.push({id:"scene-all:"+n,g:null,t:"場景層：套用到全部句子 "+t,h:"",k:"scene 場景層 圖案 疊加 &",on:needSubs,run:()=>{pushHist();subs.forEach(x=>x.scene=n);cur=-2;refreshEditor()}})});
+ [...STYLE_PACKS].forEach(n=>{
+  A.push({id:"pack-cur:"+n,g:null,t:"風格包：套用到目前這句 "+n,h:"版型＋場景＋字體",k:"style pack 風格包 風格 逐句 這句 "+n,on:needSubs,run:()=>applyPackTo([selIdx],n,edPackOpt)});
+  A.push({id:"pack-all:"+n,g:null,t:"風格包：套用到全部句子 "+n,h:"逐句寫入，可復原",k:"style pack 風格包 風格 逐句 全部 "+n,on:needSubs,run:()=>applyPackTo(subs.map((_,i)=>i),n,edPackOpt)})});
  return A}
 if(!RENDER)(()=>{
  const box=$("#qk"),inp=$("#qks"),list=$("#qkl"),btn=$("#qkb");let items=[],act=0;

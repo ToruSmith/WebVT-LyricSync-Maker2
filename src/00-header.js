@@ -11,8 +11,9 @@
    04-anim 05-build 06-beat 07-loop 08-load   [ANIM] [BUILD]（build() 建一句畫面）[BEAT] [LOOP]（主迴圈 step）[LOAD]（載入 SRT／媒體、note()、快捷鍵）
    09-ui-panel    [UI-PANEL] panel()、位置工具 posPanel、復原重做 pushHist／undo／redo、畫面拖曳、字體載入、css()／save()、refreshEditor()
    10-lay-a 11-fx-enter-exit 16-lay-c 17-lay-d 21-lay-e 22-lay-f 23-lay-g 23-lay-h 23-lay-i   各組版型（17 也有種子亂數 sr()；23-lay-i 是實驗室版型）
-   12-ui-editor   [UI-EDITOR] PRESETS 預設組合表、randomize、帶標記 SRT 的 tag／srtText／exportSRT（句子編輯器本體不在這，在 13）
-   13-export      [EXPORT]   project.json 匯出、句子編輯器 editor()、edLayout()、applyPreset()、extra()（預設組合・匯出入面板）
+   12-ui-editor   [UI-EDITOR] PRESETS 預設組合表、randomize、帶標記 SRT 的 tag／reparse／srtText／exportSRT／exportSRTPlain（句子編輯器本體在 13-editor）
+   13-editor      [EDITOR]   句子編輯器（列表＋詳細欄）：editor／edRender／edRowFill／edDetail／applyPackTo／subsReplaced／edLayout
+   13-export      [EXPORT]   project.json 匯出、applyPreset()、extra()（預設組合・匯出入面板）
    14-ambient     [AMBIENT]  粒子／音訊／效能降級、applyScene()、extra3()（畫面・粒子・轉場面板）
    15-overlay     [OVERLAY]  transition() 與疊加層 overlays()
    15-scene 15-scene2   [SCENE] [SCENE2]  場景層（&）：regScene、sceneList、sceneBfx、poolLay（自動變化版型的版型池）
@@ -20,6 +21,7 @@
    18-style 19-pos 20-water   [STYLE]（@ 樣式、|| 副文）[POS]（^ 位置）[WATER]（水波 WebGL）
    23-styles      [STYLES]   風格包 regPack／PACK_KEEP、清除（packReset／clearPack／clearSceneSubs／clearAllLayers）、場景挑選器、extra4()（風格包・場景層・後製面板）
    24-misc        [MISC]     補登預設組合、applyStage（畫面比例）、啟動序列
+   25-wizard      [WIZARD]   頂欄浮出選單、「⬆ 匯出…」精靈（WZ_OPTS：用途→做法與限制，來自 README）
    25-quick       [QUICK]    ⚡快捷選單（Ctrl+K）：所有工具／匯出／清除的單一入口 quickActions()
    26-record      [RECORD]   全螢幕錄製、selfCheck()
    27-render-api  [RENDER-API] 離線渲染介面（render/run.mjs 呼叫）
@@ -34,5 +36,6 @@
    新增風格包：regPack(名稱,{…})。清除風格包時會自動還原該包定義過的所有欄位，不需另外維護清單；PACK_KEEP 只用於「從風格包切到別的預設組合」。
    共用函式：匯出＝exportSRT / exportConfig / exportProjectUI；重設＝resetSettings；localStorage 鍵＝LS_CFG / LS_QK / LS_PO。
    面板分組：panel() 結尾的 foldPanel() 依 secAnchor 把扁平內容折成可收合分組（標題見 PANEL_TITLES）；新增區段記得補標題。
+   頂欄分四區（載入▾／播放／編輯／匯出…）；舊的 #rec 按鈕藏在頂欄內，只由精靈與快捷選單觸發。字幕整份被換掉要呼叫 subsReplaced()，局部被改要呼叫 refreshEditor()。
    慣例：cur=-2 表示「下一幀要重建這一句的畫面」，改了字幕或設定後要設；selIdx＝編輯器／位置工具目前選的句子索引。
    改完：node build.mjs；用網址加 ?check=1 開啟，F12 主控台會跑 selfCheck()（含快捷表驗證）；完整驗證 npm run check。 */

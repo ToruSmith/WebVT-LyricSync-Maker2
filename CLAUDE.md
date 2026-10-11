@@ -32,3 +32,9 @@
 - README 提到的部分測試腳本（`test/chroma.mjs`、`post.mjs`、`position.mjs` 等）不在本倉庫；實際存在的見 README「驗證」。
 - `test/_dbg.mjs`、`_err.mjs`、`_sheet.mjs` 是臨時除錯腳本，寫死 `/tmp/sh`，不屬於 `npm run check`。
 - 功能手冊若沒有「風格包／場景層／7.6」等章節，`spec-sync` 會失敗：代表手冊比程式舊，需補手冊而不是改測試。
+
+## UI 結構備忘（頂欄・編輯器・匯出精靈）
+
+- 頂欄 `#bar` 分四區；舊 id（`#fs #fm #demo #rec #ed #rnd #unlock #qkb #tg #play`）一律留在 `#bar` 內（`ui-parity` 與 `selfCheck` 會檢查），`#rec` 是隱藏按鈕，由精靈與 ⚡快捷觸發。浮出選單用 `position:fixed`（`#bar` 有橫向捲動），`#bar` z-index 要高於面板與編輯器。
+- 句子編輯器在 `src/13-editor.js`（列表＋詳細欄）。字幕整份被換掉 → `subsReplaced()`；局部被改 → `refreshEditor()`；位置被外部改 → `edSync(i)`。編輯器內所有寫入走 `E(fn,key)`（`pushHist` → 改 → `cur=-2` → 更新該列）。改文字或版型後要呼叫 `reparse(x)`（`12-ui-editor.js`），否則 `plain/br/hl` 會和版型不一致。
+- 匯出精靈在 `src/25-wizard.js`，用途說明集中在 `WZ_OPTS`；指令由 `projCmd()` 加旗標組成。
