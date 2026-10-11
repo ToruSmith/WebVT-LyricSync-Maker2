@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>動態歌詞字幕工具 [fix-1010e]</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+ 動態歌詞字幕工具（單一 HTML，雙擊用最新版 Chrome / Edge 開啟，零外部連線）
+ 1. 載入 SRT 與音樂/影片；未載入時為示範模式（靜音）。空白鍵播放/暫停，←→ 跳轉 5 秒。
+ 2. 句首標記：#版型+進場+退場~特效1,特效2^位置*字體@樣式，例：#neon+fade+blur-out~float^bc；{字}{字} 用於 split / keyword / marker。
+    ^位置：tl tc tr / ml mc mr / bl bc br 九宮格錨點，可加 :X:Y 微調（畫面寬高的 %），auto＝版型原位。
+ 3. 「句子編輯器」可逐句改設定並匯出帶標記的 SRT；「隨機化」找靈感；面板有預設組合與設定匯出入。
+ 4. 面板可設畫面比例（16:9 / 9:16）、錄製幀率、錄製輕量模式；所有參數集中在檔案頂部 CONFIG。
+ 5. 「全螢幕錄製」：授權時選「此分頁」並勾選分享分頁音訊；結束自動下載。示範模式錄出的影片為靜音。
+ 6. 錄製掉幀時：改 30 fps、開輕量模式、縮小比例、避開模糊類版型與全開疊加層。 
+-->
+<style>
+:root{--c:#fff;--a:#7aa8ff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#050608;color:var(--c);overflow:hidden;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+#bg{position:fixed;inset:0;background:linear-gradient(120deg,#07080d,#10162a,#0a0a12,#171026);background-size:300% 300%;animation:flow 24s ease infinite}
+@keyframes flow{50%{background-position:100% 50%}}
+#m{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;display:none}
+#mimg{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;display:none}
+#mask{position:fixed;inset:0;background:rgba(0,0,0,.5)}
+#pulse{position:fixed;inset:0}
+#L{position:absolute;inset:0}
+.w{position:absolute;inset:0}
+.ch{display:inline-block;white-space:pre}
+#bar{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;align-items:center;padding:8px 12px;background:rgba(10,12,20,.85);font-size:13px;z-index:5}
+button,select,input[type=file]{font:inherit;color:#fff;background:#232a44;border:1px solid #3a4470;border-radius:4px;padding:4px 10px}
+#seek{flex:1}
+#bar,#panel,#edm,#note,#projbox{color:#fff}   /* 工具介面固定白字：不跟著「文字顏色」(--c) 走 */
+#panel{position:fixed;top:44px;right:0;width:230px;bottom:0;background:rgba(10,12,20,.85);padding:10px;font-size:12px;overflow:auto;z-index:5;transition:transform .3s}
+#panel.off{transform:translateX(100%)}
+#panel label{display:block;margin:6px 0 2px}#panel input[type=range]{width:100%}
+body.rec #bar,body.rec #panel,body.rec #note,body.rec #edm,body.rec #edgrip{display:none}
+#note{position:fixed;left:12px;bottom:10px;font-size:12px;opacity:.7;z-index:5;max-width:60vw}
+#cd{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:30vh;background:#000;z-index:9}
+.ln{height:2px;background:rgba(255,255,255,.6)}
+#guides{position:absolute;inset:0;pointer-events:none;display:none}
+#guides.on,#guides.drag{display:block}
+#guides i{position:absolute;background:rgba(122,200,255,.35)}
+#guides i.hit{background:#ffd23a;box-shadow:0 0 6px #ffd23a}
+#vc,#vl,#vr{top:0;bottom:0;width:1px}#hc,#ht,#hb{left:0;right:0;height:1px}#vc{left:50%}#hc{top:50%}
+body.rec #guides,html.rendering #guides{display:none!important}
+#stage{touch-action:none}
+#cv,#cv2{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+.kb #bg{animation:flow 24s ease infinite,kb 30s ease-in-out infinite alternate}.kb #m{animation:kb 30s ease-in-out infinite alternate}@keyframes kb{to{transform:scale(1.12)}}
+#stage{--avw:calc(100vw - var(--edr,0px));--avh:calc(100vh - var(--edt,0px) - var(--edh,0px));position:fixed;inset:var(--edt,0px) var(--edr,0px) var(--edh,0px) 0;margin:auto;overflow:hidden;contain:layout paint;container-type:size;background:#050608}
+/* 透明背景 / 只輸出字：預覽時以棋盤格表示透明；離線渲染時真正透明 */
+html.nobg,html.nobg body{background:repeating-conic-gradient(#2b2b2b 0 25%,#3c3c3c 0 50%) 0 0/24px 24px}
+html.nobg #stage{background:transparent}
+html.nobg #bg,html.nobg #m,html.nobg #mimg,html.nobg #mask{display:none!important}
+html.alpha #cv,html.alpha #cv2{display:none}
+html.ambonly #pulse{visibility:hidden}   /* --layers 的氛圍層：隱藏文字、保留背景／遮罩／粒子／暗角／噪點／疊加特效 */
+html.rendering.nobg,html.rendering.nobg body{background:transparent}
+body.tshadow #L{text-shadow:var(--tsh,0 .185cqh 1.11cqh rgba(0,0,0,.35))}
+body.tshadow #L [style*="background-clip"]{text-shadow:none!important;filter:var(--dsh,drop-shadow(0 .185cqh 1.11cqh rgba(0,0,0,.35)))}
+/* 綠幕（離線渲染 --chroma，CONFIG.chroma＝顏色）：背景只剩純色；畫布、遮罩、影片、整頁濾鏡、各種陰影與發光一律關閉，避免把顏色混進背景 */
+html.chroma,html.chroma body,html.chroma #stage,html.chroma #bg{background:var(--ck)!important;animation:none!important}
+html.chroma #m,html.chroma #mimg,html.chroma #mask,html.chroma #cv,html.chroma #cv2{display:none!important}
+html.chroma body,html.chroma #L,html.chroma #L path{filter:none!important}
+html.chroma #L,html.chroma #L *{text-shadow:none!important;box-shadow:none!important}
+/* 頂欄精簡：檔案欄位改成按鈕式（原生 input 隱藏，功能不變），窄視窗可橫向捲動不擠壞 */
+.fb{font:inherit;background:#232a44;border:1px solid #3a4470;border-radius:4px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+.fb:hover{background:#2c3558}.fb input{display:none}
+#bar{overflow-x:auto;scrollbar-width:none}#bar button{white-space:nowrap}#seek{min-width:60px}
+/* 面板分組（可收合） */
+#panel details.ps{border:1px solid #2a3252;border-radius:6px;margin:0 0 6px;background:rgba(255,255,255,.03)}
+#panel summary{cursor:pointer;padding:7px 8px;font-weight:700;list-style:none;display:flex;justify-content:space-between;user-select:none}
+#panel summary::-webkit-details-marker{display:none}
+#panel summary::after{content:"▸";opacity:.6;transition:transform .15s}
+#panel details[open]>summary{border-bottom:1px solid #2a3252;position:sticky;top:-10px;background:#10152a;z-index:1;border-radius:6px 6px 0 0}
+#panel details[open]>summary::after{transform:rotate(90deg)}
+#panel .pb{padding:2px 8px 10px}
+#panel .pt{display:flex;gap:6px;margin-bottom:6px}#panel .pt button{flex:1;font-size:11px;padding:3px}
+/* 句子編輯器分隔線（可拖曳調整預覽／編輯器比例） */
+#edgrip{position:fixed;left:0;right:240px;height:8px;cursor:ns-resize;z-index:7;background:rgba(122,168,255,.25);touch-action:none}
+#edgrip:hover,#edgrip.drag{background:rgba(122,168,255,.65)}
+/* ===== [QUICK] 快捷選單 ===== */
+#qk{position:fixed;top:44px;right:8px;width:340px;max-height:calc(100vh - 56px);display:none;flex-direction:column;background:rgba(10,12,20,.97);border:1px solid #3a4470;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.55);z-index:8;font-size:13px;color:#fff}
+#qk.on{display:flex}
+#qks{margin:8px;width:calc(100% - 16px);font:inherit;color:#fff;background:#141a30;border:1px solid #3a4470;border-radius:4px;padding:6px 8px;outline:none}
+#qks:focus{border-color:var(--a)}
+#qkl{overflow:auto;padding:0 6px 8px}
+.qg{margin:8px 4px 2px;font-size:11px;letter-spacing:.08em;opacity:.55}
+.qi{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border-radius:5px;cursor:pointer}
+.qi.act{background:#2a3566}
+.qi.dis{opacity:.4}
+.qh{opacity:.55;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48%}
+.qe{padding:12px 8px;opacity:.6;text-align:center;line-height:1.6}
+body.rec #qk,html.rendering #qk{display:none!important}
+</style></head><body>
+<div id="stage"><div id="bg"></div><video id="m" playsinline></video><div id="mask"></div>
+<canvas id="cv"></canvas><div id="pulse"><div id="L"></div></div>
+<canvas id="cv2"></canvas><div id="guides"><i id="vc"></i><i id="vl"></i><i id="vr"></i><i id="hc"></i><i id="ht"></i><i id="hb"></i></div></div>
+<div id="bar">
+ <label class="fb" title="載入 SRT 字幕">📄 載入 SRT<input type="file" id="fs" accept=".srt,.txt"></label>
+ <label class="fb" title="載入音樂或影片">🎵 載入媒體<input type="file" id="fm" accept="audio/*,video/*"></label>
+ <button id="play">播放</button><input type="range" id="seek" min="0" max="1000" value="0">
+ <span id="tm">0.0</span><button id="demo">載入範例</button><button id="rec">全螢幕錄製</button><button id="ed">句子編輯器</button><button id="rnd">隨機化</button><button id="unlock" style="display:none;background:#7a2a3a">🔒 版型已鎖定，按此解除</button><button id="qkb" title="所有工具與匯出功能（Ctrl+K）">⚡ 快捷</button><button id="tg">參數</button>
+</div>
+<div id="panel"></div><div id="note"></div><div id="cd"></div>
+<div id="qk"><input id="qks" type="text" placeholder="搜尋功能…（例：srt、錄製、位置、霓虹）" autocomplete="off"><div id="qkl"></div></div>
+<script>
+/* ===== 區段目錄（行號會隨編輯變動，請用 grep -n "===== \[" index.html 取得最新行號，再只讀需要的區段）=====
+   核心流程：[RENDER] [CONFIG] [PARSE] [ANIM] [BUILD] [BEAT] [LOOP] [LOAD]
+   介面　　：[UI-PANEL] [UI-EDITOR] [EXPORT]（extra() 與 editor() 也在 [EXPORT] 區段內）[QUICK]（⚡快捷選單：所有工具／匯出的單一入口）；句子編輯器與預覽並排＝edLayout()（在 [EXPORT] 區段）
+   版型　　：[LAY-A] [FX-ENTER-EXIT]（含版型 B）[LAY-C] [LAY-D] [LAY-E] [LAY-F] [LAY-G]（pv-lyric / pv-vertical）；水波 WebGL 在 [WATER]
+   樣式與位置：[STYLE]（@ 樣式、|| 副文）[POS]（^ 位置）
+   畫面層　：[AMBIENT]（含 extra3 面板）[OVERLAY]
+   輸出　　：[RECORD]（即時錄製）[RENDER-API]（離線渲染）　其他：[MISC]
+   新增版型要動的地方：該版型區段的 NL 物件、LAYOUTS.push 名單；含 {} 強調字 → BRACE_LAYOUTS；滿版 → FULLBLEED；想放進範例 → DEMO
+   新增「工具／匯出」功能：功能本體照舊寫在對應區段 → 到 [QUICK] 的 quickActions() 加一筆 {id,g,t,h,k,on,run} 就會出現在 ⚡快捷選單（Ctrl+K）→ 若要在面板有按鈕，再到 extra()/extra3() 加。
+   新增面板區段：該區塊開頭呼叫 secAnchor(p,"id")，並把 id 加進 [QUICK] 的 QK_SECS 與「面板跳轉」。
+   共用函式：匯出＝exportSRT / exportConfig / exportProjectUI；重設＝resetSettings；localStorage 鍵＝LS_CFG / LS_QK / LS_PO。
+   面板分組：panel() 結尾的 foldPanel() 依 secAnchor 把扁平內容折成可收合分組（標題見 PANEL_TITLES）；新增區段記得補標題。
+   改完用網址加 ?check=1 開啟，F12 主控台會跑 selfCheck()（含快捷表驗證）。 */
+/* ===== [RENDER] 離線渲染模式（?render=1）：由 render/run.mjs 逐幀驅動；一般使用時完全不影響（介面端在檔尾 [RENDER-API]）===== */
+const RENDER=/[?&]render=1(&|$)/.test(location.search);
+if(RENDER){let _s=0x9e3779b9;Math.random=()=>{_s=_s+0x6D2B79F5|0;let t=Math.imul(_s^_s>>>15,1|_s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+/* ===== [CONFIG] 可調參數預設值、字體表 FONTS、範例字幕 DEMO、全域狀態（面板與 CONFIG 雙向綁定；其餘參數另在 [UI-EXTRA]/[OVERLAY] 補登）===== */
+const CONFIG={bpm:120,offset:0,pulse:.05,bounce:12,flash:.08,flashEvery:4,speed:1,enter:.6,exit:.4,
+ bigRatio:.25,spacing:.5,weight:300,color:"#ffffff",accent:"#7aa8ff",dim:50,font:"明體",auto:false};
+const FONTS={明體:'"Noto Serif TC","Source Han Serif TC","Songti TC",PMingLiU,serif',
+ 黑體:'"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif',
+ 圓體:'"Noto Sans TC","Yuanti TC","Microsoft JhengHei",sans-serif',
+ 楷體:'BiauKai,DFKai-SB,"Kaiti TC",cursive',
+ 等寬:'Consolas,Menlo,"Courier New",monospace',
+ 英文展示:'Impact,Georgia,Futura,"Helvetica Neue",sans-serif'};
+Object.assign(CONFIG,{bokeh:0,leak:0,lightning:0,scratch:0,crt:0,vhs:0,invBar:0,guides:false,snap:true,lock:"",presetName:"",emFont:"（版型預設）",waterRefract:true,textScale:100,bgMode:"gradient",bgColor:"#050608",maskColor:"#000000",brightness:100,vidBright:100,vidContrast:100,vidSat:100,vidBlur:0,textShadow:false,shX:0,shY:.2,shBlur:1.1,shAlpha:35,shLayers:1,glowAcc:25,shColor:"#000000",ghostOn:false,ghostA:"#ff285a",ghostB:"#00dcff",alphaOnly:false,posAnchor:"",posX:0,posY:0,posSafe:6,recFps:60,recLite:false,aspect:"fill",particles:50,pMode:"dots",scan:0,grain:.05,vignette:.5,beatRot:0,tone:"",beatSrc:"bpm",trans:"cut",kb:false,autoPerf:true,sceneMax:3,beatShake:0,beatZoom:0,beatTilt:0,beatHue:0});
+const CFG_DEFAULTS=JSON.parse(JSON.stringify(CONFIG));   /* 出廠預設：匯入設定檔時以此為底，避免瀏覽器記住的舊值殘留 */
+const LS_CFG="klcfg",LS_QK="klqk",LS_PO="klpo";   /* localStorage 鍵名集中於此：設定、快捷選單「最近使用」、面板分組展開狀態 */
+if(!RENDER)try{Object.assign(CONFIG,JSON.parse(localStorage.getItem(LS_CFG)||"{}"))}catch(e){}
+if(!RENDER)["posAnchor","posX","posY"].forEach(k=>CONFIG[k]=CFG_DEFAULTS[k]);   /* 全域位置只在本次使用有效，不跨次保存：每次開啟一律從「版型原位（正中）」開始；各句自己的位置存在 SRT 標記裡 */
+const $=s=>document.querySelector(s),SWd=()=>$("#stage").clientWidth,SHd=()=>$("#stage").clientHeight,m=$("#m"),L=$("#L");
+const DEMO=`1
+00:00:01,000 --> 00:00:03,700
+#split+rise 你慢慢的。{靠}{近}
+
+2
+00:00:04,000 --> 00:00:06,700
+#bounce+drop+sink 我承认。
+
+3
+00:00:07,000 --> 00:00:09,700
+#slam 不要回頭
+
+4
+00:00:10,000 --> 00:00:12,700
+#glitch+scramble+glitch-out 訊號中斷
+
+5
+00:00:13,000 --> 00:00:15,700
+#neon+zoomin+blur-out~flicker 在夜色裡發光
+
+6
+00:00:16,000 --> 00:00:18,700
+#karaoke 一起唱到天亮
+
+7
+00:00:19,000 --> 00:00:21,700
+#typewriter+fade+dissolve 把心事寫給你
+
+8
+00:00:22,000 --> 00:00:24,700
+#keyword 我只想{擁抱}你
+
+9
+00:00:25,000 --> 00:00:27,700
+#marker+rise 把最重要的話{說出口}
+
+10
+00:00:28,000 --> 00:00:30,700
+#handwrite 寫一封給未來的信
+
+11
+00:00:31,000 --> 00:00:33,700
+#collage 街頭的霓虹與雨
+
+12
+00:00:34,000 --> 00:00:36,700
+#flash-words 快 跑 不 要 停下來
+
+13
+00:00:37,000 --> 00:00:39,700
+#blurfocus+swing~float 慢慢對焦
+
+14
+00:00:40,000 --> 00:00:42,700
+#poster+mask-up~shimmer {晚安}好夢
+
+15
+00:00:43,000 --> 00:00:46,000
+#ripple-pool 聽見水波||RIPPLE
+
+16
+00:00:46,300 --> 00:00:49,300
+#constellation 星座連線||CONSTELLATION
+
+17
+00:00:49,600 --> 00:00:52,600
+#particle-form 聚成光||PARTICLES
+
+18
+00:00:52,900 --> 00:00:55,900
+#hud-frame 同步完成||SYNC COMPLETE
+
+19
+00:00:56,200 --> 00:00:59,200
+#parallax-depth 向前走||DEPTH
+
+20
+00:00:59,500 --> 00:01:02,500
+#center+zoomin@outline,chromatic 樣式組合||STYLE MIX
+
+21
+00:01:02,800 --> 00:01:05,800
+#center+rise@gradient,longshadow 漸層長影
+
+22
+00:01:06,100 --> 00:01:09,100
+#center+fade@neon,glitch 訊號閃爍||GLITCH
+
+23
+00:01:09,400 --> 00:01:12,400
+#polaroid 回憶相片||POLAROID
+
+24
+00:01:12,700 --> 00:01:15,700
+#page-flip 翻開下一頁||PAGE
+
+25
+00:01:16,000 --> 00:01:19,000
+#ink-bleed 墨色暈開||INK
+
+26
+00:01:19,300 --> 00:01:22,300
+#laser-scan 垂直掃描||SCAN
+
+27
+00:01:22,600 --> 00:01:25,600
+#laser-scan 光線掃描||SCAN
+
+28
+00:01:25,900 --> 00:01:28,900
+#split-flap 到站時刻||STATION
+
+29
+00:01:29,200 --> 00:01:32,200
+#wave-path 隨波逐流||WAVE
+
+30
+00:01:32,500 --> 00:01:35,500
+#mirror-reflect 水面倒影||REFLECT
+
+31
+00:01:35,800 --> 00:01:38,800
+#cylinder 滾筒翻轉||CYLINDER
+
+32
+00:01:39,100 --> 00:01:42,100
+#iris-frame 光圈聚焦||IRIS
+
+33
+00:01:42,400 --> 00:01:45,400
+#annotate 這是{最重要}的{一句}話||ANNOTATE
+
+34
+00:01:45,700 --> 00:01:48,700
+#center+iris 光圈進場`;
+let subs=[],hasMedia=false,playing=false,vt=0,lastP=0,cur=-2,lastT=0,anims=[],lastBeat=0,recording=false,lastStart=0,vary=0;
+
+/* ===== [PARSE] SRT 與標記解析：parseSRT / parseTag；版型・進場・退場・特效名稱清單（LAYOUTS/ENTERS/EXITS/FXS，後面各區段會 push 補登）；{} 通用強調 hlText / applyHL ===== */
+function parseSRT(s){
+ s=s.replace(/^\uFEFF/,"").replace(/\r/g,"");
+ return s.split(/\n\s*\n/).map(b=>{
+  const l=b.trim().split("\n"),i=l.findIndex(x=>x.includes("-->"));if(i<0)return null;
+  const [a,z]=l[i].split("-->").map(x=>{const p=x.trim().replace(",",".").split(":");return +p[0]*3600+ +p[1]*60+ +p[2]});
+  return parseTag(l.slice(i+1).join("\n"),a,z);
+ }).filter(Boolean);
+}
+const LAYOUTS=["split","lowerleft","bounce","slam","neon","karaoke","typewriter","vertical","blurfocus","wipe","glitch","stack","outline-big","subtitle-box","poster"];
+const ENTERS=["fade","rise","drop","zoomin","zoomout","spin","flip","stagger","mask-up","elastic","swing","ripple"],EXITS=["fade","sink","zoomout-fade","blur-out","slide-out"],FXS=["float","shake","flicker","rainbow"];
+/* 登記一個新版型的唯一入口：{brace:1}＝{} 是強調關鍵字；{full:1}＝滿版（忽略位置）。舊版型維持原本的分散登記方式，不動。 */
+function registerLayout(name,fn,o={}){NL[name]=fn;if(!LAYOUTS.includes(name))LAYOUTS.push(name);if(o.brace)BRACE_LAYOUTS.add(name);if(o.full)FULLBLEED.add(name)}
+const BRACE_LAYOUTS=new Set(["split","poster","diagonal","circle-badge","keyword","hanko","marker","annotate"]);
+function parseTag(txt,s,e){
+ let lay,en,ex,fx,pos="",st="",scene="";
+ const r=txt.match(/^#([\w-]+)?(?:\+([\w-]+))?(?:\+([\w-]+))?(?:~([^\s@^*&]+))?(?:\^([^\s@*&]+))?(?:\*([^\s@&]+))?(?:@([^\s&]+))?(?:&(\S+))?\s*/);
+ let font="";   /* 每句字體：*字體名（encodeURIComponent，* 另編成 %2A）；放在 ^位置 之後、@樣式 之前 */
+ if(r){let fr;[,lay,en,ex,fx,pos,fr,st,scene]=r;st=st||"";scene=scene||"";pos=pos||"";if(fr){try{font=decodeURIComponent(fr)}catch(e){font=fr}}txt=txt.slice(r[0].length)}
+ let sub="";const bi=txt.indexOf("||");if(bi>=0){sub=txt.slice(bi+2).trim();txt=txt.slice(0,bi)}
+ const br=[...txt.matchAll(/\{([^}]*)\}/g)].map(x=>x[1]);
+ let plain=txt.replace(/\{[^}]*\}/g,"").trim();
+ const lay0=lay;if(!lay)lay=br.length?"split":"lowerleft";
+ /* 只有這些版型會把 {} 當成「要強調的關鍵字」另外處理；其他版型若照舊把 {} 內的字整段拿掉，歌詞就會少字。
+    所以其他版型只去掉括號符號、保留文字（匯出 SRT 用的 raw 仍保留 {}，不影響編輯器與匯出） */
+ if(!BRACE_LAYOUTS.has(lay))plain=txt.replace(/[{}]/g,"").trim();
+ /* hl：主文每個字是否在 {} 內，供「非關鍵字版型」做通用強調 */
+ let hl=[],ib=false;for(const c of txt){if(c==="{")ib=true;else if(c==="}")ib=false;else hl.push(ib)}
+ const s0=txt.replace(/[{}]/g,""),lead=[...s0].length-[...s0.trimStart()].length;hl=hl.slice(lead,lead+[...txt.replace(/[{}]/g,"").trim()].length);
+ return{s,e,lay,en,ex,fx,pos,st,font,sub,br,plain,hl,raw:txt,auto:!r||(!!(font||scene)&&!lay0&&!en&&!ex&&!fx&&!pos&&!st),scene};
+}
+/* 通用強調：非關鍵字版型中，{} 內的字改用強調色＋加粗＋發光（不改動畫、不改排版） */
+const HL_SKIP=new Set(["text-mask","particle-form"]);   /* 這兩個版型在各自的程式內處理 {} 強調字 */
+/* 把 e 的文字拆成逐字 span，{} 內的字改用強調色（不改字重，避免和 canvas 取樣的位置對不上） */
+function hlText(e,sb,bold){const P=[...sb.plain];e.textContent="";P.forEach((ch,i)=>{const sp=document.createElement("span");sp.textContent=ch;if(sb.hl&&sb.hl[i]){sp.style.cssText="color:var(--a);-webkit-text-fill-color:var(--a);text-shadow:0 0 .3em var(--a)"+(bold?";font-weight:900":"")+(emFontCss(sb)?";font-family:"+emFontCss(sb):"")}e.appendChild(sp)})}   /* ripple-pool 的 WebGL 字改在 waterText 內逐字上色；簡化版走 DOM，由此通用流程處理 */
+/* ===== 強調字字體（全版型共用的唯一入口）=====
+   面板「強調字字體」＝ CONFIG.emFont；「（版型預設）」＝完全不介入（各版型維持原本字體）。
+   優先順序：這句自己的 *字體（整句，含強調字）＞ 面板強調字字體 ＞ 版型預設（pv-lyric/pv-vertical 的預設是毛筆）。
+   作用範圍：① BRACE_LAYOUTS 的 {} 強調字（找「文字剛好等於 {} 內容」的葉節點）② 其他版型的通用強調（applyHL / hlText）。
+   不支援：particle-form、ripple-pool（文字畫在 canvas 上）。 */
+const KW_DEF="（版型預設）";
+const emFontCss=sb=>{if(sb&&sb.font)return"";const k=CONFIG.emFont;return(k&&k!==KW_DEF&&FONTS[k])||""};
+function applyKwFont(root,sb,lay){
+ const ff=emFontCss(sb);if(!ff||!sb.br.length||!BRACE_LAYOUTS.has(lay)||/^pv-/.test(lay))return;   /* pv-* 在 pvBuild 內自己處理 */
+ const S=new Set(sb.br.map(x=>x.trim()));
+ root.querySelectorAll("*").forEach(e=>{if(e.children.length||e.tagName==="CANVAS"||e.closest("svg"))return;if(S.has(e.textContent.trim()))e.style.fontFamily=ff})}
+function emFontUI(p){const l=document.createElement("label");l.textContent="強調字字體（所有 {} 強調字；預設＝各版型原本的字體）";const e=document.createElement("select");e.style.width="100%";
+ const fill=()=>{e.innerHTML="";[KW_DEF,...Object.keys(FONTS)].forEach(k=>e.add(new Option(k,k)));e.value=CONFIG.emFont&&(CONFIG.emFont===KW_DEF||FONTS[CONFIG.emFont])?CONFIG.emFont:KW_DEF};
+ fill();e.onmousedown=fill;   /* 展開前重建選項：之後才上傳的字體也看得到 */
+ e.onchange=()=>{CONFIG.emFont=e.value;save();cur=-2};p.append(l,e)}
+function applyHL(root,sb,lay){
+ if(!sb.hl||!sb.hl.some(Boolean)||BRACE_LAYOUTS.has(lay)||HL_SKIP.has(lay))return;
+ const P=[...sb.plain],ef=emFontCss(sb),css=e=>{e.style.color="var(--a)";e.style.fontWeight="900";e.style.textShadow="0 0 .35em var(--a)";if(ef)e.style.fontFamily=ef};
+ const parents=new Set([...root.querySelectorAll(".ch")].map(x=>x.parentNode));
+ parents.forEach(pn=>{const k=[...pn.children].filter(x=>x.classList.contains("ch"));if(k.length===P.length)k.forEach((x,i)=>{if(sb.hl[i])css(x)})});
+ let cur=0;
+ [...root.querySelectorAll("*")].forEach(el=>{
+  if(el.children.length||el.dataset.pm||el.classList.contains("ch")||el.tagName==="CANVAS"||el.tagName==="svg"||el.closest("svg"))return;
+  const T=[...el.textContent];if(!T.length)return;
+  let off=-1;if(el.textContent===sb.plain)off=0;else if(cur<P.length&&P.slice(cur,cur+T.length).join("")===el.textContent){off=cur;cur+=T.length}
+  if(off<0)return;
+  el.textContent="";T.forEach((c,i)=>{const sp=document.createElement("span");sp.textContent=c;if(sb.hl[off+i])css(sp);el.appendChild(sp)})});
+}
+/* ===== [ANIM] 動畫工具：A()（全部暫停，每幀由媒體時間設定 currentTime）/ D() / chars / txtEl / enter ===== */
+function A(el,kf,o){const a=el.animate(kf,Object.assign({fill:"both",easing:"cubic-bezier(.2,.7,.2,1)"},o));a.pause();anims.push(a);return a}
+let tK=1;   /* 短句縮放係數：句長放不下「進場＋退場」時等比縮短（build 內設定；一般句子恆為 1） */
+const D=()=>CONFIG.enter*1000/CONFIG.speed*tK;
+function chars(txt,parent,css){return[...txt].map(c=>{const s=document.createElement("span");s.className="ch";s.textContent=c;if(css)s.style.cssText=css;parent.appendChild(s);return s})}
+function txtEl(css){const d=document.createElement("div");d.style.cssText=`position:absolute;font-family:${FONTS[curFont||CONFIG.font]||curFont||CONFIG.font};font-weight:${CONFIG.weight};letter-spacing:${CONFIG.spacing}em;color:var(--c);${css}`;d.dataset.t="1";return d}
+function enter(el,kind,list){
+ const d=D();
+   if(kind==="scramble"&&list){list.forEach((c,i)=>{scr.push({c,f:c.textContent,end:i*80/CONFIG.speed+d*.6});A(c,[{opacity:0},{opacity:1}],{duration:d*.3,delay:i*80/CONFIG.speed})});return}
+  if(["stagger","ripple","flip"].includes(kind)&&list){const kf={stagger:[{opacity:0},{opacity:1}],ripple:[{opacity:0,transform:"translateY(3cqh)"},{opacity:1,transform:"translateY(-1.5cqh)",offset:.6},{opacity:1,transform:"none"}],flip:[{opacity:0,transform:"perspective(600px) rotateX(90deg)"},{opacity:1,transform:"none"}]}[kind];list.forEach((c,i)=>A(c,kf,{duration:d,delay:i*80/CONFIG.speed}));return}
+ const k={fade:[{opacity:0},{opacity:1}],rise:[{opacity:0,transform:"translateY(5cqh)"},{opacity:1,transform:"none"}],
+  zoomin:[{opacity:0,transform:"scale(.6)"},{opacity:1,transform:"scale(1)"}],
+  drop:[{opacity:0,transform:"translateY(-12cqh)"},{opacity:1,transform:"translateY(1.5cqh)",offset:.7},{opacity:1,transform:"none"}],
+  zoomout:[{opacity:0,transform:"scale(1.8)"},{opacity:1,transform:"scale(1)"}],
+  spin:[{opacity:0,transform:"perspective(800px) rotateY(90deg)"},{opacity:1,transform:"none"}],
+  elastic:[{opacity:0,transform:"scale(0)"},{opacity:1,transform:"scale(1.2)",offset:.5},{transform:"scale(.93)",offset:.75},{transform:"scale(1)"}],
+  swing:[{opacity:0,transform:"rotate(-25deg)"},{opacity:1,transform:"rotate(14deg)",offset:.4},{transform:"rotate(-6deg)",offset:.7},{transform:"none"}],
+  "split-reveal":[{clipPath:"inset(50% 0 50% 0)",opacity:1},{clipPath:"inset(0)",opacity:1}],iris:[{clipPath:"circle(0% at 50% 50%)",opacity:1},{clipPath:"circle(75% at 50% 50%)",opacity:1}],"mask-up":[{clipPath:"inset(100% 0 0 0)",transform:"translateY(4cqh)"},{clipPath:"inset(0)",transform:"none"}]}[kind]||[{opacity:0},{opacity:1}];
+ A(el,k,{duration:d});
+}
+/* ===== [BUILD] 建立一句的畫面：syncPlain / build()（版型分派、退場、持續特效、樣式、位置）===== */
+const TICKS=[];
+/* 主文(plain)是否含 {} 內的字，取決於「實際使用的版型」：關鍵字版型要把它拆出來另外畫，其他版型要留在句子裡。
+   parseTag 只依 SRT 標記決定一次；但「鎖定單一版型」或自動換版型會改掉實際版型，因此建構畫面前依實際版型重算，否則 {} 內的字會消失或重複。 */
+function syncPlain(){subs.forEach(x=>{const l=LAYOUTS.includes(CONFIG.lock||x.lay)?(CONFIG.lock||x.lay):"lowerleft";x.plain=BRACE_LAYOUTS.has(l)?x.raw.replace(/\{[^}]*\}/g,"").trim():x.raw.replace(/[{}]/g,"").trim()})}
+function build(sb){
+ syncPlain();TICKS.length=0;anims=[];L.innerHTML="";
+ scr=[];lastCt=-1;curFont=sb.font||"";const w=document.createElement("div");w.className="w";L.appendChild(w);
+ const lay=LAYOUTS.includes(CONFIG.lock||sb.lay)?(CONFIG.lock||sb.lay):"lowerleft",en=sb.en||({slam:"",bounce:""}[lay]===""?"":"rise"),dur=sb.e-sb.s,vw=SWd(),vh=SHd();
+ tK=Math.max(.05,Math.min(1,dur*900/((((+CONFIG.enter||0)/(+CONFIG.speed||1))+(+CONFIG.exit||0))*1000||1)));
+ const ks=(+CONFIG.textScale||100)/100,big=Math.min(CONFIG.bigRatio*vh,vw*.3)*ks,small=Math.min(vh*.045,vw*.03)*ks;
+ const acc="var(--a)",fw=document.createElement("div");fw.className="w";w.appendChild(fw);const PS=FULLBLEED.has(lay)?null:resolvePos(sb);let host=fw;if(PS){host=document.createElement("div");host.className="w";fw.appendChild(host)}
+ const content=document.createElement("div");content.className="w";host.appendChild(content);
+ let list=null;
+ if(lay==="split"){
+  const [l,r]=[sb.br[0]||sb.plain.slice(0,1),sb.br[1]||""];
+  const mk=(t,side)=>{const fs=Math.min(big,vw*.44/Math.max(1,[...t].length));const e=txtEl(`${side}:2cqw;top:50%;font-size:${fs}px;line-height:1;margin-top:${-fs/2}px;letter-spacing:0`);e.textContent=t;if(sb.br.length)e.style.color="var(--a)";content.appendChild(e);
+   A(e,[{opacity:0,transform:`translateX(${side==="left"?-40:40}px)`},{opacity:1,transform:"none"}],{duration:D(),delay:(side==="left"?0:150)/CONFIG.speed});e.dataset.big=1;return e};
+  if(l)mk(l,"left");if(r)mk(r,"right");
+  const sm=txtEl(`left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:${small}px;letter-spacing:.8em;padding-left:.8em`);
+  sm.textContent=sb.plain;content.appendChild(sm);
+  A(sm,[{opacity:0,letterSpacing:".2em"},{opacity:1,letterSpacing:".8em"}],{duration:D()*1.3});
+  [["left",r?"22cqw":"22cqw"],["right","22cqw"]].forEach(([side,off],i)=>{
+   if((side==="right"&&!r)||vw<vh)return; /* 直式畫面太窄，省略細線避免壓到小字 */const ln=document.createElement("div");ln.className="ln";
+   ln.style.cssText=`position:absolute;top:50%;${side}:${off};width:10cqw;transform-origin:${side==="left"?"right":"left"}`;
+   // 細線由中間向外拉出
+   ln.style.transformOrigin=side==="left"?"right":"left";content.appendChild(ln);A(ln,[{transform:"scaleX(0)"},{transform:"scaleX(1)"}],{duration:D(),delay:200/CONFIG.speed});});
+ }else if(lay==="lowerleft"){
+  const e=txtEl(`left:6cqw;bottom:12cqh;font-size:${small*1.4}px;white-space:pre-wrap`);e.textContent="。";
+  list=chars(sb.plain,e);content.appendChild(e);
+  const ln=document.createElement("div");ln.className="ln";ln.style.cssText="position:absolute;left:6cqw;bottom:10cqh;width:60cqw;transform-origin:left";
+  content.appendChild(ln);A(ln,[{transform:"scaleX(0)"},{transform:"scaleX(1)"}],{duration:D()*2});
+  enter(e,en||"rise",list);
+ }else if(NL[lay]){NL[lay](sb,content,w,big,small,dur,list=[])
+ }else{
+  const sz=lay==="slam"?big*.9:big*.55;
+  const e=txtEl(`left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:${Math.min(sz,vw/(Math.max(sb.plain.length,3))*.9)}px;letter-spacing:.15em`);
+  content.appendChild(e);
+  if(lay==="bounce"){list=chars(sb.plain,e);list.forEach((c,i)=>A(c,[{opacity:0,transform:"translateY(12cqh)"},{opacity:1,transform:"translateY(-2cqh)",offset:.6},{opacity:1,transform:"none"}],{duration:500/CONFIG.speed,delay:i*60/CONFIG.speed}))}
+  else if(lay==="slam"){e.textContent=sb.plain;A(e,[{opacity:0,transform:"translateY(-50%) scale(3)"},{opacity:1,transform:"translateY(-50%) scale(1)"}],{duration:260/CONFIG.speed,easing:"cubic-bezier(.9,0,1,.5)"});
+   A(w,[{transform:"translate(0,0)"},{transform:"translate(-14px,8px)"},{transform:"translate(12px,-9px)"},{transform:"translate(-6px,4px)"},{transform:"none"}],{duration:300,delay:260/CONFIG.speed});
+   const f=document.createElement("div");f.style.cssText="position:fixed;inset:0;background:#fff;pointer-events:none";w.appendChild(f);A(f,[{opacity:0},{opacity:.7,offset:.1},{opacity:0}],{duration:250,delay:260/CONFIG.speed})}
+  else if(lay==="neon"){e.textContent=sb.plain;e.style.textShadow=`0 0 6px #fff,0 0 18px ${acc},0 0 40px ${acc},0 0 80px ${acc}`;enter(e,sb.en||"fade")}
+  else if(lay==="karaoke"){list=chars(sb.plain,e,"color:rgba(255,255,255,.3)");const n=list.length,t=dur*1000/n;
+   list.forEach((c,i)=>A(c,[{color:"rgba(255,255,255,.3)"},{color:"#fff",textShadow:`0 0 14px ${acc}`}],{duration:t,delay:i*t,easing:"linear"}));enter(e,sb.en||"fade")}
+ }
+ if(["slam","bounce","karaoke"].indexOf(lay)<0&&lay!=="lowerleft"&&lay!=="split"&&!sb.en)enter(content,"fade");
+ else if(lay==="split"||lay==="neon"){}
+ if(lay==="split"&&sb.en&&sb.en!=="rise")enter(content,sb.en);
+ // 退場：必須在該句結束前完成
+ const xd=CONFIG.exit*1000*tK,ds=dur*1000-xd;
+ const EX={...EXTRA_EX,sink:[{opacity:1,transform:"none"},{opacity:0,transform:"translateY(4cqh)"}],"zoomout-fade":[{opacity:1,transform:"none"},{opacity:0,transform:"scale(1.3)"}],"blur-out":[{opacity:1,filter:"blur(0)"},{opacity:0,filter:"blur(16px)"}],"slide-out":[{opacity:1,transform:"none"},{opacity:0,transform:"translateX(-20cqw)"}]};
+ A(w,EX[sb.ex]||[{opacity:1},{opacity:0}],{duration:xd,delay:ds,easing:"ease-in"});
+ if(sb.ex==="dissolve"||sb.ex==="shatter"){const RR=sr(sb.s);[...w.querySelectorAll(".ch")].forEach(c=>{const r=()=>RR()-.5,sh=sb.ex==="shatter";
+  A(c,sh?[{opacity:1,transform:"none"},{opacity:0,transform:`translate(${r()*60}cqw,${r()*50}cqh) rotate(${r()*540}deg) scale(.3)`}]:[{opacity:1,transform:"none"},{opacity:0,transform:"translateY(-3cqh) scale(1.4)"}],{duration:xd*.6,delay:ds+RR()*xd*.4,easing:"ease-in"})})}
+ // 持續特效（單句最多 3 個）
+ let fl=(sb.fx||"").split(",").filter(Boolean);if(fl.length>3){note("單句最多同時 3 個特效，已忽略多餘的");fl=fl.slice(0,3)}
+ const FK={...EXTRA_FK,float:[[{transform:"translateY(0)"},{transform:"translateY(-1.5cqh)"},{transform:"translateY(0)"}],4000,"ease-in-out"],
+  shake:[[{transform:"translate(0,0)"},{transform:"translate(2px,-2px)"},{transform:"translate(-2px,1px)"},{transform:"translate(1px,2px)"}],160,"steps(3)"],
+  flicker:[[{opacity:1},{opacity:.4},{opacity:1},{opacity:.85},{opacity:.2},{opacity:1}],1300,"steps(5)"],
+  rainbow:[[{filter:"hue-rotate(0)"},{filter:"hue-rotate(360deg)"}],6000,"linear"]};
+ fl.forEach(f=>{if(FXH[f])return FXH[f](fw,dur);const k=FK[f];if(k)A(fw,k[0],{duration:k[1],iterations:Infinity,easing:k[2],...(f==="float"||f==="shake"?{composite:"add"}:{})})});
+ applyHL(content,sb,lay);applyKwFont(content,sb,lay);
+ applyStyles(content,sb,dur);
+ if(!(PS&&placePos(PS,sb,host,fw,content,small)))addSub(sb,content,small,lay==="lowerleft");
+}
+/* ===== [BEAT] 節拍：onBeat / beatTick（跨過整數拍才觸發；跳轉時只重新校正，不補發）===== */
+function onBeat(n){
+ if(!n&&n!==0)return;
+ const p=$("#pulse");
+ p.animate([{transform:`scale(${1+CONFIG.pulse}) rotate(${(n%2?1:-1)*CONFIG.beatRot}deg)`},{transform:"scale(1) rotate(0deg)"}],{duration:250,easing:"ease-out"});
+ L.querySelectorAll("[data-big]").forEach(e=>e.animate([{translate:`0 -${CONFIG.bounce}px`},{translate:"0 0"}],{duration:250,easing:"ease-out"}));
+ if(n%CONFIG.flashEvery===0)p.animate([{filter:`brightness(${1+CONFIG.flash})`},{filter:"brightness(1)"}],{duration:100});if(CONFIG.invBar&&n%CONFIG.flashEvery===0)document.body.animate([{filter:"invert(1)"},{filter:CONFIG.tone||"none"}],{duration:90});
+}
+function beatTick(t){
+ const b=Math.floor((t-CONFIG.offset)*CONFIG.bpm/60);
+ if(CONFIG.beatSrc==="audio"&&an){if(playing&&audioHit)onBeat(++abeat);audioHit=false}else if(b===lastBeat+1&&playing)onBeat(b);lastBeat=b;
+}
+/* ===== [LOOP] 主迴圈：loop / step（以 currentTime 為時間基準）、進度條 ===== */
+const now=()=>hasMedia?m.currentTime:vt;
+function endT(){return hasMedia?(m.duration||0):(subs.length?subs[subs.length-1].e+1:0)}
+let lastCt=-1,mUrl=null,lastBuilt=-1;   /* lastBuilt：上一次實際建立的句子索引，用來避免「調參數重建同一句」也觸發句間轉場 */const tmEl=$("#tm"),seekEl=$("#seek"),unEl=$("#unlock");
+function loop(ts){
+ const dt=(ts-lastP)/1000;lastP=ts;
+ if(!hasMedia&&playing){vt+=Math.min(dt,.1);if(vt>=endT()){vt=endT();playing=false;$("#play").textContent="重播";done()}}
+ step(ts,dt);
+ requestAnimationFrame(loop);
+}
+function step(ts,dt){
+ const t=now();
+ if(Math.abs(t-lastT)>.5){lastBeat=Math.floor((t-CONFIG.offset)*CONFIG.bpm/60)}
+ lastT=t;
+ const i=subs.findIndex(s=>t>=s.s&&t<s.e);
+ if(i!==cur){cur=i;if(i>=0&&i!==selIdx)setSel(i);if(i>=0&&i!==lastBuilt)transition();lastBuilt=i;if(i>=0){let sb=subs[i];if(CONFIG.auto&&sb.auto){sb.lay=LAYOUTS[i%LAYOUTS.length]}build(sb)}else{L.innerHTML="";anims=[]}}
+ if(i>=0){const ct=(t-subs[i].s)*1000;if(ct!==lastCt){lastCt=ct;anims.forEach(a=>a.currentTime=ct);scr.forEach(o=>{o.c.textContent=ct>=o.end||/\s/.test(o.f)?o.f:"▒▓░#@%&*"[Math.floor(Math.random()*8)]})}}
+ ambient(ts,dt);beatTick(t);
+ unEl.style.display=CONFIG.lock?"":"none";TICKS.forEach(f=>f(t));beatFx(t);tmEl.textContent=t.toFixed(1);if(!seeking)seekEl.value=endT()?t/endT()*1000:0;
+}
+let seeking=false;
+$("#seek").oninput=e=>{seeking=true;const t=e.target.value/1000*endT();hasMedia?m.currentTime=t:vt=t;cur=-2};
+$("#seek").onchange=()=>seeking=false;
+/* ===== [LOAD] 載入 SRT・媒體・範例 / 播放暫停 / 快捷鍵 ===== */
+const txt=f=>f.arrayBuffer().then(b=>new TextDecoder("utf-8").decode(b));
+$("#fs").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(f){subs=parseSRT(await txt(f));cur=-2;note(subs.length+" 句已載入")}};
+$("#fm").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;mUrl&&URL.revokeObjectURL(mUrl);m.src=mUrl=URL.createObjectURL(f);mediaInfo={name:f.name,video:f.type.startsWith("video")};hasMedia=true;pause();m.style.display=f.type.startsWith("video")?"block":"none";cur=-2;note("媒體已載入")};
+$("#demo").onclick=()=>{CONFIG.lock="";CONFIG.auto=false;Object.assign(CONFIG,{posAnchor:"",posX:0,posY:0});save();panel(); /* 範例要照標記呈現，先解除鎖定與自動變化 */
+ subs=parseSRT(DEMO);hasMedia=false;m.removeAttribute("src");m.style.display="none";vt=0;cur=-2;Object.assign(CONFIG,{bpm:120,offset:0});play()};
+function play(){if(!hasMedia&&vt>=endT())vt=0;playing=true;hasMedia&&(m.play(),initAudio());$("#play").textContent="暫停"}
+function pause(){playing=false;hasMedia&&m.pause();$("#play").textContent="播放"}
+$("#play").onclick=()=>playing?pause():play();
+m.onended=()=>{playing=false;$("#play").textContent="播放";done()};
+m.onplay=()=>playing=true;
+function note(s){$("#note").textContent=s}
+subs=parseSRT(DEMO);note("示範模式：錄出的影片為靜音（預期行為）。載入音樂/影片後才有聲音。");
+/* 快捷鍵：空白鍵 播放/暫停，← → 跳轉 5 秒 */
+document.addEventListener("keydown",e=>{if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)&&e.target.type!=="range")return;
+ if(e.code==="Space"){e.preventDefault();$("#play").click()}
+ else if((e.code==="ArrowLeft"||e.code==="ArrowRight")&&!e.ctrlKey&&!e.metaKey){if(e.target.type==="range"&&e.target.id!=="seek")return;e.preventDefault();const d=e.code==="ArrowLeft"?-5:5;hasMedia?m.currentTime=Math.max(0,m.currentTime+d):vt=Math.max(0,Math.min(endT(),vt+d));cur=-2}});
+/* ===== [UI-PANEL] 參數面板 panel/posPanel/bgPanel、字體載入（FontFace + IndexedDB）、套用到畫面 css/bgCss/toneCss/save ===== */
+const P=[["bpm","BPM",40,220,1],["offset","節拍起點 offset(秒)",0,5,.01],["pulse","脈衝強度",0,.3,.005],["bounce","彈跳振幅(px)",0,80,1],["flash","閃白強度",0,.6,.01],
+ ["speed","全域速度",.25,4,.05],["enter","進場秒數",.05,4,.05],["exit","退場秒數",.05,3,.05],["bigRatio","大字高度比例",.03,.8,.01],["textScale","文字整體縮放%",20,300,5],["spacing","字距(em)",-.1,2,.05],["weight","字重",100,900,100]];
+/* 面板區段錨點：panel() 重建時一併重建；showSec(id) 供 [QUICK]「面板跳轉」使用（id 清單見 QK_SECS） */
+function secAnchor(p,id){const a=document.createElement("span");a.dataset.sec=id;a.style.cssText="display:block;height:0";p.append(a)}
+const PANEL_TITLES={rhythm:"節奏・字體・顏色",preset:"預設組合・鎖定版型",export:"設定與專案 匯出／匯入",scene:"畫面・粒子・轉場・疊加層",pos:"位置微調",bg:"背景・亮度・陰影"};
+let panelOpen=(()=>{try{const r=JSON.parse(localStorage.getItem(LS_PO)||"null");return Array.isArray(r)?r:["rhythm"]}catch(e){return["rhythm"]}})();   /* 各分組展開狀態，panel() 重建後沿用 */
+function foldPanel(p){   /* 把 panel() 建好的扁平內容，依 secAnchor 折成 <details> 分組；只搬移節點，事件與參照都不變 */
+ let box=null;
+ [...p.childNodes].forEach(n=>{const id=n.dataset&&n.dataset.sec;
+  if(id){const d=document.createElement("details"),sm=document.createElement("summary");box=document.createElement("div");box.className="pb";d.className="ps";d.dataset.sec=id;sm.textContent=PANEL_TITLES[id]||id;d.append(sm,box);d.open=panelOpen.includes(id);
+   d.addEventListener("toggle",()=>{panelOpen=panelOpen.filter(x=>x!==id);if(d.open)panelOpen.push(id);try{localStorage.setItem(LS_PO,JSON.stringify(panelOpen))}catch(e){}});n.replaceWith(d)}
+  else if(box)box.append(n)});
+ const t=document.createElement("div");t.className="pt";
+ [["全部展開",1],["全部收合",0]].forEach(([x,v])=>{const b=document.createElement("button");b.textContent=x;b.onclick=()=>p.querySelectorAll("details.ps").forEach(d=>d.open=!!v);t.append(b)});p.prepend(t)}
+function showSec(id){const p=$("#panel");p.classList.remove("off");const a=p.querySelector(`[data-sec="${id}"]`);if(!a)return note("找不到面板區段："+id);if(a.tagName==="DETAILS")a.open=true;id==="rhythm"?p.scrollTo({top:0,behavior:"smooth"}):a.scrollIntoView({block:"start",behavior:"smooth"})}
+function panel(){
+ const p=$("#panel");p.innerHTML="";secAnchor(p,"rhythm");
+ P.forEach(([k,n,a,b,s])=>{const l=document.createElement("label"),i=document.createElement("input");l.textContent=n+"：";const v=document.createElement("b");v.textContent=CONFIG[k];l.append(v);
+  Object.assign(i,{type:"range",min:a,max:b,step:s,value:CONFIG[k]});i.oninput=()=>{CONFIG[k]=+i.value;v.textContent=i.value;save();if(k==="particles")perfPart=null;if(k==="beatHue")toneCss();if(["bigRatio","textScale","spacing","weight","enter","exit","speed"].includes(k))cur=-2};p.append(l,i)});
+ const mkc=(k,n)=>{const l=document.createElement("label"),i=document.createElement("input");l.textContent=n;i.type="color";i.dataset.k=k;i.value=CONFIG[k];i.oninput=()=>{CONFIG[k]=i.value;css();cur=-2;save()};p.append(l,i)};
+ mkc("color","文字顏色");mkc("accent","強調色");
+ const fl=document.createElement("label");fl.textContent="字體";const sel=document.createElement("select");sel.id="fsel";sel.style.width="100%";p.append(fl,sel);fonts();
+ sel.onchange=()=>{CONFIG.font=sel.value;save();cur=-2};
+ const up=document.createElement("input");up.type="file";up.accept=".ttf,.otf,.woff,.woff2";up.onchange=async()=>{const f=up.files[0];if(!f)return;const buf=await f.arrayBuffer();await addFont(f.name.replace(/\.\w+$/,""),buf);idbPut(f.name,buf)};
+ const ul=document.createElement("label");ul.textContent="上傳字體";p.append(ul,up);
+ const au=document.createElement("label");au.innerHTML='<input type="checkbox" id="auto"> 自動變化版型';p.append(au);$("#auto").checked=CONFIG.auto;$("#auto").onchange=e=>{CONFIG.auto=e.target.checked;cur=-2};
+ const tap=document.createElement("button");tap.textContent="Tap 打拍子";let taps=[];tap.onclick=()=>{const n=performance.now();if(taps.length&&n-taps[taps.length-1]>2000)taps=[];taps.push(n);if(taps.length>=4){const iv=(taps[taps.length-1]-taps[0])/(taps.length-1);CONFIG.bpm=Math.round(60000/iv);panel();save()}};p.append(tap);extra(p);extra3(p);posPanel(p);bgPanel(p);foldPanel(p);
+}
+let selIdx=-1,posRef=null;const EDR=[],r2p=v=>String(Math.round((+v||0)*100)/100);
+const layOf=x=>{const l=CONFIG.lock||x.lay;return LAYOUTS.includes(l)?l:"lowerleft"};
+function setSel(i){if(i>=0&&i<subs.length){selIdx=i;posRef&&posRef()}}
+function jumpTo(i){const x=subs[i];if(!x)return;pause();const t=x.s+(x.e-x.s)*.5;if(hasMedia)m.currentTime=t;else vt=t;cur=-2;setSel(i)}   /* 跳到該句中段並暫停，方便看著畫面微調 */
+function edSync(i){const r=EDR[i];if(!r||!$("#edm"))return;const q=(subs[i].pos||"").split(":");r.pS.value=q[0]||"";r.pX.value=q[1]||"";r.pY.value=q[2]||""}
+/* ===== 位置微調工具：復原／重做（快照）、位置預設、有效位置換算 ===== */
+const POSPRE=[["mc","正中"],["bc","下中（電影字幕）"],["bc:0:-10","下中偏上"],["bl","左下（歌詞）"],["br","右下"],["tl","左上"],["tc","上中"],["tr","右上"],["ml","左中"],["mr","右中"],["auto","版型原位"],["alt:bl|br","左下／右下 交替"],["alt:tc|bc","上中／下中 交替"]];
+const presetPos=(v,k)=>v.startsWith("alt:")?v.slice(4).split("|")[k%2]:v;
+const fmtPos=(a,X,Y)=>[a||"auto",...(+X||+Y?[r2p(X),r2p(Y)]:[])].join(":");
+const effPos=x=>{const q=resolvePos(x);return q?{a:q.a,x:q.x,y:q.y}:{a:"",x:0,y:0}};   /* 這句「現在實際」的錨點與偏移（含跟隨全域的部分）；拖曳／方向鍵就從這裡開始，畫面不會跳 */
+let histA=[],histB=[],histKey="",histT=0,histOf=null;
+const cloneSub=o=>({...o,br:o.br&&[...o.br],hl:o.hl&&[...o.hl]});   /* br/hl 是陣列，淺拷貝會讓快照和現行字幕共用同一份 */
+const snapSubs=()=>subs.map(cloneSub);
+function histBtn(){document.querySelectorAll(".hbU").forEach(b=>b.disabled=!(histOf===subs&&histA.length));document.querySelectorAll(".hbR").forEach(b=>b.disabled=!(histOf===subs&&histB.length))}
+function pushHist(key){const t=performance.now();if(histOf!==subs){histA=[];histB=[];histOf=subs;histKey=""}   /* 換了一份字幕（載入 SRT／範例）就清空歷史 */
+ if(key&&key===histKey&&t-histT<900){histT=t;return}   /* 連續拖滑桿／連按方向鍵合併成一步 */
+ histKey=key||"";histT=t;histA.push(snapSubs());if(histA.length>100)histA.shift();histB=[];histBtn()}
+function restoreSubs(sn){subs.splice(0,subs.length,...sn.map(cloneSub));cur=-2;if(selIdx>=subs.length)selIdx=subs.length-1;posRef&&posRef();refreshEditor();histBtn()}
+function undo(){if(histOf!==subs||!histA.length)return note("沒有可復原的動作");histB.push(snapSubs());restoreSubs(histA.pop());histKey="";note("已復原")}
+function redo(){if(histOf!==subs||!histB.length)return note("沒有可重做的動作");histA.push(snapSubs());restoreSubs(histB.pop());histKey="";note("已重做")}
+function nudge(dx,dy){const x=subs[selIdx];if(!x||FULLBLEED.has(layOf(x)))return;pushHist("nudge"+selIdx);const e=effPos(x);x.pos=fmtPos(e.a,e.x+dx,e.y+dy);x.auto=false;cur=-2;edSync(selIdx);posRef&&posRef()}
+function guidesCss(){const g=document.getElementById("guides");if(!g)return;const sf=+CONFIG.posSafe||0;
+ document.getElementById("vl").style.left=sf+"%";document.getElementById("vr").style.left=(100-sf)+"%";document.getElementById("ht").style.top=sf+"%";document.getElementById("hb").style.top=(100-sf)+"%";g.classList.toggle("on",!!CONFIG.guides)}
+const EDSEL=new Set();let lastCk=-1;
+const selList=()=>[...EDSEL].filter(i=>i<subs.length).sort((a,b)=>a-b);
+function cntUpd(){const e=$("#edcnt");if(e)e.textContent="已勾選 "+selList().length+" 句"}
+function applyTo(f){const l=selList();if(!l.length)return note("先在編輯器勾選要套用的句子");pushHist();l.forEach((i,k)=>{f(subs[i],k,i);edSync(i)});cur=-2;posRef&&posRef();note("已套用到 "+l.length+" 句；請用編輯器的「匯出帶標記的 SRT」存檔")}
+if(!RENDER){
+ document.addEventListener("keydown",e=>{const T=e.target;if(/TEXTAREA|SELECT/.test(T.tagName)||(T.tagName==="INPUT"&&!["range","checkbox","button"].includes(T.type)))return;
+  const k=e.key.toLowerCase(),mod=e.ctrlKey||e.metaKey;if(!mod)return;
+  if(k==="z"&&!e.shiftKey){e.preventDefault();undo()}
+  else if(k==="y"||(k==="z"&&e.shiftKey)){e.preventDefault();redo()}
+  else if(e.key.startsWith("Arrow")){e.preventDefault();const st=e.shiftKey?2:.5;nudge(e.key==="ArrowLeft"?-st:e.key==="ArrowRight"?st:0,e.key==="ArrowUp"?-st:e.key==="ArrowDown"?st:0)}});
+ /* 在畫面上拖曳文字：從這句目前的有效位置出發，位移換算成相對錨點的 X／Y %；吸附到中心線與安全邊界（Alt 暫時關閉） */
+ (()=>{const st=$("#stage");let D=null;const G0=document.getElementById("guides");
+  const mark=ids=>G0.querySelectorAll("i").forEach(el=>el.classList.toggle("hit",ids.includes(el.id)));
+  st.addEventListener("pointerdown",e=>{if(recording||e.button!==0)return;
+   const t=now(),i=subs.findIndex(s=>t>=s.s&&t<s.e);if(i<0)return;const x=subs[i];
+   if(FULLBLEED.has(layOf(x))){note("此版型為滿版，位置不生效");return}
+   const G=groupRect(L);if(!G)return;const o=st.getBoundingClientRect(),px=e.clientX-o.left,py=e.clientY-o.top,mx=SWd()*.04,my=SHd()*.04;
+   if(px<G.l-mx||px>G.r+mx||py<G.t-my||py>G.b+my)return;   /* 只有按在文字附近才開始拖 */
+   e.preventDefault();try{st.setPointerCapture(e.pointerId)}catch(_){}
+   pause();pushHist("drag"+Math.random());D={i,x,sx:e.clientX,sy:e.clientY,b:effPos(x),G,moved:false};st.style.cursor="move";G0.classList.add("drag");setSel(i)});
+  st.addEventListener("pointermove",e=>{if(!D)return;let dx=e.clientX-D.sx,dy=e.clientY-D.sy;if(!D.moved&&Math.hypot(dx,dy)<3)return;D.moved=true;
+   const vw=SWd(),vh=SHd(),G=D.G;let ids=[];
+   if(CONFIG.snap!==false&&!e.altKey){const sf=(+CONFIG.posSafe||0)/100,thr=Math.min(vw,vh)*.012,cand=pr=>{let b=null;pr.forEach(([v,t,id])=>{const d=t-v;if(Math.abs(d)<thr&&(!b||Math.abs(d)<Math.abs(b[0])))b=[d,id]});return b};
+    const bx=cand([[(G.l+G.r)/2+dx,vw/2,"vc"],[G.l+dx,sf*vw,"vl"],[G.r+dx,vw-sf*vw,"vr"]]),by=cand([[(G.t+G.b)/2+dy,vh/2,"hc"],[G.t+dy,sf*vh,"ht"],[G.b+dy,vh-sf*vh,"hb"]]);
+    if(bx){dx+=bx[0];ids.push(bx[1])}if(by){dy+=by[0];ids.push(by[1])}}
+   mark(ids);D.x.pos=fmtPos(D.b.a,D.b.x+dx/vw*100,D.b.y+dy/vh*100);D.x.auto=false;cur=-2;edSync(D.i);posRef&&posRef()});
+  const end=()=>{if(!D)return;if(!D.moved){histA.pop();histKey="";histBtn()}D=null;st.style.cursor="";G0.classList.remove("drag");mark([])};
+  st.addEventListener("pointerup",end);st.addEventListener("pointercancel",end)})();
+}
+function posPanel(p){secAnchor(p,"pos");
+ const hd=t=>{const h=document.createElement("label");h.innerHTML="<b>"+t+"</b>";h.style.marginTop="14px";p.append(h)};
+ hd("── 這一句的位置 ──");
+ const info=document.createElement("div"),warn=document.createElement("div");info.style.cssText="margin:4px 0;line-height:1.5;opacity:.9";warn.style.cssText="margin:4px 0;color:#ffb347;line-height:1.5";p.append(info,warn);
+ const al=document.createElement("label");al.textContent="錨點（下面的 X／Y 以它為原點）";
+ const as=document.createElement("select");as.style.width="100%";[["","跟隨全域"],["auto","版型原位"],...Object.entries(ANCH)].forEach(([v,t])=>as.add(new Option(t,v)));p.append(al,as);
+ const mk=n=>{const l=document.createElement("label"),r=document.createElement("input"),nn=document.createElement("input");l.textContent=n;
+  Object.assign(r,{type:"range",min:-100,max:100,step:.5,value:0});Object.assign(nn,{type:"number",min:-100,max:100,step:.5,value:0});nn.style.cssText="width:100%;margin-top:2px";p.append(l,r,nn);return{r,nn}};
+ const X=mk("水平 X %（右為正，相對錨點）"),Y=mk("垂直 Y %（下為正，相對錨點）"),all=[as,X.r,X.nn,Y.r,Y.nn];
+ const sync=light=>{
+  if(!subs[selIdx]&&subs.length)selIdx=0;const x=subs[selIdx];
+  if(!x){info.textContent="（尚無句子）";warn.textContent="";all.forEach(e=>e.disabled=true);return}
+  const fb=FULLBLEED.has(layOf(x));all.forEach(e=>e.disabled=fb);
+  const q=(x.pos||"").split(":"),gd=(CONFIG.posAnchor?ANCH[CONFIG.posAnchor]:"版型原位")+"，X "+(+CONFIG.posX||0)+"，Y "+(+CONFIG.posY||0);
+  info.textContent="第 "+(selIdx+1)+"／"+subs.length+" 句　"+x.s.toFixed(1)+"s　"+x.raw.replace(/\s+/g," ").trim().slice(0,14)+(fb?"　（此版型為滿版，位置不生效）":x.pos?"　〔本句自訂〕":"　〔跟隨全域："+gd+"〕");
+  warn.textContent=(CONFIG.posAnchor||+CONFIG.posX||+CONFIG.posY)?"⚠ 全域位置不是預設：所有「跟隨全域」的句子都會偏離版型原位（見下方「全域預設」）":"";
+  if(!light){as.value=(q[0]==="auto"||ANCH[q[0]])?q[0]:"";X.r.value=X.nn.value=+q[1]||0;Y.r.value=Y.nn.value=+q[2]||0}};
+ const commit=()=>{const x=subs[selIdx];if(!x)return;pushHist("pos"+selIdx);const a=+X.r.value||0,b=+Y.r.value||0;x.pos=[as.value,...(a||b?[r2p(a),r2p(b)]:[])].join(":");if(x.pos)x.auto=false;cur=-2;edSync(selIdx);sync(true)};
+ as.onchange=commit;
+ [[X,Y],[Y,X]].forEach(([T])=>{T.r.oninput=()=>{T.nn.value=T.r.value;commit()};T.nn.onchange=()=>{T.r.value=T.nn.value;T.nn.value=T.r.value;commit()}});
+ const bt=(t,f,tip)=>{const b=document.createElement("button");b.textContent=t;if(tip)b.title=tip;b.onclick=f;p.append(b);return b};
+ {const hr=document.createElement("div");hr.style.cssText="display:flex;gap:6px;margin:6px 0";[["復原 Ctrl+Z","hbU",undo],["重做 Ctrl+Y","hbR",redo]].forEach(([t,c,f])=>{const b=document.createElement("button");b.textContent=t;b.className=c;b.onclick=f;hr.append(b)});p.append(hr);histBtn()}
+ {const ps=document.createElement("select");ps.style.cssText="width:100%;margin:4px 0";ps.add(new Option("位置預設 → 套用到這一句…",""));POSPRE.forEach(([v,t])=>ps.add(new Option(t,v)));
+  ps.onchange=()=>{const x=subs[selIdx];if(!x||!ps.value)return;pushHist();x.pos=presetPos(ps.value,selIdx);x.auto=false;cur=-2;edSync(selIdx);sync(false);ps.value=""};p.append(ps)}
+ bt("這句回到跟隨全域",()=>{const x=subs[selIdx];if(!x)return;pushHist();x.pos="";cur=-2;edSync(selIdx);sync()});
+ const copyTo=from=>{const x=subs[selIdx];if(!x)return;if(!confirm("把這句的位置「"+(x.pos||"跟隨全域")+"」複製到"+(from?"之後的所有句子":"全部句子")+"？"))return;
+  pushHist();subs.forEach((y,i)=>{if(y===x||(from&&i<selIdx))return;y.pos=x.pos;if(y.pos)y.auto=false;edSync(i)});cur=-2;note("已複製位置；請用編輯器的「匯出帶標記的 SRT」存檔")};
+ bt("複製這句位置到之後的句子",()=>copyTo(1));bt("複製這句位置到全部句子",()=>copyTo(0));
+ const tip=document.createElement("div");tip.style.cssText="margin:6px 0;opacity:.7;line-height:1.5";tip.textContent="💡 直接在畫面上拖曳文字即可移動（Alt＝暫時關閉吸附）；Ctrl＋方向鍵微調 0.5%，再加 Shift 為 2%；Ctrl+Z 復原。";p.append(tip);
+ posRef=()=>sync(false);sync(false);
+ hd("── 全域預設（只影響沒有自訂位置的句子）──");
+ const l=document.createElement("label");l.textContent="全域錨點（九宮格；滿版版型不受影響）";const s=document.createElement("select");s.style.width="100%";
+ [["","版型原位（預設）"],...Object.entries(ANCH).map(([k,v])=>[k,v])].forEach(([v,t])=>s.add(new Option(t,v)));s.value=CONFIG.posAnchor||"";s.onchange=()=>{CONFIG.posAnchor=s.value;cur=-2;save();posRef&&posRef()};p.append(l,s);
+ [["posX","全域水平微調 %",-50,50,1],["posY","全域垂直微調 %",-50,50,1],["posSafe","安全邊界 %",0,20,1]].forEach(([k,n,a,b,st])=>{
+  const l=document.createElement("label"),i=document.createElement("input"),v=document.createElement("b");l.textContent=n+"：";v.textContent=CONFIG[k];l.append(v);
+  Object.assign(i,{type:"range",min:a,max:b,step:st,value:CONFIG[k]});i.oninput=()=>{CONFIG[k]=+i.value;v.textContent=i.value;cur=-2;save();guidesCss();posRef&&posRef()};p.append(l,i)});
+ [["guides","顯示參考線（中心十字＋安全邊界）"],["snap","拖曳時吸附到中心線／安全邊界（Alt 暫時關閉）"]].forEach(([k,t])=>{const l=document.createElement("label"),c=document.createElement("input");c.type="checkbox";c.checked=k==="snap"?CONFIG.snap!==false:!!CONFIG.guides;c.onchange=()=>{CONFIG[k]=c.checked;save();guidesCss()};l.append(c," "+t);p.append(l)});
+ bt("全域位置回到版型原位",()=>{Object.assign(CONFIG,{posAnchor:"",posX:0,posY:0});cur=-2;save();panel()});
+ bt("把目前全域位置寫入「沒有自訂位置」的句子",bakePos,"把「全域錨點＋微調」寫成這些句子各自的 ^位置:X:Y，並把全域微調歸零（畫面不變）。已有自訂位置的句子不動。之後用編輯器的「匯出帶標記的 SRT」存檔");
+ bt("清除所有句子的位置",clearPos,"移除每句的 ^位置 標記（含 ^auto），全部改為跟隨全域")}
+/* 位置寫入／清除：只改記憶體中的字幕；要存檔請用編輯器的「匯出帶標記的 SRT」 */
+function refreshEditor(){const d=$("#edm");if(d){const st=d.scrollTop,h=d.style.height;editor();editor();const n=$("#edm");if(n){n.scrollTop=st;n.style.height=h}}}
+function bakePos(){
+ const g=CONFIG.posAnchor||"",gx=+CONFIG.posX||0,gy=+CONFIG.posY||0;
+ if(!subs.length)return;
+ if(!g&&!gx&&!gy)return note("全域位置是「版型原位」且微調為 0，沒有可寫入的內容");
+ if(!confirm("會把目前的全域位置（錨點＋水平／垂直微調）寫入「沒有自訂位置」的句子，並把全域微調歸零，畫面看起來不變。已有自訂位置的句子不動。確定嗎？"))return;
+ let n=0;pushHist();
+ subs.forEach((x,i)=>{if(x.pos)return;x.pos=[g,...(gx||gy?[r2p(gx),r2p(gy)]:[])].join(":");if(x.pos)x.auto=false;n++;edSync(i)});
+ Object.assign(CONFIG,{posX:0,posY:0});cur=-2;save();panel();
+ note("已把全域位置寫入 "+n+" 句（全域微調已歸零；錨點保留）。請用編輯器的「匯出帶標記的 SRT」存檔")}
+function clearPos(){
+ const n=subs.filter(x=>x.pos).length;
+ if(!n)return note("沒有句子帶位置標記");
+ if(!confirm("會清除 "+n+" 句的 ^位置 標記（含 ^auto），全部改為跟隨全域。確定嗎？"))return;
+ pushHist();subs.forEach(x=>x.pos="");cur=-2;refreshEditor();
+ note("已清除 "+n+" 句的位置標記，全部跟隨全域。請用編輯器的「匯出帶標記的 SRT」存檔")}
+function bgPanel(p){secAnchor(p,"bg");
+ const h=document.createElement("label");h.innerHTML="<b>── 背景與亮度 ──</b>";h.style.marginTop="14px";p.append(h);
+ const sel=(k,n,opts)=>{const l=document.createElement("label");l.textContent=n;const s=document.createElement("select");s.style.width="100%";
+  opts.forEach(([v,t])=>{const o=document.createElement("option");o.value=v;o.textContent=t;s.append(o)});s.value=CONFIG[k];s.onchange=()=>{CONFIG[k]=s.value;bgCss();save()};p.append(l,s)};
+ const col=(k,n)=>{const l=document.createElement("label");l.textContent=n;const i=document.createElement("input");i.type="color";i.dataset.k=k;i.value=CONFIG[k];i.oninput=()=>{CONFIG[k]=i.value;css();cur=-2;save()};p.append(l,i)};
+ const rng=(k,n,a,b,s)=>{const l=document.createElement("label"),i=document.createElement("input"),v=document.createElement("b");l.textContent=n+"：";v.textContent=CONFIG[k];l.append(v);
+  Object.assign(i,{type:"range",min:a,max:b,step:s,value:CONFIG[k]});i.oninput=()=>{CONFIG[k]=+i.value;v.textContent=i.value;bgCss();save()};p.append(l,i)};
+ const chk=(k,n)=>{const l=document.createElement("label"),i=document.createElement("input");i.type="checkbox";i.id="chk_"+k;i.checked=!!CONFIG[k];i.onchange=()=>{CONFIG[k]=i.checked;bgCss();save()};l.append(i," "+n);p.append(l)};
+ sel("bgMode","背景模式",[["gradient","漸層（流動）"],["solid","純色"],["transparent","透明（無背景）"]]);
+ col("bgColor","純色背景色");col("maskColor","遮罩顏色（深淺見「背景暗度」）");
+ rng("brightness","畫面亮度%",50,150,5);
+ rng("glowAcc","強調色背景光暈 %（0＝關閉）",0,60,1);
+ rng("vidBright","影片亮度%",30,200,5);rng("vidContrast","影片對比%",30,200,5);rng("vidSat","影片飽和%",0,200,5);rng("vidBlur","影片模糊(px)",0,30,1);
+chk("textShadow","文字柔和陰影（提升可讀性）");
+ {const sr=(k,n,a,b,st)=>{const l=document.createElement("label"),i=document.createElement("input"),v=document.createElement("b");l.textContent="　"+n+"：";v.textContent=CONFIG[k];l.append(v);Object.assign(i,{type:"range",min:a,max:b,step:st,value:CONFIG[k]});
+   i.oninput=()=>{CONFIG[k]=+i.value;v.textContent=i.value;if(!CONFIG.textShadow){CONFIG.textShadow=true;const t=document.getElementById("chk_textShadow");if(t)t.checked=true}bgCss();save()};p.append(l,i)};
+  sr("shAlpha","陰影濃度 %",0,100,5);sr("shBlur","陰影模糊（畫面高度 %）",0,5,.1);sr("shX","陰影水平偏移",-3,3,.1);sr("shY","陰影垂直偏移",-3,3,.1);sr("shLayers","陰影疊加層數（越多越濃）",1,4,1);
+  col("shColor","　陰影顏色");
+  const l=document.createElement("label"),i=document.createElement("input");i.type="checkbox";i.checked=!!CONFIG.ghostOn;i.onchange=()=>{CONFIG.ghostOn=i.checked;cur=-2;save()};l.append(i," 自訂「色差／glitch」殘影顏色（預設：粉紅／青、紅／藍）");p.append(l);
+  col("ghostA","　殘影顏色 A");col("ghostB","　殘影顏色 B")}
+ {const l=document.createElement("label"),i=document.createElement("input");i.type="checkbox";i.checked=CONFIG.waterRefract!==false;i.onchange=()=>{CONFIG.waterRefract=i.checked;save();cur=-2};l.append(i," 水波折射（ripple-pool，需 WebGL2）");p.append(l)}
+ chk("alphaOnly","只輸出字（透明；預覽顯示棋盤格）");
+}
+function fonts(){const s=$("#fsel");s.innerHTML="";Object.keys(FONTS).forEach(k=>{const o=new Option(k+"　靠近 Aa 123",k);o.style.fontFamily=FONTS[k];s.add(o)});s.value=CONFIG.font}
+const FONTBUF=new Map();   /* 自訂字體原始位元組（匯出渲染專案用；鍵＝檔名去副檔名，與 FONTS 相同） */
+async function addFont(name,buf,keep){try{const ff=new FontFace(name,buf);await ff.load();document.fonts.add(ff);FONTBUF.set(name,buf);FONTS[name]=`"${name}",`+FONTS.明體;fonts();if(!keep){$("#fsel").value=name;CONFIG.font=name;note("字體已載入："+name)}cur=-2}catch(e){alert("字體載入失敗："+e.message)}}
+/* IndexedDB 保存上傳字體，下次自動載入 */
+const db=new Promise(r=>{try{const q=indexedDB.open("klfonts",1);q.onupgradeneeded=()=>q.result.createObjectStore("f");q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}catch(e){r(null)}});
+async function idbPut(k,v){const d=await db;if(d)d.transaction("f","readwrite").objectStore("f").put(v,k)}
+db.then(d=>{if(!d)return;const s=d.transaction("f").objectStore("f"),c=s.openCursor();c.onsuccess=()=>{const r=c.result;if(r){addFont(r.key.replace(/\.\w+$/,""),r.value,true);r.continue()}}});
+function hex6(c,fb){const x=hex6.x||(hex6.x=document.createElement("canvas").getContext("2d")),S="#010203";x.fillStyle=S;x.fillStyle=String(c==null?"":c).trim();let v=x.fillStyle;if(v===S&&!/^#010203$/i.test(String(c).trim()))return fb;if(/^#[0-9a-f]{6}$/i.test(v))return v.toLowerCase();const m=/^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(v);return m?"#"+[1,2,3].map(i=>(+m[i]).toString(16).padStart(2,"0")).join(""):fb}
+function css(){CONFIG.color=hex6(CONFIG.color,"#ffffff");CONFIG.accent=hex6(CONFIG.accent,"#7aa8ff");CONFIG.shColor=hex6(CONFIG.shColor,"#000000");CONFIG.ghostA=hex6(CONFIG.ghostA,"#ff285a");CONFIG.ghostB=hex6(CONFIG.ghostB,"#00dcff");document.querySelectorAll("#panel input[type=color][data-k]").forEach(i=>{const v=CONFIG[i.dataset.k];if(v&&i.value!==v)i.value=v});document.documentElement.style.setProperty("--c",CONFIG.color);document.documentElement.style.setProperty("--a",CONFIG.accent);$("#mask").style.background=`rgba(${rgbOf(CONFIG.maskColor)},${CONFIG.dim/100})`;bgCss()}
+function rgbOf(h){h=/^#[0-9a-f]{6}$/i.test(h||"")?h:"#000000";return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)).join(",")}
+function isChroma(){return document.documentElement.classList.contains("chroma")}
+function toneCss(){const T=RENDER?document.body:$("#stage");if(!RENDER)document.body.style.filter="";if(isChroma()){T.style.filter="";return}const f=[CONFIG.tone||"",(+CONFIG.brightness||100)!==100?`brightness(${CONFIG.brightness}%)`:"",+CONFIG.beatHue>0?"hue-rotate(var(--bhue,0deg))":""].filter(Boolean).join(" ");T.style.filter=f}
+function shCss(){const c=CONFIG,n=Math.max(1,Math.min(4,Math.round(+c.shLayers||1))),a=Math.max(0,Math.min(1,(+c.shAlpha)/100)),one=`${+c.shX||0}cqh ${+c.shY||0}cqh ${Math.max(0,+c.shBlur||0)}cqh rgba(${rgbOf(hex6(c.shColor,"#000000"))},${a})`;document.documentElement.style.setProperty("--tsh",Array(n).fill(one).join(","));document.documentElement.style.setProperty("--dsh",Array(n).fill(`drop-shadow(${+c.shX||0}cqh ${+c.shY||0}cqh ${Math.max(0,+c.shBlur||0)}cqh rgba(${rgbOf(hex6(c.shColor,"#000000"))},${a}))`).join(" "))}
+function bgCss(){shCss();const c=CONFIG,r=document.documentElement,bg=$("#bg");
+ if(c.bgMode==="solid"){bg.style.background=c.bgColor;bg.style.animation="none"}else{bg.style.background="";bg.style.animation=""}
+ const vd=c.vidBright==100&&c.vidContrast==100&&c.vidSat==100&&!+c.vidBlur;const vf=vd?"":`brightness(${c.vidBright}%) contrast(${c.vidContrast}%) saturate(${c.vidSat}%) blur(${c.vidBlur}px)`;m.style.filter=vf;const mi=document.getElementById("mimg");if(mi)mi.style.filter=vf;
+ r.classList.toggle("nobg",c.bgMode==="transparent"||!!c.alphaOnly);r.classList.toggle("alpha",!!c.alphaOnly);
+ const ck=/^#[0-9a-f]{6}$/i.test(c.chroma||"")?c.chroma:"";r.classList.toggle("chroma",!!ck);if(ck)r.style.setProperty("--ck",ck);
+ document.body.classList.toggle("tshadow",!!c.textShadow);toneCss()}
+function save(){try{localStorage.setItem(LS_CFG,JSON.stringify(CONFIG))}catch(e){}}
+$("#unlock").onclick=()=>{CONFIG.lock="";cur=-2;save();panel()};
+$("#tg").onclick=()=>$("#panel").classList.toggle("off");
+/* ===== [LAY-A] 版型 A（NL 表）：typewriter vertical blurfocus wipe glitch stack outline-big subtitle-box poster；輔助 CE / fit ===== */
+const CE=(c,css)=>{const e=txtEl(`inset:0;display:flex;align-items:center;justify-content:center;text-align:center;${css}`);c.appendChild(e);return e};
+const fit=(sb,big)=>{const n=Math.max(sb.plain.length,3),ln=Math.ceil(n/18);return Math.min(big*.55,SWd()/(n/ln)*.9,SHd()/ln*.5)}; // 長句自動換行並縮小
+const NL={
+ typewriter(sb,c,w,big,sm,dur,list){const e=txtEl(`left:8cqw;right:8cqw;top:50%;margin-top:-1em;font-size:${sm*1.8}px;white-space:pre-wrap`);c.appendChild(e);
+  const l=chars(sb.plain,e),t=dur*600/l.length;l.forEach((x,i)=>A(x,[{opacity:0},{opacity:1}],{duration:1,delay:i*t}));
+  const cu=document.createElement("span");cu.textContent="▏";e.appendChild(cu);A(cu,[{opacity:1},{opacity:1,offset:.5},{opacity:0,offset:.5},{opacity:0}],{duration:1000,iterations:Infinity,easing:"linear"})},
+ vertical(sb,c,w,big,sm){const n=Math.max(1,[...sb.plain].length),fs=Math.min(sm*2,SHd()*.74/(n*1.6)),e=txtEl(`right:12cqw;top:12cqh;font-size:${fs}px;writing-mode:vertical-rl;letter-spacing:.6em`);e.textContent=sb.plain;c.appendChild(e);enter(e,sb.en||"fade");
+  const ln=document.createElement("div");ln.className="ln";ln.style.cssText="position:absolute;right:8cqw;top:12cqh;width:2px;height:70cqh;transform-origin:top";c.appendChild(ln);A(ln,[{transform:"scaleY(0)"},{transform:"scaleY(1)"}],{duration:D()*2})},
+ blurfocus(sb,c,w,big){const e=CE(c,`font-size:${fit(sb,big)}px`);e.textContent=sb.plain;A(e,[{opacity:0,filter:"blur(22px)",letterSpacing:"1.2em"},{opacity:1,filter:"blur(0)",letterSpacing:CONFIG.spacing+"em"}],{duration:D()*1.6})},
+ wipe(sb,c,w,big){const e=CE(c,`font-size:${fit(sb,big)}px`);e.textContent=sb.plain;A(e,[{clipPath:"inset(0 100% 0 0)"},{clipPath:"inset(0 0 0 0)"}],{duration:D()*1.5,easing:"linear"});
+  const b=document.createElement("div");b.style.cssText="position:absolute;top:30cqh;height:40cqh;width:3px;background:#fff;box-shadow:0 0 12px #fff";c.appendChild(b);A(b,[{left:"0",opacity:1},{left:"100%",opacity:1,offset:.98},{left:"100%",opacity:0}],{duration:D()*1.5,easing:"linear"})},
+ glitch(sb,c,w,big){const z=fit(sb,big);[[CONFIG.ghostOn?hex6(CONFIG.ghostA,"#ff3333"):"#f33",1],[CONFIG.ghostOn?hex6(CONFIG.ghostB,"#3399ff"):"#39f",-1]].forEach(([col,d])=>{const g=CE(c,`font-size:${z}px;color:${col};mix-blend-mode:screen`);g.textContent=sb.plain;
+   A(g,[{transform:`translate(${d*14}px,0)`,clipPath:"inset(10% 0 60% 0)"},{transform:`translate(${-d*8}px,0)`,clipPath:"inset(55% 0 10% 0)",offset:.4},{transform:`translate(${d*3}px,0)`,clipPath:"inset(0)"}],{duration:300,easing:"steps(6)"})});
+  const e=CE(c,`font-size:${z}px`);e.textContent=sb.plain;enter(e,"fade")},
+ stack(sb,c,w,big,sm,dur,list){const t=[...sb.plain],n=Math.min(3,Math.max(1,t.length)),k=Math.ceil(t.length/n);
+  const e=txtEl(`inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 8cqw;font-size:${big*.9}px;line-height:1.05;letter-spacing:.05em`);c.appendChild(e);
+  for(let i=0;i<n;i++){const r=document.createElement("div");r.textContent=t.slice(i*k,i*k+k).join("");r.style.textAlign=i%2?"right":"left";e.appendChild(r);A(r,[{opacity:0,transform:`translateX(${i%2?8:-8}cqw)`},{opacity:1,transform:"none"}],{duration:D(),delay:i*150})}},
+ "outline-big"(sb,c,w,big){const b=CE(c,`font-size:${big*2.4}px;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.7);letter-spacing:0;opacity:.8`);b.textContent=sb.plain.slice(0,3);enter(b,"zoomin");
+  const e=CE(c,`font-size:${fit(sb,big)*.5}px`);e.textContent=sb.plain;enter(e,sb.en||"rise")},
+ "subtitle-box"(sb,c,w,big,sm,dur){const e=txtEl(`left:10cqw;right:10cqw;bottom:8cqh;padding:1.2cqh 2cqw;background:rgba(0,0,0,.55);text-align:center;font-size:${sm*1.6}px;letter-spacing:.1em`);c.appendChild(e);
+  const l=chars(sb.plain,e,"color:rgba(255,255,255,.4)"),t=dur*800/l.length;l.forEach((x,i)=>A(x,[{color:"rgba(255,255,255,.4)"},{color:"#fff"}],{duration:t,delay:i*t,easing:"linear"}));enter(e,"fade")},
+ poster(sb,c,w,big,sm){const t=sb.br[0]||sb.plain;const e=CE(c,`font-size:${Math.min(fit({plain:t},big)*1.2,SWd()/Math.max(t.length,3)*.9)}px;margin-top:-8cqh`);e.textContent=t;enter(e,sb.en||"rise");
+  const ln=document.createElement("div");ln.className="ln";ln.style.cssText="position:absolute;left:30cqw;right:30cqw;top:62cqh;transform-origin:center";c.appendChild(ln);A(ln,[{transform:"scaleX(0)"},{transform:"scaleX(1)"}],{duration:D()*1.5});
+  const s2=CE(c,`font-size:${sm}px;margin-top:20cqh;letter-spacing:.8em`);s2.textContent=sb.plain;enter(s2,"fade")}
+};
+/* ===== [FX-ENTER-EXIT] 退場表 EXTRA_EX / 持續特效表 FXH（wave shimmer gradient-flow chromatic outline-pulse highlight-word）/ ring 輔助 / 版型 B：scroll orbit diagonal marquee circle-badge zoom-tunnel split-screen ===== */
+let scr=[],curFont="";
+const HOLD=[{opacity:1,filter:"none"},{opacity:1,offset:.85},{opacity:0}];
+const EXTRA_EX={dissolve:[{opacity:1,filter:"blur(0)"},{opacity:0,filter:"blur(10px)"}],shatter:HOLD,
+ "glitch-out":[{opacity:1,transform:"none"},{opacity:1,transform:"translateX(14px) skewX(20deg)",filter:"hue-rotate(90deg)",offset:.3},{opacity:.6,transform:"translateX(-18px)",filter:"hue-rotate(200deg)",offset:.6},{opacity:0,transform:"translateX(6px)"}]};
+const EXTRA_FK={};
+const tel=fw=>[...fw.querySelectorAll('[style*="font-family"]')],cl=fw=>[...fw.querySelectorAll(".ch")];
+const FXH={
+ wave(fw){let l=cl(fw);if(!l.length)l=[fw];l.forEach((c,i)=>A(c,[{translate:"0 0"},{translate:"0 -1.2cqh"},{translate:"0 0"},{translate:"0 1.2cqh"},{translate:"0 0"}],{duration:1800,delay:0,iterations:Infinity,easing:"ease-in-out",iterationStart:(i*.12)%1}))},
+ shimmer(fw){const d=document.createElement("div");d.style.cssText="position:absolute;top:0;bottom:0;width:30cqw;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);mix-blend-mode:overlay;pointer-events:none";fw.appendChild(d);
+  A(d,[{transform:"translateX(-40cqw) skewX(-20deg)"},{transform:"translateX(130cqw) skewX(-20deg)",offset:.3},{transform:"translateX(130cqw) skewX(-20deg)"}],{duration:4000,iterations:Infinity,easing:"linear"})},
+ "gradient-flow"(fw){/* 有逐字 .ch 時，漸層要畫在每個字上：background-clip:text 不會穿過帶動畫的 inline-block 子框，套在父層字會整句消失（只剩光暈） */
+  const ch=cl(fw),els=ch.length?ch:tel(fw);
+  els.forEach((e,i)=>{e.style.cssText+=";background-image:linear-gradient(90deg,#fff,var(--a),#fff,var(--a));background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent";
+  A(e,[{backgroundPosition:"0 0"},{backgroundPosition:"300% 0"}],{duration:4000,delay:ch.length?-i*350:0,iterations:Infinity,easing:"linear"})})},
+ chromatic(fw){tel(fw).forEach(e=>A(e,[{textShadow:"-1px 0 rgba(255,0,0,.8),1px 0 rgba(0,200,255,.8)"},{textShadow:"-4px 0 rgba(255,0,0,.8),4px 0 rgba(0,200,255,.8)"}],{duration:60000/CONFIG.bpm,iterations:Infinity,direction:"alternate",easing:"ease-in-out"}))},
+ "outline-pulse"(fw){tel(fw).forEach(e=>A(e,[{textShadow:"0 0 0 transparent"},{textShadow:"0 0 16px var(--a),0 0 2px var(--a)",offset:.1},{textShadow:"0 0 0 transparent"}],{duration:60000/CONFIG.bpm,iterations:Infinity,easing:"ease-out"}))},
+ "highlight-word"(fw,dur){const l=cl(fw);if(!l.length)return;const t=dur*1000/l.length;l.forEach((c,i)=>A(c,[{color:"var(--c)"},{color:"var(--a)",offset:.3},{color:"var(--c)"}],{duration:t*1.6,delay:i*t,easing:"linear"}))}};
+const ring=(c,txt,n,css,R,cfg)=>{const r=document.createElement("div");r.className="w";c.appendChild(r);
+ const t=[...txt];while(t.length<n)t.push(...[...txt,"・"]);t.length=Math.max(n,1);
+ t.forEach((ch,i)=>{const a=cfg.arc?(i/(t.length-1||1)-.5)*cfg.arc:i*360/t.length,e=txtEl(`left:50%;top:50%;${css};transform:translate(-50%,-50%) rotate(${a}deg) translateY(-${R}cqh)`);e.textContent=ch;r.appendChild(e);A(e,[{opacity:0},{opacity:1}],{duration:D()*.5,delay:i*(cfg.step||40)})});return r};
+Object.assign(NL,{
+ scroll(sb,c){const i=subs.indexOf(sb),ks=(+CONFIG.textScale||100)/100;for(let k=-2;k<=2;k++){const x=subs[i+k];if(!x)continue;const e=txtEl(`left:8cqw;right:8cqw;top:calc(50% + ${k*11*ks}cqh);margin-top:-1em;font-size:${Math.min((k?3.2:5)*1.5*ks*SHd()/100,SWd()*.84*.96/(1.1*Math.max(1,[...x.plain].length)))}px;letter-spacing:.1em;filter:blur(${Math.abs(k)*2}px)`);e.textContent=x.plain;c.appendChild(e);
+  A(e,[{translate:"0 9cqh",opacity:0},{translate:"0 0",opacity:k?.8/(Math.abs(k)+.5):1}],{duration:D()*1.3})}},
+ orbit(sb,c,w,big,sm,dur){const r=ring(c,sb.plain,sb.plain.length,`font-size:${sm*1.8}px;letter-spacing:0`,Math.min(30,SWd()/SHd()*34),{arc:Math.min(320,sb.plain.length*16),step:70});A(r,[{transform:"rotate(-20deg)"},{transform:"rotate(30deg)"}],{duration:dur*1000,easing:"linear"})},
+ diagonal(sb,c,w,big,sm){const r=document.createElement("div");r.className="w";r.style.transform="rotate(-8deg)";c.appendChild(r);
+  const a=txtEl(`left:9cqw;top:12cqh;font-size:${Math.min(big*1.8,SWd()*.4)}px;letter-spacing:0;line-height:1`);a.textContent=sb.br[0]||sb.plain.slice(0,2);r.appendChild(a);enter(a,sb.en||"rise");
+  const b=txtEl(`left:6cqw;right:6cqw;top:62cqh;font-size:${sm*1.5}px`);b.textContent=sb.plain;r.appendChild(b);enter(b,"fade")},
+ marquee(sb,c){const ks=(+CONFIG.textScale||100)/100,h=(sb.plain+"　").repeat(6);[[ -11,"0","-50%",""],[13.4,"-50%","0","color:transparent;-webkit-text-stroke:1.5px rgba(255,255,255,.7)"]].forEach(([off,a,b,css],i)=>{
+  const e=txtEl(`left:0;top:${47+off*ks}cqh;margin-top:-.6em;font-size:${(i?14:10)*ks}cqh;white-space:nowrap;letter-spacing:.1em;${css}`);e.textContent=h+h;c.appendChild(e);A(e,[{translate:a+" 0"},{translate:b+" 0"}],{duration:12000,iterations:Infinity,easing:"linear"})});enter(c,"fade")},
+ "circle-badge"(sb,c,w,big,sm,dur){const r=ring(c,sb.plain,22,`font-size:${sm*1.4}px;letter-spacing:0`,24,{step:30});A(r,[{transform:"rotate(0)"},{transform:"rotate(360deg)"}],{duration:12000,iterations:Infinity,easing:"linear"});
+  const e=CE(c,`font-size:${big*1.3}px;letter-spacing:0`);e.textContent=sb.br[0]||sb.plain[0];enter(e,"zoomin")},
+ "zoom-tunnel"(sb,c,w,big){const z=fit(sb,big);for(let i=0;i<5;i++){const e=CE(c,`font-size:${z}px;opacity:.6`);e.textContent=sb.plain;A(e,[{transform:"scale(.6)",opacity:0},{opacity:.5,offset:.3},{transform:"scale(3)",opacity:0}],{duration:2000,delay:i*400,iterations:Infinity,easing:"ease-in"})}
+  const m=CE(c,`font-size:${z}px`);m.textContent=sb.plain;enter(m,"zoomin")},
+ "split-screen"(sb,c,w,big){const t=[...sb.plain],k=Math.ceil(t.length/2),z=fit(sb,big);
+  [[t.slice(0,k).join(""),`bottom:calc(50% + ${z*.3}px)`,-1],[t.slice(k).join(""),`top:calc(50% + ${z*.3}px)`,1]].forEach(([x,top,d],i)=>{const e=txtEl(`left:0;right:0;${top};text-align:center;font-size:${z}px;line-height:1.1`);e.textContent=x;c.appendChild(e);A(e,[{opacity:0,translate:`${d*25}cqw 0`},{opacity:1,translate:"0 0"}],{duration:D(),delay:i*150})});
+  const l=document.createElement("div");l.className="ln";l.style.cssText="position:absolute;left:10cqw;right:10cqw;top:50%";c.appendChild(l);A(l,[{transform:"scaleX(0)"},{transform:"scaleX(1)"}],{duration:D()})}});
+LAYOUTS.push("scroll","orbit","diagonal","marquee","circle-badge","zoom-tunnel","split-screen");
+ENTERS.push("scramble","split-reveal");EXITS.push("dissolve","shatter","glitch-out");FXS.push("wave","shimmer","gradient-flow","chromatic","outline-pulse","highlight-word");
+/* ===== [UI-EDITOR] 預設組合表 PRESETS / 隨機化 randomize / 帶標記 SRT 的產生與匯出（tc・tag・srtText・exportSRT）；句子編輯器本體 editor() 在下方 [EXPORT] 區段 ===== */
+const PRESETS={動畫PV:{font:"圓體",pulse:.05,accent:"#7aa8ff",weight:300,spacing:.5},霓虹夜:{font:"黑體",pulse:.07,accent:"#ff2bd6",weight:300,spacing:.3,dim:60},
+ 簡約明體:{font:"明體",pulse:.02,accent:"#cccccc",weight:300,spacing:.6,bounce:4},強烈節奏:{font:"英文展示",pulse:.12,bounce:30,flash:.2,speed:1.3,weight:700,spacing:.1},
+ 遊戲PV:{font:"黑體",pulse:.08,accent:"#ffd23a",speed:1.2,weight:500,spacing:.25},復古VHS:{font:"等寬",accent:"#44ffcc",pulse:.04,weight:400,spacing:.2,dim:55},
+ 櫻花日系:{font:"楷體",accent:"#ffb3c7",pulse:.03,weight:300,spacing:.5,speed:.8},賽博龐克:{font:"等寬",accent:"#00f0ff",pulse:.09,flash:.15,weight:500,spacing:.2},
+ 極簡海報:{font:"明體",accent:"#ffffff",pulse:.01,bounce:0,weight:200,spacing:.7,speed:.8},
+ 仿PV歌詞:{font:"黑體",accent:"#a9c8ff",pulse:.015,bounce:0,flash:0,speed:.85,enter:.8,exit:.5,weight:300,spacing:.1,dim:35,particles:0,grain:.03,vignette:.35,trans:"crossfade"}};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function randomize(){pushHist();subs.forEach(x=>{x.lay=pick(LAYOUTS);x.en=pick(ENTERS);x.ex=pick(EXITS);x.fx=Math.random()<.4?pick(FXS):"";x.auto=false});cur=-2;note("已隨機化版型、動畫與特效")}
+$("#rnd").onclick=randomize;
+const tc=t=>{const z=(n,l=2)=>String(n).padStart(l,"0"),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return`${z(h)}:${z(m)}:${z(Math.floor(s))},${z(Math.round(s%1*1000),3)}`};
+const fTag=x=>x.font?"*"+encodeURIComponent(x.font).replace(/\*/g,"%2A"):"";
+const scTag=x=>x.scene?"&"+x.scene:"";
+const tag=x=>x.auto&&!x.en&&!x.ex&&!x.fx?(x.font||x.scene?"#"+fTag(x)+scTag(x)+" ":""):"#"+x.lay+(x.en||x.ex?"+"+(x.en||"fade"):"")+(x.ex?"+"+x.ex:"")+(x.fx?"~"+x.fx:"")+(x.pos?"^"+x.pos:"")+fTag(x)+(x.st?"@"+x.st:"")+scTag(x)+" ";
+const srtText=()=>subs.map((x,i)=>`${i+1}\n${tc(x.s)} --> ${tc(x.e)}\n${tag(x)}${x.raw}${x.sub?"||"+x.sub:""}\n`).join("\n");
+function exportSRT(){dl(new Blob([srtText()],{type:"text/plain"}),"lyrics_tagged.srt")}
+/* ===== [EXPORT] 匯出渲染專案：srt（帶標記）＋ config ＋ 已上傳字體（base64）→ project.json，給 node render/run.mjs --project 用（buildProject / exportProject / projBox）；同區段還有 editor() 句子編輯器、applyPreset()、extra()（預設組合・鎖定版型・設定匯出入面板）===== */
+let mediaInfo=null,projInfo=null;
+const b64Of=buf=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>{const u=String(r.result);ok(u.slice(u.indexOf(",")+1))};r.onerror=()=>no(r.error);r.readAsDataURL(new Blob([buf]))});
+async function buildProject(){
+ const fonts=[];for(const[name,buf]of FONTBUF)if(FONTS[name])fonts.push({name,b64:await b64Of(buf)});
+ return{srt:srtText(),config:JSON.parse(JSON.stringify(CONFIG)),...(fonts.length?{fonts}:{}),...(mediaInfo?{media:{name:mediaInfo.name,video:!!mediaInfo.video}}:{})}}
+function projCmd(){   // 依目前畫面比例給建議解析度（短邊 1080）；離線渲染一律以此尺寸排版，比例要和預覽一致外觀才會一致
+ const a=CONFIG.aspect,st=$("#stage"),r=a==="9:16"?9/16:a==="16:9"?16/9:((document.body.style.getPropertyValue("--edh")?innerWidth/innerHeight:st.clientWidth/st.clientHeight)||16/9);
+ const W=r>=1?Math.round(1080*r/2)*2:1080,H=r>=1?1080:Math.round(1080/r/2)*2,q=f=>/[\s()&]/.test(f)?`"${f}"`:f;
+ const md=mediaInfo?` ${mediaInfo.video?"--video":"--audio"} ${q("input/"+mediaInfo.name)}`:"";
+ return{cmd:`node render/run.mjs --project input/project.json${md} --width ${W} --height ${H} --fps 30`,media:mediaInfo?mediaInfo.name:""}}
+async function exportProject(){
+ if(!subs.length){alert("沒有字幕可匯出，請先載入 SRT。");return null}
+ const pj=await buildProject(),blob=new Blob([JSON.stringify(pj)],{type:"application/json"});
+ dl(blob,"project.json");
+ projInfo={...projCmd(),fonts:(pj.fonts||[]).map(f=>f.name),mb:blob.size/1048576,subs:subs.length};return pj}
+function projBox(p){   // 回傳 fill()：依 projInfo 重畫提示框（panel() 重建時也會重畫）
+ const b=document.createElement("div");b.id="projbox";b.style.cssText="margin:6px 0;padding:8px;border:1px solid #456;border-radius:6px;font-size:12px;line-height:1.6;display:none";p.append(b);
+ const fill=()=>{if(!projInfo){b.style.display="none";return}const i=projInfo;b.style.display="block";b.innerHTML="";
+  const t=(x,css)=>{const d=document.createElement("div");d.textContent=x;if(css)d.style.cssText=css;b.append(d);return d};
+  t(`已下載 project.json（${i.subs} 句，${i.mb.toFixed(2)} MB${i.fonts.length?"，內含字體："+i.fonts.join("、"):"，沒有自訂字體"}）`);
+  t("放進專案的 input/ 資料夾後，在終端機執行：","opacity:.7;margin-top:4px");
+  t(i.cmd,"font-family:Consolas,Menlo,monospace;background:rgba(255,255,255,.08);padding:4px 6px;border-radius:4px;word-break:break-all;user-select:all").id="projcmd";
+  const cb=document.createElement("button");cb.textContent="複製指令";cb.onclick=()=>{try{navigator.clipboard.writeText(i.cmd);cb.textContent="已複製"}catch(e){}};b.append(cb);
+  t(i.media?`音樂／影片檔太大，不會包進 project.json：請把「${i.media}」放進 input/（檔名要和指令一致）。`:"音樂／影片檔太大，不會包進 project.json：若要配樂，把檔案放進 input/ 並在指令加上 --audio input/檔名（背景影片用 --video）。","margin-top:4px");
+  t("--width／--height 只是建議值（依目前畫面比例）；比例改了，版面就會和預覽不同。","opacity:.7");
+  t("離線後製（輝光 --glow、色差 --aberration、調色 --grade）只影響離線輸出的預覽 MP4，網頁預覽看不到；見 README。","opacity:.7")};
+ fill();return fill}
+function dl(b,n){const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=n;a.click()}
+const exportConfig=()=>dl(new Blob([JSON.stringify(CONFIG)],{type:"application/json"}),"lyrics_config.json");
+let projFill=()=>{};   /* projBox() 回傳的重畫函式（panel() 重建後指向新的提示框）；匯出後呼叫它更新提示 */
+async function exportProjectUI(){await exportProject();projFill()}
+function resetSettings(msg){if(confirm(msg||"清除已儲存的設定並重新載入頁面？")){try{localStorage.removeItem(LS_CFG)}catch(e){}location.reload()}}
+function editor(){let d=$("#edm");if(d){d.remove();edLayout();return}
+ d=document.createElement("div");d.id="edm";EDR.length=0;d.style.cssText="position:fixed;inset:auto 240px 0 0;height:46vh;background:rgba(10,12,20,.95);z-index:6;overflow:auto;padding:10px;font-size:12px";   /* 預設半高：上半部留給預覽，方便邊看邊調位置 */
+ const sel=(o,v,f)=>{const e=document.createElement("select");["",...o].forEach(x=>e.add(new Option(x||"（預設）",x)));e.value=v||"";e.onchange=()=>{f(e.value);cur=-2};return e};
+ {const h=document.createElement("div");h.style.cssText="opacity:.7;margin-bottom:6px";h.textContent="可用樣式（@，最多 3 個，逗號分隔）："+[...Object.keys(ST),...Object.keys(STC)].join("、");d.append(h)}
+ d.addEventListener("change",e=>{if(e.target.type==="checkbox"||e.target.dataset.nohist)return;pushHist()},true);   /* 捕獲階段：先存快照，再讓各欄位寫入，編輯器內的任何修改都能復原 */
+ {const bar=document.createElement("div");bar.style.cssText="position:sticky;top:-10px;z-index:2;background:rgba(10,12,20,.98);padding:6px 0;margin-bottom:6px;border-bottom:1px solid #3a4470;display:flex;flex-wrap:wrap;gap:6px;align-items:center";
+  const b=(t,f,c)=>{const e=document.createElement("button");e.textContent=t;e.onclick=f;if(c)e.className=c;bar.append(e);return e};
+  const setCk=fn=>{EDSEL.clear();subs.forEach((x,i)=>{if(fn(x,i))EDSEL.add(i);if(EDR[i])EDR[i].ck.checked=EDSEL.has(i)});cntUpd()};
+  b("切換高度",()=>{d.style.height=d.style.height!=="46vh"?"46vh":"calc(100vh - 48px)"});b("復原",undo,"hbU");b("重做",redo,"hbR");
+  b("全選",()=>setCk(()=>1));b("全不選",()=>setCk(()=>0));b("勾選同版型（以目前句）",()=>{const l=subs[selIdx]?layOf(subs[selIdx]):"";setCk(x=>layOf(x)===l)});
+  const ps=document.createElement("select");ps.dataset.nohist=1;ps.add(new Option("位置預設…",""));POSPRE.forEach(([v,t])=>ps.add(new Option(t,v)));bar.append(ps);
+  b("套用預設到勾選",()=>{if(!ps.value)return note("先選一個位置預設");applyTo((y,k)=>{y.pos=presetPos(ps.value,k);y.auto=false})});
+  b("把「目前這句」的位置套用到勾選",()=>{const src=subs[selIdx];if(!src)return;applyTo(y=>{y.pos=src.pos;if(y.pos)y.auto=false})});
+  b("清除勾選句子的位置",()=>applyTo(y=>{y.pos=""}));
+  const c=document.createElement("span");c.id="edcnt";c.style.opacity=".8";bar.append(c);
+  bar.append(Object.assign(document.createElement("div"),{textContent:"點左側句子＝跳到該句並暫停；勾選框可用 Shift 連選一段；位置欄與面板「這一句的位置」雙向同步",style:"opacity:.7;width:100%"}));d.append(bar);cntUpd();histBtn()}
+  subs.forEach((x,xi)=>{const r=document.createElement("div");r.style.cssText="display:flex;gap:6px;align-items:center;margin:4px 0";r.append(Object.assign(document.createElement("span"),{textContent:x.s.toFixed(1)+"s　"+x.raw.replace(/\s+/g," ").trim().slice(0,12),style:"width:150px;cursor:pointer;text-decoration:underline dotted",title:"點一下：跳到這句並暫停",onclick:()=>jumpTo(xi)}),
+  sel(LAYOUTS,x.lay,v=>{x.lay=v||"lowerleft";x.auto=!v}),sel(ENTERS,x.en,v=>{x.en=v;if(v)x.auto=false}),sel(EXITS,x.ex,v=>{x.ex=v;if(v)x.auto=false}),sel(Object.keys(FONTS),x.font,v=>x.font=v));
+  const f=document.createElement("input");f.placeholder="特效 float,shake";f.value=x.fx||"";f.onchange=()=>{x.fx=f.value;if(f.value)x.auto=false;cur=-2};
+   const sI=document.createElement("input");sI.placeholder="樣式 neon,outline";sI.value=x.st||"";sI.onchange=()=>{x.st=sI.value.replace(/\s/g,"");x.auto=false;cur=-2};
+   const scI=document.createElement("input");scI.placeholder="場景層 halftone:60,burst";scI.title="場景層（&）：名稱[:強度]，逗號分隔，最多 3 層；Ctrl+K 搜尋「場景層」可一鍵套用";scI.value=x.scene||"";scI.onchange=()=>{x.scene=scI.value.replace(/\s/g,"");cur=-2};
+   const bI=document.createElement("input");bI.placeholder="副文";bI.value=x.sub||"";bI.onchange=()=>{x.sub=bI.value;cur=-2};
+   const pp=(x.pos||"").split(":"),pS=document.createElement("select");[["","位置：跟隨全域"],["auto","位置：版型原位"],...Object.entries(ANCH).map(([k,v])=>[k,"位置："+v])].forEach(([v,t])=>pS.add(new Option(t,v)));pS.value=pp[0]||"";
+   const nI=(ph,v)=>{const i=document.createElement("input");Object.assign(i,{type:"number",placeholder:ph,title:ph+"（畫面寬/高的 %；相對這句的錨點，不再與全域微調相加）",value:v||"",step:.5,min:-100,max:100});i.style.width="54px";return i},pX=nI("X%",pp[1]),pY=nI("Y%",pp[2]);
+   const sp=()=>{const a=pS.value,xs=pX.value,ys=pY.value;x.pos=[a,...(xs!==""||ys!==""?[xs||0,ys||0]:[])].join(":");if(x.pos)x.auto=false;cur=-2;jumpTo(xi)};pS.onchange=pX.onchange=pY.onchange=sp;
+   const ck=document.createElement("input");ck.type="checkbox";ck.checked=EDSEL.has(xi);
+   ck.onclick=ev=>{const on=ck.checked;if(ev.shiftKey&&lastCk>=0){for(let i=Math.min(lastCk,xi);i<=Math.max(lastCk,xi);i++){on?EDSEL.add(i):EDSEL.delete(i);if(EDR[i])EDR[i].ck.checked=on}}else on?EDSEL.add(xi):EDSEL.delete(xi);lastCk=xi;cntUpd()};
+   EDR[xi]={pS,pX,pY,ck};r.append(f,sI,scI,bI,pS,pX,pY);r.prepend(ck);d.append(r)});
+ const b=document.createElement("button");b.textContent="匯出帶標記的 SRT";b.onclick=exportSRT;d.append(b);document.body.append(d);edLayout();edRO&&edRO.observe(d)}
+/* 句子編輯器 × 預覽並排：編輯器開著（且高度 ≤72% 視窗）時，把預覽縮進頂欄下方、編輯器上方；錄製／離線渲染時一律還原。
+   做法：在 body 設 --edt/--edh/--edr，CSS 的 #stage 與 applyStage() 依此計算可用區；沒設定時＝原本全視窗。 */
+const edRO=typeof ResizeObserver==="function"?new ResizeObserver(()=>edLayout()):null;
+function edLayout(){const d=$("#edm"),b=document.body,vs=["--edt","--edh","--edr"];
+ const on=!RENDER&&d&&!recording&&!b.classList.contains("rec")&&d.offsetHeight>0&&d.offsetHeight<=innerHeight*.72;
+ let g=$("#edgrip");
+ if(d&&!recording&&!b.classList.contains("rec")){if(!g){g=document.createElement("div");g.id="edgrip";g.title="拖曳調整預覽與編輯器的比例";document.body.append(g);
+   g.onpointerdown=e=>{e.preventDefault();g.setPointerCapture(e.pointerId);g.classList.add("drag");
+    const mv=ev=>{const ed=$("#edm");if(ed){ed.style.height=Math.round(Math.max(140,Math.min(Math.floor(innerHeight*.7),innerHeight-ev.clientY)))+"px";edLayout()}},
+     up=()=>{g.classList.remove("drag");g.removeEventListener("pointermove",mv);g.removeEventListener("pointerup",up)};g.addEventListener("pointermove",mv);g.addEventListener("pointerup",up)}}
+  g.style.bottom=(d.offsetHeight-4)+"px"}else if(g)g.remove();
+ const key=on?[$("#bar").offsetHeight,d.offsetHeight,innerWidth,innerHeight].join():"";
+ if(key===edLayout.k)return;edLayout.k=key;
+ if(on){b.style.setProperty("--edt",$("#bar").offsetHeight+"px");b.style.setProperty("--edh",d.offsetHeight+"px");b.style.setProperty("--edr","240px")}else vs.forEach(k=>b.style.removeProperty(k));
+ applyStage()}
+edLayout.k="";
+if(!RENDER){addEventListener("resize",()=>edLayout());new MutationObserver(()=>edLayout()).observe(document.body,{attributes:true,attributeFilter:["class"]})}   /* 視窗縮放、錄製開始／結束（body.rec）時重算 */
+$("#ed").onclick=editor;
+/* 套用預設組合：先把「氛圍類」欄位與位置還原成預設，再疊上組合內容。
+   文字縮放／文字陰影／鎖定版型是使用者常手調的欄位：只有「上一個套用的組合設過它」才還原，
+   否則保留使用者目前的值（CONFIG.presetName 記錄上一個組合，隨設定匯出入）。位置一律還原。 */
+const PRESET_KEEP={textScale:100,textShadow:false,lock:""};
+function applyPreset(name){
+ const P=PRESETS[name];if(!P)return false;const prev=PRESETS[CONFIG.presetName]||{},back={};
+ Object.keys(PRESET_KEEP).forEach(k=>{if(k in prev)back[k]=PRESET_KEEP[k]});
+ Object.assign(CONFIG,{bokeh:0,leak:0,lightning:0,scratch:0,crt:0,vhs:0,invBar:0,scan:0,grain:.05,pMode:"dots",tone:"",trans:"cut",kb:0,beatRot:0,particles:50,posAnchor:"",posX:0,posY:0,posSafe:6},back,P,{presetName:name});
+ perfPart=null;applyScene();css();cur=-2;save();panel();return true}
+function extra(p){secAnchor(p,"preset");
+ const mk=(t,f)=>{const b=document.createElement("button");b.textContent=t;b.onclick=f;p.append(b)};
+ const l=document.createElement("label");l.textContent="預設組合";const ps=document.createElement("select");ps.style.width="100%";ps.add(new Option("選擇…",""));Object.keys(PRESETS).forEach(k=>ps.add(new Option(k,k)));
+ ps.onchange=()=>applyPreset(ps.value);
+ const l2=document.createElement("label");l2.textContent="鎖定單一版型";const ls=document.createElement("select");ls.style.width="100%";ls.add(new Option("（不鎖定）",""));LAYOUTS.forEach(k=>ls.add(new Option(k,k)));ls.value=CONFIG.lock||"";ls.onchange=()=>{CONFIG.lock=ls.value;cur=-2;save()};
+ p.append(l,ps,l2,ls);emFontUI(p);
+ mk("清除瀏覽器記住的設定（恢復預設）",()=>resetSettings("會清除瀏覽器記住的所有設定（顏色、色彩、陰影…）並重新載入頁面；已上傳的字體不受影響。確定嗎？"));
+  secAnchor(p,"export");
+  mk("匯出設定 JSON",exportConfig);
+ mk("匯出渲染專案（project.json）",exportProjectUI);projFill=projBox(p);
+ const f=document.createElement("input");f.type="file";f.accept=".json";f.id="cfgImport";
+  f.onchange=async()=>{try{const J=JSON.parse(await txt(f.files[0]));
+   if(J&&typeof J==="object"&&J.config&&typeof J.config==="object"&&"srt" in J){   /* 渲染專案（project.json）：字幕＋設定＋字體一起還原 */
+    for(const ft of J.fonts||[]){try{const buf=await(await fetch("data:application/octet-stream;base64,"+(ft.b64||ft.data))).arrayBuffer();await addFont(ft.name,buf);idbPut(ft.name+".ttf",buf)}catch(e){console.error("字體還原失敗："+ft.name,e)}}
+    Object.assign(CONFIG,JSON.parse(JSON.stringify(CFG_DEFAULTS)),J.config);   /* 在字體載入之後套用，config.font 才會是最後的值 */
+    subs=parseSRT(J.srt==="@demo"?DEMO:String(J.srt||""));
+    let msg=`專案已還原：${subs.length} 句${J.fonts&&J.fonts.length?"，字體："+J.fonts.map(x=>x.name).join("、"):""}`;
+    if(J.media&&J.media.name&&!hasMedia){mediaInfo=J.media;msg+=`。音樂／影片不會存在專案裡，請再載入「${J.media.name}」`;alert(msg)}
+    css();cur=-2;save();panel();note(msg);return}
+   Object.assign(CONFIG,JSON.parse(JSON.stringify(CFG_DEFAULTS)),J);css();cur=-2;save();panel()}catch(e){alert("設定檔格式錯誤："+e.message)}};
+  const fl=document.createElement("label");fl.textContent="匯入設定 JSON 或渲染專案（project.json）";p.append(fl,f);
+}
+/* ===== [AMBIENT] Canvas 氛圍層（粒子/光暈/噪點/暗角）/ 音訊低頻偵測 / 效能自動降級；另含 applyScene、extra3()（錄製・比例・粒子・色彩・轉場・疊加層勾選面板）、PRESETS 補登 ===== */
+let ac=null,an=null,fb=null,lo=1,hi=4,bass=0,bAvg=0,lastHit=0,audioHit=false,abeat=0,flashT=0,ps=[],fpsN=0,fpsT=0;
+function initAudio(){ // audio 必須同時 connect 到 destination，錄製時才有聲音
+ if(ac){ac.state==="suspended"&&ac.resume();return}
+ try{ac=new AudioContext();const src=ac.createMediaElementSource(m);an=ac.createAnalyser();an.fftSize=1024;src.connect(an);an.connect(ac.destination);
+  fb=new Uint8Array(an.frequencyBinCount);const bw=ac.sampleRate/1024;lo=Math.max(1,Math.floor(40/bw));hi=Math.ceil(150/bw);ac.resume()}
+ catch(e){an=null;note("音訊分析初始化失敗："+e.message+"（節拍改用固定 BPM）")}}
+const cv=$("#cv"),cx=cv.getContext("2d"),cv2=$("#cv2"),c2=cv2.getContext("2d");let W=0,H=0,vig=null,scanP=null,noise=null;
+let perfLite=false,perfPart=null,warm=0;   /* perfPart：掉幀時的臨時粒子上限（不寫入 CONFIG / localStorage）；warm：暖機幀數 */ // 輕量模式：Canvas 以半解析度繪製、關閉噪點與發光濾鏡
+function sizeCv(){const q=perfLite?.5:1;W=SWd();H=SHd();cv.width=cv2.width=W*q;cv.height=cv2.height=H*q;cx.setTransform(q,0,0,q,0,0);c2.setTransform(q,0,0,q,0,0);vig=cx.createRadialGradient(W/2,H/2,H*.35,W/2,H/2,H*.95);vig.addColorStop(0,"rgba(0,0,0,0)");vig.addColorStop(1,"rgba(0,0,0,.95)")}
+addEventListener("resize",()=>{sizeCv();cur=-2});sizeCv();
+(()=>{const a=document.createElement("canvas");a.width=2;a.height=4;const c=a.getContext("2d");c.fillStyle="#000";c.fillRect(0,0,2,2);scanP=cx.createPattern(a,"repeat");
+ const n=document.createElement("canvas");n.width=n.height=128;const g=n.getContext("2d"),d=g.createImageData(128,128);for(let i=0;i<d.data.length;i+=4){const v=Math.random()*255;d.data[i]=d.data[i+1]=d.data[i+2]=v;d.data[i+3]=255}g.putImageData(d,0,0);noise=cx.createPattern(n,"repeat")})();
+const mkP=()=>({x:Math.random()*W,y:Math.random()*H,v:.2+Math.random()*.8,r:1+Math.random()*2.5,p:Math.random()*6.28});
+function audioStep(ts){an.getByteFrequencyData(fb);let sm=0;for(let i=lo;i<=hi;i++)sm+=fb[i];const b=sm/(hi-lo+1)/255;bass+=(b-bass)*.5;bAvg=bAvg*.96+b*.04;
+ if(playing&&b>bAvg*1.35&&b>.3&&ts-lastHit>260){lastHit=ts;audioHit=true}}
+function ambient(ts,dt){
+ if(an){audioStep(ts);
+  L.style.filter=perfLite?"":`drop-shadow(0 0 ${(bass*28).toFixed(1)}px var(--a))`}else bass*=.9;
+ // 效能自動降級：平均 fps < 50 時粒子數減 40%
+ if(!playing)warm=0;
+ if(playing&&dt<.5){if(warm<45)warm++;else{fpsN++;fpsT+=dt;if(fpsN>=90){const pc=perfPart==null?CONFIG.particles:perfPart;if(CONFIG.autoPerf&&fpsN/fpsT<50&&pc>10){perfPart=Math.floor(pc*.6);note("偵測到掉幀，已自動降低粒子數至 "+perfPart)}else if(CONFIG.autoPerf&&fpsN/fpsT<50&&!perfLite){perfLite=true;sizeCv();note("仍然掉幀，已切換為輕量模式（畫布半解析度、關閉噪點與發光）")}fpsN=fpsT=0}}}
+ cx.clearRect(0,0,W,H);
+ const R=CONFIG.accent,sp=1+bass*4,N=perfPart==null?CONFIG.particles:Math.min(CONFIG.particles,perfPart),md=CONFIG.pMode;
+ const g=cx.createRadialGradient(W/2,H/2,0,W/2,H/2,(.25+bass*.6)*H);if(CONFIG.glowAcc!==0){g.addColorStop(0,R+Math.round((CONFIG.glowAcc==null?25:+CONFIG.glowAcc)*2.55).toString(16).padStart(2,"0"));g.addColorStop(1,R+"00");cx.fillStyle=g;cx.fillRect(0,0,W,H)}
+ drawScenes("under",cx);
+ while(ps.length<N)ps.push(mkP());ps.length=Math.min(ps.length,N);
+ cx.strokeStyle="rgba(255,255,255,.4)";
+ for(const p of ps){
+  if(md==="dots"){p.y-=p.v*60*dt*sp;if(p.y<-5)p.y=H+5;cx.fillStyle="rgba(255,255,255,.45)";cx.beginPath();cx.arc(p.x,p.y,p.r,0,6.3);cx.fill()}
+  else if(md==="snow"){p.y+=p.v*50*dt*sp;p.x+=Math.sin(p.p+ts/1000)*20*dt;if(p.y>H+5)p.y=-5;cx.fillStyle="rgba(255,255,255,.8)";cx.beginPath();cx.arc(p.x,p.y,p.r,0,6.3);cx.fill()}
+  else if(md==="rain"){p.y+=p.v*900*dt;if(p.y>H+20){p.y=-20;p.x=Math.random()*W}cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(p.x-3,p.y+18);cx.stroke()}
+  else if(md==="sakura"){p.y+=p.v*60*dt*sp;p.x+=Math.sin(p.p+ts/900)*40*dt;if(p.y>H+10){p.y=-10;p.x=Math.random()*W}cx.fillStyle="#ffb3c7";cx.beginPath();cx.ellipse(p.x,p.y,p.r*2.4,p.r*1.3,p.p+ts/800,0,6.3);cx.fill()}
+  else{cx.fillStyle=`rgba(255,255,255,${.3+.7*Math.abs(Math.sin(p.p+ts/700))})`;cx.beginPath();cx.arc(p.x,p.y,p.r*.6,0,6.3);cx.fill()}}
+ if(CONFIG.scan>0){cx.globalAlpha=Math.min(1,CONFIG.scan*3);cx.fillStyle=scanP;cx.fillRect(0,0,W,H);cx.globalAlpha=1}
+ if(CONFIG.grain>0&&!perfLite){cx.save();cx.globalAlpha=CONFIG.grain;cx.globalCompositeOperation="overlay";cx.translate(Math.random()*128|0,Math.random()*128|0);cx.fillStyle=noise;cx.fillRect(-128,-128,W+128,H+128);cx.restore()}
+ if(CONFIG.vignette>0){cx.globalAlpha=CONFIG.vignette;cx.fillStyle=vig;cx.fillRect(0,0,W,H);cx.globalAlpha=1}
+ if(flashT>0){cx.fillStyle=`rgba(255,255,255,${flashT*.5})`;cx.fillRect(0,0,W,H);flashT-=dt*4}overlays(ts,dt);sceneOver();
+}
+function applyScene(){applyStage();toneCss();bgCss();guidesCss();document.body.classList.toggle("kb",!!CONFIG.kb)}
+function extra3(p){secAnchor(p,"scene");
+ const sel=(t,k,o)=>{const l=document.createElement("label");l.textContent=t;const e=document.createElement("select");e.style.width="100%";o.forEach(([a,v])=>e.add(new Option(a,v)));e.value=CONFIG[k];e.onchange=()=>{CONFIG[k]=e.value;save();applyScene()};p.append(l,e)};
+ sel("錄製幀率","recFps",[["60 fps","60"],["30 fps（較不吃效能）","30"]]);
+ sel("畫面比例","aspect",[["填滿視窗","fill"],["16:9","16:9"],["9:16 直式","9:16"]]);
+ sel("粒子樣式","pMode",[["光點上飄","dots"],["雪","snow"],["雨","rain"],["櫻花","sakura"],["星空","stars"]]);
+ sel("色彩","tone",[["原色",""],["黑白","grayscale(1)"],["復古褪色","sepia(.6) contrast(.9) saturate(.8)"],["冷色調","hue-rotate(-20deg) saturate(1.1)"],["暖色調","hue-rotate(25deg) saturate(1.2) sepia(.2)"]]);
+ sel("節拍來源","beatSrc",[["固定 BPM","bpm"],["音訊低頻偵測","audio"]]);
+ sel("句間轉場","trans",[["cut","cut"],["flash 閃白","flash"],["crossfade 淡入","crossfade"],["wipe 掃過","wipe"],["zoom-through 穿越","zoom"]]);
+ [["kb","緩慢推近 (Ken Burns)"],["autoPerf","掉幀時自動降級"],["recLite","錄製輕量模式（半解析度畫布、關噪點與發光）"],["bokeh","光斑 bokeh"],["leak","漏光"],["lightning","閃電"],["scratch","老電影刮痕"],["crt","CRT 畫素格與暗角"],["vhs","VHS 抖動與追蹤線"],["invBar","每小節首拍反相閃一下"]].forEach(([k,t])=>{const l=document.createElement("label");const c=document.createElement("input");c.type="checkbox";c.checked=!!CONFIG[k];c.onchange=()=>{CONFIG[k]=c.checked;save();applyScene()};l.append(c," "+t);p.append(l)});const rb=document.createElement("button");rb.textContent="重設所有設定";rb.onclick=()=>resetSettings();p.append(rb)}
+P.push(["particles","粒子數量",0,200,5],["scan","掃描線",0,.2,.01],["grain","噪點",0,.2,.01],["vignette","暗角",0,1,.05],["dim","背景暗度",0,90,5],["beatRot","隨拍旋轉(度)",0,3,.1]);
+Object.assign(PRESETS.櫻花日系,{pMode:"sakura",particles:40,tone:"sepia(.2) saturate(1.1)"});Object.assign(PRESETS.復古VHS,{scan:.12,grain:.12,tone:"sepia(.6) contrast(.9) saturate(.8)"});
+Object.assign(PRESETS.賽博龐克,{pMode:"rain",particles:60,scan:.08,trans:"flash"});Object.assign(PRESETS.強烈節奏,{beatRot:1.2,trans:"flash",particles:90});Object.assign(PRESETS.霓虹夜,{pMode:"stars",particles:80});
+css();
+/* ===== [OVERLAY] 句間轉場 transition() 與疊加層 overlays()（bokeh 漏光 閃電 刮痕 CRT VHS；第二層 Canvas，位於字幕之上）===== */
+["bokeh","leak","lightning","scratch","crt","vhs","invBar"].forEach(k=>{if(!(k in CONFIG))CONFIG[k]=false});
+let wipeT=0,bk=[],bolt=null,lt=0,jit=0,had=false;
+function transition(){const t=CONFIG.trans;
+ if(t==="flash")flashT=1;else if(t==="wipe")wipeT=1;
+ else if(t==="crossfade")L.animate([{opacity:0},{opacity:1}],{duration:450});
+ else if(t==="zoom")$("#pulse").animate([{transform:"scale(1.3)",filter:"blur(10px)"},{transform:"scale(1)",filter:"blur(0)"}],{duration:450,easing:"ease-out"})}
+const crtP=(()=>{const a=document.createElement("canvas");a.width=a.height=3;const c=a.getContext("2d");c.fillStyle="rgba(255,0,0,.1)";c.fillRect(0,0,1,3);c.fillStyle="rgba(0,255,0,.1)";c.fillRect(1,0,1,3);c.fillStyle="rgba(0,0,255,.1)";c.fillRect(2,0,1,3);c.fillStyle="rgba(0,0,0,.25)";c.fillRect(0,2,3,1);return c2.createPattern(a,"repeat")})();
+function overlays(ts,dt){
+ const o=CONFIG,pu=$("#pulse"),any=o.bokeh||o.leak||o.lightning||o.scratch||o.crt||o.vhs||wipeT>0;
+ if(!any){if(had){c2.clearRect(0,0,W,H);had=false}pu.style.translate="";return}
+ had=true;c2.clearRect(0,0,W,H);c2.globalCompositeOperation="lighter";
+ if(o.bokeh){if(!bk.length)for(let i=0;i<12;i++)bk.push({x:Math.random()*W,y:Math.random()*H,r:30+Math.random()*70,vx:(Math.random()-.5)*14,vy:(Math.random()-.5)*10,a:.06+Math.random()*.1});
+  bk.forEach(b=>{b.x=(b.x+b.vx*dt+W)%W;b.y=(b.y+b.vy*dt+H)%H;const g=c2.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);g.addColorStop(0,`rgba(255,255,255,${b.a+bass*.1})`);g.addColorStop(.8,`rgba(255,255,255,${b.a*.5})`);g.addColorStop(1,"rgba(255,255,255,0)");c2.fillStyle=g;c2.beginPath();c2.arc(b.x,b.y,b.r,0,6.3);c2.fill()})}
+ if(o.leak){const a=.14+.1*Math.sin(ts/1500)+bass*.2,g=c2.createLinearGradient(0,0,W*.45,0);g.addColorStop(0,`rgba(255,110,40,${a})`);g.addColorStop(1,"rgba(255,110,40,0)");c2.fillStyle=g;c2.fillRect(0,0,W,H);
+  const g2=c2.createRadialGradient(W,0,0,W,0,H*.7);g2.addColorStop(0,`rgba(255,200,120,${a*.8})`);g2.addColorStop(1,"rgba(255,200,120,0)");c2.fillStyle=g2;c2.fillRect(0,0,W,H)}
+ c2.globalCompositeOperation="source-over";
+ if(o.lightning){if(lt<=0&&Math.random()<.004){lt=1;let x=W*(.2+.6*Math.random()),y=0;bolt=[[x,y]];while(y<H*.7){y+=30;x+=(Math.random()-.5)*80;bolt.push([x,y])}}
+  if(lt>0){const al=lt*(Math.sin(lt*28)>-.3?1:.3);c2.fillStyle=`rgba(220,230,255,${al*.4})`;c2.fillRect(0,0,W,H);c2.strokeStyle=`rgba(255,255,255,${al})`;c2.lineWidth=3;c2.shadowColor="#9cf";c2.shadowBlur=20;c2.beginPath();bolt.forEach((p,i)=>i?c2.lineTo(p[0],p[1]):c2.moveTo(p[0],p[1]));c2.stroke();c2.shadowBlur=0;lt-=dt*3.5}}
+ if(o.scratch&&Math.random()<.35){c2.strokeStyle="rgba(255,255,255,.3)";c2.lineWidth=1;for(let i=0,n=1+Math.random()*3|0;i<n;i++){const x=Math.random()*W,y=Math.random()*H*.8;c2.beginPath();c2.moveTo(x,y);c2.lineTo(x+(Math.random()-.5)*6,y+H*(.1+Math.random()*.4));c2.stroke()}
+  for(let i=0;i<6;i++){c2.fillStyle="rgba(255,255,255,.4)";c2.fillRect(Math.random()*W,Math.random()*H,1+Math.random()*2,1+Math.random()*2)}}
+ if(o.crt){c2.fillStyle=crtP;c2.fillRect(0,0,W,H);const g=c2.createRadialGradient(W/2,H/2,H*.45,W/2,H/2,H*1.05);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(0,0,0,.75)");c2.fillStyle=g;c2.fillRect(0,0,W,H)}
+ if(o.vhs){if(Math.random()<.03)jit=(Math.random()-.5)*16;jit*=.8;pu.style.translate=`${jit.toFixed(1)}px 0`;
+  const y=(ts/5)%(H+120)-60;c2.fillStyle="rgba(255,255,255,.07)";c2.fillRect(0,y,W,26);
+  for(let i=0;i<8;i++){c2.fillStyle=`rgba(255,255,255,${.1+Math.random()*.2})`;c2.fillRect(Math.random()*W,y+Math.random()*26,40+Math.random()*200,1+Math.random()*2)}
+  for(let i=0;i<14;i++){c2.fillStyle=`rgba(255,255,255,${Math.random()*.3})`;c2.fillRect(Math.random()*W,H-28+Math.random()*28,20+Math.random()*120,1+Math.random()*2)}}
+ else pu.style.translate="";
+ if(wipeT>0){const x=(1-wipeT)*W*1.3-W*.15,g=c2.createLinearGradient(x-W*.08,0,x+W*.08,0);g.addColorStop(0,"rgba(255,255,255,0)");g.addColorStop(.5,"rgba(255,255,255,.7)");g.addColorStop(1,"rgba(255,255,255,0)");c2.fillStyle=g;c2.fillRect(x-W*.08,0,W*.16,H);wipeT-=dt*2.2}
+}
+Object.assign(PRESETS.復古VHS,{vhs:1,scratch:1,crt:1});Object.assign(PRESETS.賽博龐克,{crt:1,trans:"wipe"});Object.assign(PRESETS.櫻花日系,{leak:1,bokeh:1});Object.assign(PRESETS.動畫PV,{bokeh:1,trans:"crossfade"});Object.assign(PRESETS.遊戲PV,{lightning:1,trans:"zoom"});Object.assign(PRESETS.強烈節奏,{invBar:1});
+/* ===== [SCENE] 場景層（句子標記 &）：每句最多 CONFIG.sceneMax（預設 3）層 Canvas 2D 圖案，與版型獨立組合。
+   語法：#版型…@樣式&場景1:強度,場景2   強度 0–100（省略＝各場景預設）；未知名稱忽略並 console.warn；同類（grp 相同）互斥，後者取代前者。
+   layer："under"＝畫在 #cv（文字之下，氛圍層）、"over"＝畫在 #cv2（文字之上）。三種輸出模式（alpha／chroma／ambonly）由畫布 CSS 規則自動達成。
+   全部是「時間的純函數」：只用 t（本句已播秒數）、節拍相位與種子亂數 sr()，不用 Math.random、不累積狀態。顏色一律取 CONFIG.accent／color／ghostA／ghostB。
+   新增場景：regScene(名稱,層,同類群組,預設強度,(ctx,p)=>{…})；p＝{t,env,a,W,H,R,C,G1,G2,bp,lite,seed,r}，env＝淡入淡出包絡（用 globalAlpha 乘上去，見 al()）。 ===== */
+const SCENES={},SCENE_NAMES=[];
+function regScene(n,layer,grp,def,draw){SCENES[n]={layer,grp,def,draw};SCENE_NAMES.push(n)}
+function sceneList(sb){
+ const mx=Math.max(1,Math.round(+CONFIG.sceneMax||3)),key=sb.scene+"|"+mx;
+ if(sb._scK===key)return sb._sc;
+ const out=[];
+ (sb.scene||"").split(",").filter(Boolean).forEach(tok=>{
+  const q=tok.split(":"),n=q[0],S=SCENES[n];
+  if(!S){console.warn("[scene] 未知場景名稱，已忽略："+n);return}
+  const a=q[1]!==undefined&&q[1]!==""&&isFinite(+q[1])?Math.max(0,Math.min(100,+q[1])):S.def,i=out.findIndex(o=>SCENES[o.n].grp===S.grp);
+  if(i>=0)out.splice(i,1);out.push({n,amt:a})});
+ if(out.length>mx){console.warn("[scene] 單句最多 "+mx+" 層，已忽略多餘的");out.length=mx}
+ sb._scK=key;sb._sc=out;return out}
+const hashN=s=>{let h=7;for(const c of s)h=(h*31+c.charCodeAt(0))%100003;return h};
+function drawScenes(layer,ctx){
+ const sb=cur>=0&&subs[cur];if(!sb||!sb.scene)return false;
+ const L=sceneList(sb).filter(o=>SCENES[o.n].layer===layer);if(!L.length)return false;
+ const t=now(),ct=Math.max(0,t-sb.s),dur=sb.e-sb.s,ein=Math.max(.05,CONFIG.enter/(+CONFIG.speed||1)*tK),eout=Math.max(.05,CONFIG.exit*tK),
+  env=Math.max(0,Math.min(1,ct/ein,(dur-ct)/eout));
+ if(env<=0)return false;
+ const b=(t-CONFIG.offset)*CONFIG.bpm/60,ph=b-Math.floor(b),
+  P0={t:ct,env,W,H,R:CONFIG.accent,C:CONFIG.color,G1:CONFIG.ghostOn?CONFIG.ghostA:"#ff285a",G2:CONFIG.ghostOn?CONFIG.ghostB:"#00dcff",bp:b<0?0:Math.exp(-ph*5),lite:perfLite};
+ L.forEach(o=>{const seed=cur*17+hashN(o.n),p=Object.assign({},P0,{a:o.amt/100,seed,r:sr(seed/1000)});
+  ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";SCENES[o.n].draw(ctx,p);ctx.restore()});
+ return true}
+let scOv=false;
+function sceneOver(){   /* 文字之上的場景層：overlays() 這一幀若沒有清過 #cv2（had 為 false）就由這裡負責清 */
+ const sb=cur>=0&&subs[cur],want=!!(sb&&sb.scene&&sceneList(sb).some(o=>SCENES[o.n].layer==="over"));
+ if(!want){if(scOv&&!had)c2.clearRect(0,0,W,H);scOv=false;return}
+ if(!had)c2.clearRect(0,0,W,H);scOv=true;drawScenes("over",c2)}
+const al=(c,p,v)=>{c.globalAlpha=Math.max(0,Math.min(1,v*p.env))},PI=Math.PI,S=Math.sin;
+/* ---- 圖案（under）---- */
+regScene("halftone","under","pattern",60,(c,p)=>{   /* 半色調網點：斜向漸層＋緩慢波動，隨拍脹縮 */
+ const{W,H,t}=p,s=Math.max(10,Math.min(W,H)/(p.lite?14:24)),mx=s*.5*(.45+.55*p.a)*(1+.2*p.bp);c.fillStyle=p.R;al(c,p,.55);c.beginPath();
+ for(let j=0;j*s*.87<H+s;j++)for(let i=0;i*s<W+s;i++){const x=i*s+(j%2?s/2:0),y=j*s*.87,g=Math.max(0,Math.min(1,(x/W*.5+(1-y/H)*.5)*(.6+.4*S(t*.8+(x+y)/(W*.35)))*1.3)),r=mx*(.12+.88*g);c.moveTo(x+r,y);c.arc(x,y,r,0,PI*2)}
+ c.fill()});
+regScene("dots","under","pattern",50,(c,p)=>{   /* 點陣網：等大圓點緩慢漂移 */
+ const{W,H,t}=p,s=Math.min(W,H)/(p.lite?12:18),r=s*(.08+.14*p.a)*(1+.2*p.bp),o=(t*s*.25)%s;c.fillStyle=p.C;al(c,p,.45);c.beginPath();
+ for(let y=-s+o;y<H+s;y+=s)for(let x=-s+o;x<W+s;x+=s){c.moveTo(x+r,y);c.arc(x,y,r,0,PI*2)}c.fill()});
+regScene("checker","under","pattern",40,(c,p)=>{   /* 棋盤格 */
+ const{W,H,t}=p,s=Math.min(W,H)/7,o=(t*s*.3)%(s*2);c.fillStyle=p.R;al(c,p,.08+.22*p.a);
+ for(let j=-1;j*s<H+s;j++)for(let i=-2;i*s<W+s*2;i++)if((i+j)%2===0)c.fillRect(i*s+o,j*s,s,s)});
+regScene("burst","under","radial",50,(c,p)=>{   /* 放射線 */
+ const{W,H,t}=p,n=p.lite?24:48,x0=W/2,y0=H/2,R0=H*.1*(1+.25*p.bp),R1=Math.hypot(W,H)*.6;c.strokeStyle=p.C;c.lineWidth=Math.max(1,H*.003*(.5+p.a));al(c,p,.12+.4*p.a);c.beginPath();
+ for(let i=0;i<n;i++){const a=i*PI*2/n+t*.04,e=i%3===0?1:.7;c.moveTo(x0+Math.cos(a)*R0,y0+Math.sin(a)*R0);c.lineTo(x0+Math.cos(a)*R1*e,y0+Math.sin(a)*R1*e)}c.stroke()});
+regScene("radial-rects","under","radial",50,(c,p)=>{   /* 放射長方塊 */
+ const{W,H,t}=p,n=12,L=H*(.22+.12*p.bp)*(.6+.8*p.a),w=H*.025;c.fillStyle=p.R;al(c,p,.35);
+ for(let i=0;i<n;i++){c.save();c.translate(W/2,H/2);c.rotate(i*PI*2/n+t*.15);c.fillRect(H*.28,-w/2,L,w);c.restore()}});
+regScene("perspective-grid","under","grid",55,(c,p)=>{   /* 透視格線（地平線以下，向前捲動；線色向地平線漸隱） */
+ const{W,H,t}=p,hz=H*.52,m=10,f=(t*.35)%1,gr=c.createLinearGradient(0,hz,0,H);gr.addColorStop(0,p.R+"00");gr.addColorStop(1,p.R);
+ c.strokeStyle=gr;c.lineWidth=Math.max(1,H*.0025);al(c,p,.2+.6*p.a);c.beginPath();
+ for(let k=0;k<m;k++){const u=(k+f)/m,y=hz+(H-hz)*u*u;c.moveTo(0,y);c.lineTo(W,y)}
+ for(let i=-10;i<=10;i++){c.moveTo(W/2+i*W*.012,hz);c.lineTo(W/2+i*W*.16,H)}
+ c.stroke()});
+regScene("flow-lines","under","flow",50,(c,p)=>{   /* 流動曲線 */
+ const{W,H,t}=p,n=7;c.strokeStyle=p.R;c.lineWidth=Math.max(1,H*.003);
+ for(let k=0;k<n;k++){al(c,p,(.12+.3*p.a)*(1-k/(n+2)));c.beginPath();for(let x=0;x<=W;x+=W/(p.lite?30:60)){const y=H*(.25+.5*k/(n-1))+S(x/W*PI*2+t*(.6+k*.12)+k)*H*(.04+.04*p.a)*(1+.3*p.bp);x?c.lineTo(x,y):c.moveTo(x,y)}c.stroke()}});
+regScene("stripes","under","stripe",50,(c,p)=>{   /* 平行四邊形條紋（向右慢移） */
+ const{W,H,t}=p,sp=W/9,o=(t*sp*.3)%sp,sl=H*.45;c.fillStyle=p.R;al(c,p,.08+.3*p.a);
+ for(let x=-sp*2+o;x<W+sp;x+=sp){c.beginPath();c.moveTo(x,H);c.lineTo(x+sp*.38,H);c.lineTo(x+sp*.38+sl,0);c.lineTo(x+sl,0);c.closePath();c.fill()}});
+regScene("hatch","under","hatch",50,(c,p)=>{   /* 斜線填紋 */
+ const{W,H,t}=p,s=Math.max(8,H/(p.lite?30:45)),o=(t*s*.5)%s;c.strokeStyle=p.C;c.lineWidth=Math.max(1,H*.0025);al(c,p,.08+.3*p.a);c.beginPath();
+ for(let x=-H+o;x<W;x+=s){c.moveTo(x,H);c.lineTo(x+H,0)}c.stroke()});
+regScene("diag-split","under","split",50,(c,p)=>{   /* 斜切分割：一側染強調色 */
+ const{W,H,t}=p,d=S(t*.5)*W*.03,x1=W*.62+d,x2=W*.38+d;c.fillStyle=p.R;al(c,p,.1+.3*p.a);c.beginPath();c.moveTo(0,0);c.lineTo(x1,0);c.lineTo(x2,H);c.lineTo(0,H);c.closePath();c.fill();
+ c.strokeStyle=p.C;c.lineWidth=Math.max(1.5,H*.004);al(c,p,.5);c.beginPath();c.moveTo(x1,0);c.lineTo(x2,H);c.stroke()});
+regScene("blocks","under","blocks",45,(c,p)=>{   /* 背景色塊（種子位置，慢漂） */
+ const{W,H,t,r}=p;c.fillStyle=p.R;for(let i=0;i<6;i++){const w=W*(.15+r()*.3),h=H*(.15+r()*.4),x=r()*(W-w)+S(t*.2+i)*W*.02,y=r()*(H-h)+S(t*.23+i*2)*H*.02;al(c,p,(.05+.18*p.a)*(.6+.4*r()));c.fillRect(x,y,w,h)}});
+regScene("breathing-blocks","under","blocks",45,(c,p)=>{   /* 呼吸方塊格 */
+ const{W,H,t}=p,cn=8,s=W/cn,rn=Math.ceil(H/s);c.fillStyle=p.R;al(c,p,.1+.3*p.a);
+ for(let j=0;j<rn;j++)for(let i=0;i<cn;i++){const k=.35+.35*S(t*1.6+i*.7+j*.5)+.2*p.bp,z=s*k;c.fillRect(i*s+(s-z)/2,j*s+(s-z)/2,z,z)}});
+regScene("squares","under","squares",50,(c,p)=>{   /* 置中套疊方框 */
+ const{W,H,t}=p;c.strokeStyle=p.R;c.lineWidth=Math.max(1.5,H*.004);
+ for(let k=0;k<6;k++){c.save();c.translate(W/2,H/2);c.rotate((k%2?1:-1)*t*.08*(1+k*.2));al(c,p,(.15+.5*p.a)*(1-k/7));const z=H*(.16+k*.1)*(1+.05*p.bp);c.strokeRect(-z/2,-z/2,z,z);c.restore()}});
+regScene("glow-ring","under","ring",60,(c,p)=>{   /* 發光圓環 */
+ const{W,H}=p,r=H*.3*(1+.04*p.bp);c.strokeStyle=p.R;c.lineWidth=Math.max(2,H*.012);if(!p.lite){c.shadowColor=p.R;c.shadowBlur=H*.04}al(c,p,.35+.6*p.a);c.beginPath();c.arc(W/2,H/2,r,0,PI*2);c.stroke()});
+regScene("rings","under","ring",55,(c,p)=>{   /* 同心圓擴散 */
+ const{W,H,t}=p;c.strokeStyle=p.R;c.lineWidth=Math.max(1.5,H*.004);for(let k=0;k<5;k++){const u=(t*.22+k/5)%1;al(c,p,(1-u)*(.2+.6*p.a));c.beginPath();c.arc(W/2,H/2,u*H*.75,0,PI*2);c.stroke()}});
+regScene("pulse-circle","under","ring",50,(c,p)=>{   /* 隨拍脈動圓 */
+ const{W,H}=p,r=H*.2*(1+.35*p.bp);c.fillStyle=p.R;al(c,p,.12+.3*p.a);c.beginPath();c.arc(W/2,H/2,r,0,PI*2);c.fill()});
+/* ---- 覆蓋（over，文字之上）---- */
+regScene("glitch-bars","over","glitch",50,(c,p)=>{   /* 故障橫條：每 1/10 秒換一組（種子隨時間格） */
+ const{W,H,t}=p,r=sr(p.seed/1000+Math.floor(t*10)),n=3+Math.round(p.a*7);
+ for(let i=0;i<n;i++){const y=r()*H,h=H*(.004+r()*.03),x=r()*W*.5,w=W*(.2+r()*.6);c.fillStyle=[p.R,p.G1,p.G2][i%3];al(c,p,.25+.4*r());c.fillRect(x,y,w,h)}});
+regScene("guides","over","guide",50,(c,p)=>{   /* 構圖參考：三分線＋黃金螺旋 */
+ const{W,H}=p;c.strokeStyle=p.C;c.lineWidth=Math.max(1,H*.0025);al(c,p,.12+.3*p.a);c.beginPath();
+ for(const f of[1/3,2/3]){c.moveTo(W*f,0);c.lineTo(W*f,H);c.moveTo(0,H*f);c.lineTo(W,H*f)}c.stroke();
+ let w=Math.min(W*.86,H*.86*1.618),h=w/1.618,x=(W-w)/2,y=(H-h)/2;c.strokeStyle=p.R;al(c,p,.4+.5*p.a);c.lineWidth=Math.max(1.5,H*.004);c.beginPath();
+ for(let k=0;k<9;k++){const s=Math.min(w,h),m=k%4;
+  if(m===0){c.arc(x+s,y+s,s,PI,1.5*PI);x+=s;w-=s}else if(m===1){c.arc(x,y+s,s,1.5*PI,2*PI);y+=s;h-=s}else if(m===2){c.arc(x+w-s,y,s,0,.5*PI);w-=s}else{c.arc(x+s,y+h-s,s,.5*PI,PI);h-=s}}
+ c.stroke()});
+regScene("dashed-lines","over","dash",50,(c,p)=>{   /* 虛線參考線（虛線緩慢流動） */
+ const{W,H,t}=p,d=H*.02;c.strokeStyle=p.C;c.lineWidth=Math.max(1,H*.003);c.setLineDash([d,d]);c.lineDashOffset=-t*d*2;al(c,p,.2+.45*p.a);c.beginPath();
+ c.moveTo(W/2,0);c.lineTo(W/2,H);c.moveTo(0,H/2);c.lineTo(W,H/2);c.rect(W*.06,H*.08,W*.88,H*.84);c.stroke()});
+regScene("ruler","over","ruler",50,(c,p)=>{   /* 尺規刻度（上緣、左緣）＋移動指標 */
+ const{W,H,t}=p,s=Math.min(W,H)/40;c.strokeStyle=p.C;c.fillStyle=p.R;c.lineWidth=Math.max(1,H*.0022);al(c,p,.25+.5*p.a);c.beginPath();
+ for(let i=0,x=0;x<W;i++,x+=s){const l=i%5?s*.45:s*.9;c.moveTo(x,0);c.lineTo(x,l)}
+ for(let i=0,y=0;y<H;i++,y+=s){const l=i%5?s*.45:s*.9;c.moveTo(0,y);c.lineTo(l,y)}c.stroke();
+ const mx=(t*.12%1)*W;c.beginPath();c.moveTo(mx,s*1.1);c.lineTo(mx-s*.3,s*1.7);c.lineTo(mx+s*.3,s*1.7);c.closePath();c.fill()});
+regScene("target","over","target",50,(c,p)=>{   /* 瞄準框：圓環＋缺口十字＋旋轉四角 */
+ const{W,H,t}=p,x=W/2,y=H/2,r=H*.26*(1+.03*p.bp),g=r*.35;c.strokeStyle=p.R;c.lineWidth=Math.max(1.5,H*.004);al(c,p,.3+.6*p.a);c.beginPath();c.arc(x,y,r,0,PI*2);
+ c.moveTo(x-r*1.25,y);c.lineTo(x-g,y);c.moveTo(x+g,y);c.lineTo(x+r*1.25,y);c.moveTo(x,y-r*1.25);c.lineTo(x,y-g);c.moveTo(x,y+g);c.lineTo(x,y+r*1.25);c.stroke();
+ c.save();c.translate(x,y);c.rotate(t*.4);c.beginPath();for(let i=0;i<4;i++){c.rotate(PI/2);c.moveTo(r*1.1,-r*.12);c.lineTo(r*1.1,r*.12)}c.stroke();c.restore()});
+regScene("color-wash","over","wash",30,(c,p)=>{   /* 整面染色（強調色） */
+ c.fillStyle=p.R;al(c,p,.05+.4*p.a);c.fillRect(0,0,p.W,p.H)});
+regScene("gradient-fade","over","grad",50,(c,p)=>{   /* 底部漸層遮罩（強調色向上淡出） */
+ const g=c.createLinearGradient(0,p.H,0,p.H*.35);g.addColorStop(0,p.R);g.addColorStop(1,"rgba(0,0,0,0)");c.fillStyle=g;al(c,p,.15+.6*p.a);c.fillRect(0,0,p.W,p.H)});
+/* ===== [BEATFX] 節拍後製：震動／縮放／傾斜／色相（CONFIG.beatShake／beatZoom／beatTilt／beatHue，預設 0＝關）。
+   作用於 #stage 的獨立屬性 translate／scale／rotate，與色相走 CSS 變數 --bhue（併入 toneCss 的濾鏡，綠幕時自動關閉）。
+   時間純函數：只由 t、BPM、offset 與種子亂數 sr() 決定（不吃音訊節拍／不累積狀態），離線渲染與預覽一致；錄製時建議關閉色相（重濾鏡）。 ===== */
+let bfxOn=false;
+function beatFx(t){
+ const o=CONFIG,sh=+o.beatShake||0,zm=+o.beatZoom||0,tl=+o.beatTilt||0,hu=+o.beatHue||0,s=$("#stage").style;
+ if(!(sh||zm||tl||hu)){if(bfxOn){s.translate=s.scale=s.rotate="";document.documentElement.style.removeProperty("--bhue");bfxOn=false}return}
+ bfxOn=true;const b=(t-o.offset)*o.bpm/60,n=Math.floor(b),e=b<0?0:Math.exp(-(b-n)*6),rr=sr((n+.5)/1000),dx=rr()*2-1,dy=rr()*2-1,sg=n%2?1:-1;
+ s.translate=sh?`${(dx*sh*e).toFixed(3)}% ${(dy*sh*e).toFixed(3)}%`:"";
+ s.scale=(sh||zm)?String((1+2*sh/100+zm/100*e).toFixed(4)):"";
+ s.rotate=tl?`${(sg*tl*e).toFixed(3)}deg`:"";
+ document.documentElement.style.setProperty("--bhue",hu?`${(sg*hu*e).toFixed(2)}deg`:"0deg")}
+P.push(["beatShake","節拍震動 %",0,5,.1],["beatZoom","節拍縮放 %",0,10,.5],["beatTilt","節拍傾斜(度)",0,5,.1],["beatHue","節拍色相(度)",0,90,5],["sceneMax","每句場景層上限",1,5,1]);
+/* ===== [LAY-C] 版型 C：flash-words keyword trail text-mask danmaku longshadow bubble border-run blinds hanko ===== */
+Object.assign(NL,{
+ "flash-words"(sb,c,w,big,sm,dur){let t=sb.plain.split(/[\s，。、,.！!？?]+/).filter(Boolean);if(t.length<2){const ch=[...sb.plain];t=[];for(let i=0;i<ch.length;i+=2)t.push(ch.slice(i,i+2).join(""))}
+  const d=dur*900/t.length;t.forEach((x,i)=>{const e=CE(c,`font-size:${Math.min(big*1.4,SWd()/Math.max(x.length,1)*.8)}px;letter-spacing:.05em`);e.textContent=x;
+   A(e,[{opacity:0,transform:"scale(1.15)"},{opacity:1,transform:"scale(1)",offset:.05},{opacity:1,offset:.95},{opacity:0}],{duration:d,delay:i*d,easing:"linear"})})},
+ keyword(sb,c,w,big,sm){const e=txtEl("inset:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;padding:0 8cqw;letter-spacing:.3em");c.appendChild(e);let ks=0;
+  const parts=sb.raw.split(/(\{[^}]*\})/).filter(Boolean);if(!sb.br.length)parts.splice(0,1,`{${sb.raw.slice(0,2)}}`,sb.raw.slice(2));
+  parts.forEach(p=>{const k=/^\{/.test(p),t=k?p.slice(1,-1):p,sp=document.createElement("span");sp.textContent=t;sp.style.cssText=k?`font-size:${big*.8}px;color:var(--a);margin:0 1cqw;letter-spacing:0;display:inline-block`:`font-size:${big*.267}px;opacity:.75;white-space:pre-wrap`;e.appendChild(sp);
+   k?A(sp,[{opacity:0,transform:"scale(.4)"},{opacity:1,transform:"scale(1.12)",offset:.6},{opacity:1,transform:"scale(1)"}],{duration:D(),delay:(ks++)*200}):A(sp,[{opacity:0},{opacity:.75}],{duration:D()})})},
+ trail(sb,c,w,big){const z=fit(sb,big)*.8;for(let i=5;i>=0;i--){const e=CE(c,`font-size:${z}px;opacity:${i?.4/i:1}`);if(i)e.dataset.nm=1;e.textContent=sb.plain;A(e,[{translate:"-6cqw 0"},{translate:"6cqw 0"}],{duration:2400,delay:i*70,iterations:Infinity,direction:"alternate",easing:"ease-in-out",composite:"replace"})}},
+ "text-mask"(sb,c,w,big){const nn=Math.max(sb.plain.length,3),ln=Math.ceil(nn/18),e=CE(c,`font-size:${Math.min(big*.88,SWd()/(nn/ln)*.86,SHd()/ln*.8)}px;font-weight:900;letter-spacing:.05em;white-space:nowrap;background-image:linear-gradient(90deg,var(${sb.hl&&sb.hl.some(Boolean)?"--c":"--a"}),#fff,var(${sb.hl&&sb.hl.some(Boolean)?"--c":"--a"}));background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent`);if(sb.hl&&sb.hl.some(Boolean))hlText(e,sb,1);else e.textContent=sb.plain;
+  A(e,[{backgroundPosition:"0 0"},{backgroundPosition:"200% 0"}],{duration:5000,iterations:Infinity,easing:"linear"});enter(e,sb.en||"zoomin")},
+ danmaku(sb,c,w,big,sm,dur){[[22,1,1],[46,.7,.8],[70,.5,1.2]].forEach(([y,o,sp],i)=>{const e=txtEl(`left:0;top:${y}cqh;font-size:${sm*(2.2-i*.4)}px;white-space:nowrap;opacity:${o};letter-spacing:.2em`);e.textContent=sb.plain;c.appendChild(e);
+   A(e,[{translate:"105cqw 0"},{translate:"-110cqw 0"}],{duration:Math.max(dur*1000*.9/sp,1500),delay:i*dur*120,easing:"linear"})})},
+ longshadow(sb,c,w,big){const sh=Array.from({length:40},(_,i)=>`${i+1}px ${i+1}px 0 var(--a)`).join(",");const e=CE(c,`font-size:${fit(sb,big)*1.3}px;font-weight:900;letter-spacing:.05em;text-shadow:${sh}`);e.textContent=sb.plain;enter(e,sb.en||"zoomin")},
+ bubble(sb,c,w,big,sm){const e=CE(c,"");const b=document.createElement("div");b.style.cssText=`position:relative;background:#fff;color:#111;border-radius:3cqh;padding:3cqh 4cqw;font-size:${sm*2.2}px;letter-spacing:.15em;max-width:80cqw`;b.textContent=sb.plain;
+  const t=document.createElement("div");t.style.cssText="position:absolute;left:12%;bottom:-2cqh;width:4cqh;height:4cqh;background:#fff;transform:rotate(45deg)";b.appendChild(t);e.appendChild(b);
+  A(b,[{opacity:0,transform:"scale(.4,1.3)"},{opacity:1,transform:"scale(1.15,.88)",offset:.5},{transform:"scale(.97,1.04)",offset:.75},{transform:"scale(1)"}],{duration:D()})},
+ "border-run"(sb,c,w,big,sm,dur){const n="http://www.w3.org/2000/svg",sv=document.createElementNS(n,"svg");sv.setAttribute("viewBox","0 0 100 100");sv.setAttribute("preserveAspectRatio","none");sv.style.cssText="position:absolute;inset:6cqh 6cqw;width:88cqw;height:88cqh";
+  const r=document.createElementNS(n,"rect");[["x",0],["y",0],["width",100],["height",100],["fill","none"],["stroke","rgba(255,255,255,.8)"],["stroke-width",2],["pathLength",1],["stroke-dasharray",1],["vector-effect","non-scaling-stroke"]].forEach(([k,v])=>r.setAttribute(k,v));sv.appendChild(r);c.appendChild(sv);
+  A(r,[{strokeDashoffset:1},{strokeDashoffset:0}],{duration:D()*3,easing:"ease-in-out"});const e=CE(c,`font-size:${fit(sb,big)}px`);e.textContent=sb.plain;enter(e,sb.en||"fade")},
+ blinds(sb,c,w,big){const N=24,z=fit(sb,big);for(let i=0;i<N;i++){const e=CE(c,`font-size:${z}px;clip-path:inset(0 ${(1-(i+1)/N)*100}% 0 ${i/N*100}%)`);e.textContent=sb.plain;
+   A(e,[{opacity:0,translate:`0 ${i%2?10:-10}cqh`},{opacity:1,translate:"0 0"}],{duration:D(),delay:i*30})}},
+ hanko(sb,c,w,big,sm){const n=Math.max(1,[...sb.plain].length),fs=Math.min(sm*2.4,SHd()*.78/(n*1.5)),e=txtEl(`right:14cqw;top:10cqh;font-size:${fs}px;writing-mode:vertical-rl;letter-spacing:.5em`);e.textContent=sb.plain;c.appendChild(e);const o=$("#stage").getBoundingClientRect(),r0=e.getBoundingClientRect();enter(e,sb.en||"fade");
+  const sz=Math.max(fs*.9,SHd()*.05),st=document.createElement("div");st.dataset.pm=1;st.style.cssText=`position:absolute;left:${r0.left-o.left-sz-fs*.35}px;top:${r0.bottom-o.top-sz*1.1}px;width:${sz}px;height:${sz}px;background:#c0392b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:${sz*.56}px;font-family:${FONTS.明體}`;st.textContent=sb.br[0]||sb.plain[0];c.appendChild(st);
+  A(st,[{opacity:0,transform:"scale(2.2) rotate(-8deg)"},{opacity:.9,transform:"scale(1) rotate(-4deg)"}],{duration:300,delay:D(),easing:"cubic-bezier(.6,0,1,.6)"});
+  const ln=document.createElement("div");ln.className="ln";ln.style.cssText="position:absolute;right:10cqw;top:10cqh;width:2px;height:68cqh;transform-origin:top";c.appendChild(ln);A(ln,[{transform:"scaleY(0)"},{transform:"scaleY(1)"}],{duration:D()*2})}});
+LAYOUTS.push("flash-words","keyword","trail","text-mask","danmaku","longshadow","bubble","border-run","blinds","hanko");
+/* ===== [LAY-D] 版型 D：collage handwrite marker；停格抖動特效 stopmotion；種子亂數 sr()；並在區段末補登 center ripple-pool … annotate 等後段版型名稱到 LAYOUTS ===== */
+FONTS.手寫='"Segoe Script","Bradley Hand","Kaiti TC",BiauKai,DFKai-SB,"Comic Sans MS",cursive';
+const sr=q=>{let a=Math.floor(q*1000)+7;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}; // 以句子起點為種子，跳轉後排版不變
+Object.assign(NL,{
+ collage(sb,c,w,big){const r=sr(sb.s),fk=Object.values(FONTS),bg=[["#f4efe1","#111"],["#111","#f4efe1"],["#e63946","#fff"],["#ffd166","#111"],["transparent","#fff"]];
+  const e=txtEl("inset:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1cqh .6cqw;padding:0 8cqw;letter-spacing:0");c.appendChild(e);
+  const z=Math.min(big*.5,SWd()/Math.max(sb.plain.length,4)*.8);
+  [...sb.plain].forEach((ch,i)=>{if(/\s/.test(ch))return;const b=bg[r()*bg.length|0],sp=document.createElement("span");sp.textContent=ch;
+   sp.style.cssText=`display:inline-block;font-family:${fk[r()*fk.length|0]};font-size:${z*(.7+r()*.8)}px;padding:.08em .14em;background:${b[0]};color:${b[1]};rotate:${(r()-.5)*16}deg;translate:0 ${(r()-.5)*3}cqh;box-shadow:${b[0]==="transparent"?"none":"2px 3px 0 rgba(0,0,0,.4)"}`;
+   e.appendChild(sp);A(sp,[{opacity:0,transform:"scale(1.6)"},{opacity:1,transform:"scale(1)"}],{duration:140,delay:i*90,easing:"steps(2)"})})},
+ handwrite(sb,c,w,big,sm,dur){const r=sr(sb.s),z=Math.min(big*.7,SWd()/Math.max(sb.plain.length,4)*.85);
+  const e=txtEl(`inset:0;display:flex;align-items:center;justify-content:center;padding:0 6cqw;font-size:${z}px;letter-spacing:.08em`);e.style.fontFamily=(curFont||CONFIG.font!=="明體")?(FONTS[curFont||CONFIG.font]||FONTS.手寫):FONTS.手寫;   /* 有指定每句字體、或全域字體不是預設明體時，尊重使用者選擇；否則維持手寫（楷體）風 */
+  c.appendChild(e);
+  const l=chars(sb.plain,e),n=l.length,t=Math.min(dur*600/n,260);
+  l.forEach((x,i)=>{x.style.translate=`0 ${(r()-.5)*2}cqh`;x.style.rotate=`${(r()-.5)*5}deg`;A(x,[{clipPath:"inset(-10% 100% -10% 0)"},{clipPath:"inset(-10% 0 -10% 0)"}],{duration:t*1.4,delay:i*t,easing:"linear"})});
+  const ln=document.createElement("div");ln.style.cssText=`position:absolute;left:12cqw;right:12cqw;top:calc(50% + ${z*.75}px);height:3px;border-radius:2px;background:var(--a);transform-origin:left`;c.appendChild(ln);A(ln,[{transform:"scaleX(0)"},{transform:"scaleX(1)"}],{duration:n*t,easing:"linear"})},
+ marker(sb,c,w,big){const e=txtEl(`inset:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;padding:0 8cqw;font-size:${Math.min(big*.5,SWd()/Math.max(sb.plain.length,4)*.9)}px;letter-spacing:.12em;white-space:pre-wrap`);c.appendChild(e);
+  let parts=sb.raw.split(/(\{[^}]*\})/).filter(Boolean),k=0;if(!sb.br.length)parts=["{"+sb.raw+"}"];
+  parts.forEach(p=>{const kw=/^\{/.test(p),sp=document.createElement("span");sp.style.cssText="position:relative;display:inline-block";
+   if(kw){const hl=document.createElement("span");hl.style.cssText="position:absolute;left:-.1em;right:-.1em;top:48%;bottom:2%;background:var(--a);opacity:.55;transform-origin:left";sp.appendChild(hl);
+    A(hl,[{transform:"skewX(-8deg) scaleX(0)"},{transform:"skewX(-8deg) scaleX(1)"}],{duration:D()*.8,delay:D()+(k++)*250,easing:"cubic-bezier(.7,0,.3,1)"})}
+   const tx=document.createElement("span");tx.style.position="relative";tx.textContent=kw?p.slice(1,-1):p;sp.appendChild(tx);e.appendChild(sp);A(sp,[{opacity:0},{opacity:1}],{duration:D()})})}});
+FXH.stopmotion=fw=>A(fw,[{translate:"0 0",rotate:"0deg"},{translate:"2px 1px",rotate:".6deg"},{translate:"-1px 2px",rotate:"-.5deg"},{translate:"1px -2px",rotate:".3deg"}],{duration:400,iterations:Infinity,easing:"steps(3)"});
+LAYOUTS.push("collage","handwrite","marker");FXS.push("stopmotion");
+LAYOUTS.push("center","ripple-pool","constellation","particle-form","hud-frame","parallax-depth","polaroid","page-flip","ink-bleed","laser-scan","split-flap","wave-path","mirror-reflect","cylinder","iris-frame","annotate");ENTERS.push("iris");
+/* ===== [STYLE] 文字樣式（@）ST / STC / applyStyles、副文（||）addSub。全部以時間驅動（A() 暫停動畫 + 種子亂數），離線渲染可重現 ===== */
+const tEls=c=>[...c.querySelectorAll("[data-t]")];
+const isV=e=>/^vertical/.test(e.style.writingMode||"");
+const charify=c=>{tEls(c).forEach(e=>{if(!isV(e)&&!e.querySelector(".ch")&&!e.children.length&&e.textContent.trim()){const t=e.textContent;e.textContent="";chars(t,e)}});return[...c.querySelectorAll(".ch")]};
+const addSh=(e,s)=>{e.style.textShadow=[e.style.textShadow,s].filter(Boolean).join(",")};
+const ST={
+ neon:e=>addSh(e,"0 0 .06em #fff,0 0 .3em var(--a),0 0 .7em var(--a),0 0 1.4em var(--a)"),
+ "glow-soft":e=>addSh(e,"0 0 .3em rgba(255,255,255,.45),0 0 .9em color-mix(in srgb,var(--a) 70%,transparent)"),
+ chromatic:e=>addSh(e,CONFIG.ghostOn?`-.04em 0 color-mix(in srgb,${hex6(CONFIG.ghostA,"#ff285a")} 85%,transparent),.04em 0 color-mix(in srgb,${hex6(CONFIG.ghostB,"#00dcff")} 85%,transparent)`:"-.04em 0 rgba(255,40,90,.85),.04em 0 rgba(0,220,255,.85)"),
+ longshadow:e=>addSh(e,Array.from({length:30},(_,i)=>`${(i+1)*.022}em ${(i+1)*.022}em 0 color-mix(in srgb,var(--a) 55%,#000)`).join(",")),
+ trail:e=>addSh(e,Array.from({length:8},(_,i)=>`${-(i+1)*.05}em 0 ${(i+1)*.012}em rgba(255,255,255,${(.34-i*.04).toFixed(2)})`).join(",")),
+ outline:e=>{e.style.color="transparent";e.style.webkitTextStroke=".04em var(--c)"},
+ stamp:e=>Object.assign(e.style,{border:".07em solid var(--a)",color:"var(--a)",padding:".08em .3em",width:"fit-content",marginInline:"auto",rotate:"-4deg",borderRadius:".1em"})
+};
+const STC={
+ gradient:c=>{tEls(c).filter(isV).forEach(e=>{e.style.background="linear-gradient(180deg,var(--c),var(--a))";e.style.webkitBackgroundClip=e.style.backgroundClip="text";e.style.color="transparent"});const ch=charify(c),n=Math.max(1,ch.length-1);ch.forEach((x,i)=>{x.style.color=`color-mix(in srgb,var(--c) ${Math.round(100-i/n*100)}%,var(--a))`})},
+ karaoke:(c,sb,dur)=>{tEls(c).filter(isV).forEach(e=>{e.style.background="linear-gradient(180deg,#fff 50%,rgba(255,255,255,.3) 50%)";e.style.backgroundSize="100% 200%";e.style.webkitBackgroundClip=e.style.backgroundClip="text";e.style.color="transparent";A(e,[{backgroundPosition:"0 100%"},{backgroundPosition:"0 0"}],{duration:dur*1000,easing:"linear"})});const ch=charify(c),n=Math.max(1,ch.length),t=dur*1000/n;ch.forEach((x,i)=>{x.style.color="rgba(255,255,255,.3)";A(x,[{color:"rgba(255,255,255,.3)"},{color:"#fff",textShadow:"0 0 .4em var(--a)"}],{duration:t,delay:i*t,easing:"linear"})})},
+ glitch:c=>{const b="drop-shadow(-.04em 0 rgba(255,40,90,.85)) drop-shadow(.04em 0 rgba(0,220,255,.85))",s="steps(1,end)";
+  tEls(c).forEach((e,i)=>A(e,[{translate:"0 0",filter:"none",easing:s},{translate:".02em 0",filter:b,offset:.06,easing:s},{translate:"-.03em .01em",filter:b,offset:.09,easing:s},{translate:"0 0",filter:"none",offset:.12,easing:s},{translate:"-.015em 0",filter:b,offset:.56,easing:s},{translate:"0 0",filter:"none",offset:.59}],{duration:1800+i*230,iterations:Infinity}))}
+};
+function applyStyles(c,sb,dur){
+ let st=(sb.st||"").split(",").filter(x=>ST[x]||STC[x]);
+ if(st.length>3){note("單句最多同時 3 個樣式，已忽略多餘的");st=st.slice(0,3)}
+ if(st.includes("karaoke")&&st.includes("gradient"))note("karaoke 與 gradient 同時使用會搶同一個顏色，以 karaoke 為準");
+ st.sort((a,b)=>(a==="karaoke")-(b==="karaoke"));
+ st.forEach(k=>{if(ST[k])tEls(c).forEach(e=>ST[k](e));else STC[k](c,sb,dur)})}
+function addSub(sb,c,small,left){
+ if(!sb.sub)return;
+ const e=txtEl(`${left?"left:6cqw;bottom:6.5cqh;":"left:0;right:0;bottom:6cqh;text-align:center;padding-left:.55em;"}font-size:${small*.62}px;letter-spacing:.55em;font-weight:300;white-space:pre-wrap`);
+ delete e.dataset.t;e.textContent=sb.sub;c.appendChild(e);A(e,[{opacity:0},{opacity:.6}],{duration:D()*1.4,delay:D()*.6})}
+/* ===== [POS] 位置：九宮格錨點 + XY 微調（全域設定，單句可用 ^ 覆蓋錨點；全域 X/Y 微調會疊加在句子的 ^位置:X:Y 之上）；resolvePos / groupRect / placePos =====
+   做法：先量出文字實際範圍（版型穩定狀態），再把「文字（含副文預留高度）」整塊對齊到錨點，最後用 translate 平移整層。
+   未設定位置時完全不介入（不建立外層、不量測），舊 SRT 外觀不變。 */
+const FULLBLEED=new Set(["hud-frame","laser-scan","iris-frame","marquee","danmaku","border-run","zoom-tunnel"]); // 滿版效果：忽略位置
+const ANCH={tl:"左上",tc:"上中",tr:"右上",ml:"左中",mc:"正中",mr:"右中",bl:"左下",bc:"下中",br:"右下"};
+function resolvePos(sb){
+ let a=CONFIG.posAnchor||"",x=+CONFIG.posX||0,y=+CONFIG.posY||0;
+ /* 句子自己有位置（^錨點:X:Y）時完全以它為準，不再疊加全域微調：X／Y＝相對「錨點」（auto＝版型原位）的偏移 %。
+    錨點留空（^:X:Y）＝沿用全域錨點；沒有位置標記的句子才跟隨全域錨點與全域微調 */
+ if(sb.pos){const q=sb.pos.split(":");a=q[0]==="auto"?"":ANCH[q[0]]?q[0]:a;x=+q[1]||0;y=+q[2]||0}
+ if(!ANCH[a])a="";
+ return(a||x||y)?{a,x,y}:null}
+const rangeRect=e=>{const r=document.createRange();r.selectNodeContents(e);return r.getBoundingClientRect()};
+/* 子元素外框聯集：用在「內容會被 overflow:hidden 裁切」的版型（split-flap 的字柱遠高於可見磚塊），避免 Range 把被裁掉的部分也算進範圍 */
+const childRect=e=>{let l=1e9,t=1e9,r=-1e9,b=-1e9;[...e.children].forEach(c=>{const q=c.getBoundingClientRect();if(q.width<.5||q.height<.5)return;l=Math.min(l,q.left);t=Math.min(t,q.top);r=Math.max(r,q.right);b=Math.max(b,q.bottom)});return l<r?{left:l,top:t,right:r,bottom:b,width:r-l,height:b-t}:{left:0,top:0,right:0,bottom:0,width:0,height:0}};
+/* 一句版面的實際範圍（相對舞台）：主文 + 裝飾線；有底色／邊框的元素取外框（例如 subtitle-box 的黑條），其餘取文字範圍。不含副文 */
+function groupRect(root){
+ const o=$("#stage").getBoundingClientRect();let l=1e9,t=1e9,r=-1e9,b=-1e9;
+ root.querySelectorAll("[data-t],[data-pm],.ln").forEach(e=>{if(e.closest("[data-nm]"))return;
+  const cs=getComputedStyle(e),bg=cs.backgroundColor,box=e.classList.contains("ln")||(bg!=="rgba(0, 0, 0, 0)"&&bg!=="transparent")||(cs.backgroundImage!=="none"&&!/text/.test(cs.webkitBackgroundClip||cs.backgroundClip||""))||parseFloat(cs.borderTopWidth)>0;
+  const q=box?e.getBoundingClientRect():e.hasAttribute("data-rg")?childRect(e):rangeRect(e);if(q.width<.5||q.height<.5)return;
+  l=Math.min(l,q.left-o.left);t=Math.min(t,q.top-o.top);r=Math.max(r,q.right-o.left);b=Math.max(b,q.bottom-o.top)});
+ return l<r&&t<b?{l,t,r,b}:null}
+function placePos(PS,sb,host,fw,content,small){
+ const vw=SWd(),vh=SHd();
+ // 量測時把所有動畫停在「進場完成、退場未開始」的穩定時刻，量完還原
+ const T0=Math.max(0,(sb.e-sb.s)*1000-CONFIG.exit*1000*tK-1);
+ anims.forEach(a=>{try{a.currentTime=T0}catch(e){}});
+ const G=groupRect(content);
+ anims.forEach(a=>{try{a.currentTime=0}catch(e){}});
+ if(!G)return false;
+ const{l,t:tp,r,b}=G;
+ if(!(l<r&&tp<b))return false;
+ const fs=small*.62,sub=sb.sub||"",gap=fs*.9;let subH=0;
+ if(sub){const per=Math.max(1,Math.floor(vw*.9/(fs*1.55)));subH=sub.split("\n").reduce((n,x)=>n+Math.max(1,Math.ceil([...x].length/per)),0)*fs*1.4+gap}
+ const U={l,t:tp,r,b:b+subH},uw=U.r-U.l,uh=U.b-U.t,sf=(CONFIG.posSafe==null?6:+CONFIG.posSafe)/100,mx=sf*vw,my=sf*vh;
+ let dx=0,dy=0;
+ if(PS.a){const rw=PS.a[0],cl=PS.a[1];
+  const tx=uw>vw-2*mx?(vw-uw)/2:cl==="l"?mx:cl==="r"?vw-mx-uw:(vw-uw)/2,
+        ty=uh>vh-2*my?(vh-uh)/2:rw==="t"?my:rw==="b"?vh-my-uh:(vh-uh)/2;
+  dx=tx-U.l;dy=ty-U.t}
+ dx+=PS.x/100*vw;dy+=PS.y/100*vh;
+ const ex=vw*.015,ey=vh*.015; // 微調不可把內容推出畫面；本身就比畫面大的方向不夾（例如 split）
+ if(uw<=vw-2*ex)dx=Math.min(Math.max(dx,ex-U.l),vw-ex-uw-U.l);
+ if(uh<=vh-2*ey)dy=Math.min(Math.max(dy,ey-U.t),vh-ey-uh-U.t);
+ host.style.translate=`${dx.toFixed(2)}px ${dy.toFixed(2)}px`;
+ if(sub){ // 副文貼在主文下緣，不隨 translate 走，位置另外算
+  const col=PS.a?PS.a[1]:"c",mL=l+dx,mR=r+dx,mB=b+dy;
+  const e=txtEl(`top:${(mB+gap).toFixed(1)}px;left:0;width:max-content;max-width:${(vw*.9).toFixed(0)}px;text-align:${col==="l"?"left":col==="r"?"right":"center"};${col==="c"?"padding-left:.55em;":""}font-size:${fs}px;letter-spacing:.55em;font-weight:300;white-space:pre-wrap`);
+  delete e.dataset.t;e.textContent=sub;fw.appendChild(e);
+  const wd=e.getBoundingClientRect().width,want=col==="l"?mL:col==="r"?mR-wd:(mL+mR)/2-wd/2;
+  e.style.left=Math.min(Math.max(want,ex),Math.max(ex,vw-ex-wd)).toFixed(1)+"px";
+  A(e,[{opacity:0},{opacity:.6}],{duration:D()*1.4,delay:D()*.6})}
+ return true}
+const beatMs=()=>60000/CONFIG.bpm,beatPh=sb=>{const p=beatMs();let ph=((CONFIG.offset-sb.s)*1000)%p;return ph<0?ph+p:ph};
+
+/* ===== [WATER] 水波折射（WebGL2：initWater / waterText / waterGL，供 ripple-pool 使用）：文字畫到離屏 2D Canvas 當貼圖，fragment shader 依「時間」算出水波高度場並位移取樣。
+   純時間函數（無累積狀態）；共用單一 canvas / context；不可用時回傳 false，由呼叫端改用 DOM 簡化版 ===== */
+let WATER;
+function initWater(){if(WATER!==undefined)return WATER;WATER=null;
+ try{const cv=document.createElement("canvas"),gl=cv.getContext("webgl2",{alpha:true,premultipliedAlpha:true,preserveDrawingBuffer:true,antialias:false});if(!gl)return WATER;
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(o));return o};
+  const pr=gl.createProgram();
+  gl.attachShader(pr,sh(gl.VERTEX_SHADER,"#version 300 es\nin vec2 p;out vec2 uv;void main(){uv=p*.5+.5;gl_Position=vec4(p,0.,1.);}"));
+  gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,`#version 300 es
+precision highp float;in vec2 uv;out vec4 o;
+uniform sampler2D tx;uniform vec2 res;uniform float t,per,ph,pulse,alpha,disp;uniform vec3 ac;
+void main(){
+ vec2 px=uv*res,d=px-res*.5;float r=length(d);vec2 dir=r>.001?d/r:vec2(0.);
+ float life=per*5.,w=res.y*.05,dmax=min(res.x,res.y)*.475,grad=0.,crest=0.;
+ for(int i=0;i<7;i++){
+  float te=ph+(floor((t-ph)/per)-float(i))*per,age=t-te;
+  if(age<0.||age>life)continue;
+  float u=age/life,R=dmax*(1.-pow(1.-u,2.2)),x=(r-R)/w,am=(1.-u)*(1.-u),g=exp(-x*x);
+  grad+=am*g*(-3.14159*sin(3.14159*x)-2.*x*cos(3.14159*x));
+  crest+=am*g;
+ }
+ vec2 q=(uv-.5)/(1.+.035*pulse)+.5;
+ vec2 q2=q-dir*grad*disp/res;
+ vec4 tc=texture(tx,q2)*alpha;
+ float ra=clamp(crest*.55,0.,1.)*alpha;
+ vec4 rg=vec4(mix(vec3(.8,.9,1.),ac,.4)*ra,ra);
+ o=tc+rg*(1.-tc.a);
+}`));
+  gl.bindAttribLocation(pr,0,"p");gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(pr));
+  const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+  const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);[[gl.TEXTURE_MIN_FILTER,gl.LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]].forEach(([a,b])=>gl.texParameteri(gl.TEXTURE_2D,a,b));
+  const u={};["tx","res","t","per","ph","pulse","alpha","disp","ac"].forEach(n=>u[n]=gl.getUniformLocation(pr,n));
+  WATER={cv,gl,pr,tex,u}}catch(e){console.warn("WebGL2 不可用，水波折射改用簡化版：",e.message);WATER=null}
+ return WATER}
+function waterText(sb,z,W,H){const cv=document.createElement("canvas");cv.width=W;cv.height=H;const g=cv.getContext("2d"),st=(sb.st||"").split(","),
+  rs=getComputedStyle(document.documentElement),col=rs.getPropertyValue("--c").trim()||"#fff",acc=rs.getPropertyValue("--a").trim()||"#7aa8ff",x=W/2+z*.06,y=H/2,t=sb.plain;
+ g.font=`${CONFIG.weight} ${z}px ${FONTS[curFont||CONFIG.font]||CONFIG.font}`;g.textAlign="center";g.textBaseline="middle";if("letterSpacing"in g)g.letterSpacing=`${z*.12}px`;
+ if(st.includes("longshadow")){g.fillStyle="#2b3f66";for(let i=30;i>=1;i--)g.fillText(t,x+i*.022*z,y+i*.022*z)}
+ if(st.includes("chromatic")){g.fillStyle="rgba(255,40,90,.85)";g.fillText(t,x-.04*z,y);g.fillStyle="rgba(0,220,255,.85)";g.fillText(t,x+.04*z,y)}
+ if((st.includes("neon")||st.includes("glow-soft"))&&!isChroma()){g.shadowColor=acc;g.shadowBlur=z*(st.includes("neon")?.5:.3)}
+ if(st.includes("gradient")){const gr=g.createLinearGradient(x-W*.2,0,x+W*.2,0);gr.addColorStop(0,col);gr.addColorStop(1,acc);g.fillStyle=gr}else g.fillStyle=col;
+ if(st.includes("outline")){g.strokeStyle=col;g.lineWidth=z*.04;g.strokeText(t,x,y)}
+ else if(sb.hl&&sb.hl.some(Boolean)){const P=[...t];g.textAlign="left";const x0=x-g.measureText(t).width/2;P.forEach((ch,i)=>{const px=x0+g.measureText(P.slice(0,i).join("")).width;g.save();if(sb.hl[i]){g.fillStyle=acc;g.shadowColor=acc;g.shadowBlur=z*.35}g.fillText(ch,px,y);g.restore()})}
+ else g.fillText(t,x,y);
+ return cv}
+function waterGL(sb,c,z,p,ph){
+ if(CONFIG.waterRefract===false||perfLite||isChroma())return false;const Wt=initWater();if(!Wt)return false;
+ const {cv,gl,pr,tex,u}=Wt,W=SWd(),H=SHd();if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
+ cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;pointer-events:none";c.appendChild(cv);
+ const rs=getComputedStyle(document.documentElement).getPropertyValue("--a").trim()||"#7aa8ff",m=/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(rs),ac=m?[1,2,3].map(i=>parseInt(m[i],16)/255):[.48,.66,1];
+ gl.bindTexture(gl.TEXTURE_2D,tex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,waterText(sb,z,W,H));
+ const per=p/1000,ph0=ph/1000,dur0=Math.max(.05,D()/1000);
+ TICKS.push(t=>{const ct=Math.max(0,t-sb.s);gl.viewport(0,0,W,H);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.useProgram(pr);gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.uniform1i(u.tx,0);gl.uniform2f(u.res,W,H);gl.uniform1f(u.t,ct);gl.uniform1f(u.per,per);gl.uniform1f(u.ph,ph0);
+  gl.uniform1f(u.pulse,Math.exp(-(((ct-ph0)%per+per)%per)/per*7));gl.uniform1f(u.alpha,Math.min(1,ct/dur0));gl.uniform1f(u.disp,H*.0042);gl.uniform3f(u.ac,ac[0],ac[1],ac[2]);
+  gl.drawArrays(gl.TRIANGLES,0,3)});
+ return true}
+/* ===== [LAY-E] 版型 E：center ripple-pool constellation particle-form hud-frame parallax-depth（輔助 reel 供 hud-frame 用；ripple-pool 的 WebGL 部分在上方 [WATER]）===== */
+const reel=(items,css,ms,iter)=>{const h=txtEl(css+";height:1.25em;line-height:1.25em;overflow:hidden;white-space:pre;letter-spacing:.08em;font-family:ui-monospace,Consolas,'Courier New',monospace");delete h.dataset.t;
+ const col=document.createElement("div");items.forEach(t=>{const r=document.createElement("div");r.textContent=t;col.appendChild(r)});h.appendChild(col);
+ A(col,[{translate:"0 0"},{translate:`0 ${-(items.length-1)*1.25}em`}],{duration:ms,easing:`steps(${Math.max(1,items.length-1)},end)`,iterations:iter||1});return h};
+Object.assign(NL,{
+ center(sb,c,w,big,sm,dur,list){const z=Math.min(big*.55,SWd()/Math.max(sb.plain.length,3)*.9);
+  const e=txtEl(`left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:${z}px;letter-spacing:.15em;padding-left:.15em`);c.appendChild(e);
+  list.push(...chars(sb.plain,e));if(sb.en)enter(e,sb.en,list)},
+ "ripple-pool"(sb,c,w,big,sm,dur,list){const p=beatMs(),ph=beatPh(sb),z=Math.min(big*.55,SWd()/Math.max(sb.plain.length,3)*.85);
+  if(waterGL(sb,c,z,p,ph)){const pm=txtEl(`left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:${z}px;letter-spacing:.12em;padding-left:.12em;visibility:hidden;pointer-events:none`);delete pm.dataset.t;pm.dataset.pm=1;pm.textContent=sb.plain;c.appendChild(pm);return}
+  for(let i=0;i<5;i++){const r=document.createElement("div");
+   r.style.cssText="position:absolute;left:50%;top:50%;translate:-50% -50%;width:min(95cqw,95cqh);height:min(95cqw,95cqh);border-radius:50%;border:max(2px,.25cqh) solid rgba(255,255,255,.8);box-shadow:0 0 2cqh color-mix(in srgb,var(--a) 55%,transparent),inset 0 0 2cqh color-mix(in srgb,var(--a) 25%,transparent);pointer-events:none";
+   c.appendChild(r);A(r,[{scale:0,opacity:.85},{scale:1,opacity:0}],{duration:p*5,delay:ph-i*p,iterations:Infinity,easing:"cubic-bezier(.2,.6,.3,1)"})}
+  const e=txtEl(`left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:${z}px;letter-spacing:.12em;padding-left:.12em`);c.appendChild(e);
+  const ch=chars(sb.plain,e),m=(ch.length-1)/2;list.push(...ch);
+  ch.forEach((x,i)=>A(x,[{translate:"0 0"},{translate:"0 -.07em",offset:.2},{translate:"0 0",offset:.55}],{duration:p,delay:ph+Math.abs(i-m)*35,iterations:Infinity,easing:"ease-out"}));
+  if(sb.en)enter(e,sb.en,list)},
+ constellation(sb,c,w,big,sm,dur,list){const r=sr(sb.s),vw=SWd(),vh=SHd(),z=Math.min(big*.5,vw/Math.max(sb.plain.length,3)*.8),E=Math.min(dur*500,2000);
+  const e=txtEl(`left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:${z}px;letter-spacing:.15em;padding-left:.15em`);c.appendChild(e);
+  const ch=chars(sb.plain,e);list.push(...ch);const o=$("#stage").getBoundingClientRect();
+  const ov=document.createElement("div");ov.dataset.nm=1;ov.style.cssText="position:absolute;inset:0;pointer-events:none;overflow:visible";c.appendChild(ov);
+  const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("viewBox",`0 0 ${vw} ${vh}`);svg.style.cssText="position:absolute;inset:0;width:100%;height:100%";ov.appendChild(svg);
+  const dsz=Math.max(3,vh*.007),dots=[];
+  ch.forEach((x,i)=>{const b=x.getBoundingClientRect(),cx=b.left-o.left+b.width/2,cy=b.top-o.top+b.height/2;
+   for(let k=0;k<3;k++){const sx=r()*vw,sy=r()*vh,tx=cx+(r()-.5)*b.width*.8,ty=cy+(r()-.5)*b.height*.7;
+    const d=document.createElement("div");d.style.cssText=`position:absolute;left:0;top:0;width:${dsz}px;height:${dsz}px;margin:${-dsz/2}px;border-radius:50%;background:#fff;box-shadow:0 0 ${dsz*2}px var(--a)`;ov.appendChild(d);
+    A(d,[{translate:`${sx}px ${sy}px`,opacity:0},{translate:`${sx}px ${sy}px`,opacity:1,offset:.25,easing:"cubic-bezier(.5,0,.2,1)"},{translate:`${tx}px ${ty}px`,opacity:1,offset:.85},{translate:`${tx}px ${ty}px`,opacity:.15}],{duration:E+400,delay:i*60});dots.push([sx,sy])}
+   A(x,[{opacity:0,filter:"blur(6px)"},{opacity:1,filter:"blur(0)"}],{duration:E*.5,delay:E*.55+i*50});
+   for(let k=0;k<4;k++){const t=document.createElement("div"),s2=Math.max(3,dsz*1.1);t.style.cssText=`position:absolute;left:0;top:0;width:${s2}px;height:${s2}px;border-radius:50%;background:#fff;box-shadow:0 0 ${s2*2.5}px var(--a);translate:${cx+(r()-.5)*b.width*1.4}px ${cy+(r()-.5)*b.height*1.5}px`;ov.appendChild(t);
+    A(t,[{opacity:0},{opacity:.95},{opacity:0}],{duration:1400+r()*1600,delay:E+r()*1200,iterations:Infinity})}});
+  for(let j=0;j<dots.length-1;j++){const l=document.createElementNS("http://www.w3.org/2000/svg","line");l.setAttribute("x1",dots[j][0]);l.setAttribute("y1",dots[j][1]);l.setAttribute("x2",dots[j+1][0]);l.setAttribute("y2",dots[j+1][1]);
+   l.setAttribute("stroke","rgba(255,255,255,.4)");l.setAttribute("stroke-width","1");svg.appendChild(l);A(l,[{opacity:0},{opacity:.8,offset:.2},{opacity:.8,offset:.45},{opacity:0}],{duration:E*.95})}
+  if(sb.en)enter(e,sb.en,list)},
+ "particle-form"(sb,c,w,big,sm,dur,list){const r=sr(sb.s),W0=SWd(),H0=SHd(),T=Math.max(600,dur*1000),X=CONFIG.exit*1000,z=Math.min(big*.7,W0/Math.max(sb.plain.length,3)*.85),fam=FONTS[curFont||CONFIG.font]||CONFIG.font;
+  const cv=document.createElement("canvas");cv.width=W0;cv.height=H0;const g=cv.getContext("2d",{willReadFrequently:true});
+  g.font=`${CONFIG.weight} ${z}px ${fam}`;g.textBaseline="middle";const hasHL=!!(sb.hl&&sb.hl.some(Boolean));
+  if(hasHL){const P=[...sb.plain],x0=W0/2-g.measureText(sb.plain).width/2;g.textAlign="left";P.forEach((ch,i)=>{g.fillStyle=sb.hl[i]?"#f00":"#fff";g.fillText(ch,x0+g.measureText(P.slice(0,i).join("")).width,H0/2)})}else{g.textAlign="center";g.fillStyle="#fff";g.fillText(sb.plain,W0/2,H0/2)}
+  const d=g.getImageData(0,0,W0,H0).data,step=Math.max(4,Math.round(z/16)),pts=[];
+  for(let y=0;y<H0;y+=step)for(let x=0;x<W0;x+=step)if(d[(y*W0+x)*4+3]>128)pts.push([x,y,hasHL&&d[(y*W0+x)*4+1]<128]);
+  for(let i=pts.length-1;i>0;i--){const j=r()*(i+1)|0;[pts[i],pts[j]]=[pts[j],pts[i]]}
+  const E=Math.min(T*.45,1800),a=E/T,b=Math.max(a+.05,1-X/T),ps=Math.max(2,step*.6);
+  pts.slice(0,340).forEach(([x,y,hh])=>{const p=document.createElement("div"),sx=(r()-.5)*W0*2.2+W0/2,sy=(r()-.5)*H0*2.2+H0/2,ex=(r()-.5)*W0*1.6+W0/2,ey=(r()-.5)*H0*1.6+H0/2,ai=a*(.6+.4*r());
+   p.style.cssText=`position:absolute;left:0;top:0;width:${ps}px;height:${ps}px;margin:${-ps/2}px;border-radius:50%;background:${hh?"var(--a)":"#fff"};box-shadow:0 0 ${ps*2}px var(--a);pointer-events:none`;c.appendChild(p);
+   A(p,[{translate:`${sx}px ${sy}px`,opacity:0,offset:0},{translate:`${sx}px ${sy}px`,opacity:.9,offset:Math.min(.06,ai*.3),easing:"cubic-bezier(.2,.8,.3,1)"},{translate:`${x}px ${y}px`,opacity:1,offset:ai},{translate:`${x}px ${y}px`,opacity:0,offset:Math.min(ai*1.3,b-.02)},{translate:`${x}px ${y}px`,opacity:0,offset:b},{translate:`${x}px ${y}px`,opacity:1,offset:Math.min(b+.02,.99)},{translate:`${ex}px ${ey}px`,opacity:0,offset:1}],{duration:T,easing:"linear"})});
+  const e=txtEl(`left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:${z}px;letter-spacing:0`);if(hasHL)hlText(e,sb);else e.textContent=sb.plain;c.appendChild(e);
+  A(e,[{opacity:0,offset:0},{opacity:0,offset:a*.8},{opacity:1,offset:Math.min(a*1.15,b)},{opacity:1,offset:b},{opacity:0,offset:Math.min(b+.03,1)}],{duration:T,easing:"linear"})},
+ "hud-frame"(sb,c,w,big,sm,dur,list){const r=sr(sb.s),T=Math.max(600,dur*1000),z=Math.min(big*.5,SWd()/Math.max(sb.plain.length,3)*.85),fs=sm*.55;
+  [["left:4cqw;top:6cqh;border-top-width:2px;border-left-width:2px"],["right:4cqw;top:6cqh;border-top-width:2px;border-right-width:2px"],["left:4cqw;bottom:6cqh;border-bottom-width:2px;border-left-width:2px"],["right:4cqw;bottom:6cqh;border-bottom-width:2px;border-right-width:2px"]].forEach(([s],i)=>{
+   const b=document.createElement("div");b.style.cssText=`position:absolute;width:5cqh;height:5cqh;border:0 solid var(--a);${s}`;c.appendChild(b);A(b,[{opacity:0,scale:1.6},{opacity:.9,scale:1}],{duration:D()*.8,delay:i*70})});
+  const sync=Array.from({length:18},(_,i)=>`SYNC ${String(12+Math.round(i*(70+r()*17)/17)).padStart(2," ")}%`);
+  c.appendChild(reel(sync,`left:6.5cqw;top:8.5cqh;font-size:${fs}px;color:var(--a)`,Math.min(T*.7,2600)));
+  const xy=Array.from({length:24},()=>`X:${String(r()*9999|0).padStart(4,"0")}  Y:${String(r()*9999|0).padStart(4,"0")}`);
+  c.appendChild(reel(xy,`right:6.5cqw;top:8.5cqh;font-size:${fs}px;text-align:right;opacity:.75`,3200,Infinity));
+  ["UNIT-"+(100+r()*899|0),"LINK ▸ STABLE","RGB ▸ "+[r(),r(),r()].map(v=>(v*255|0).toString(16).padStart(2,"0")).join("").toUpperCase()].forEach((t,i)=>{
+   const e=txtEl(`left:6.5cqw;bottom:${8.5+(2-i)*2.6}cqh;font-size:${fs*.85}px;letter-spacing:.12em;opacity:.6;white-space:pre;font-family:ui-monospace,Consolas,'Courier New',monospace`);delete e.dataset.t;e.textContent=t;c.appendChild(e);A(e,[{opacity:0},{opacity:.6}],{duration:D(),delay:300+i*120})});
+  const sc=document.createElement("div");sc.style.cssText="position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--a),transparent);opacity:.5;pointer-events:none";c.appendChild(sc);
+  A(sc,[{translate:"0 0"},{translate:`0 ${SHd()}px`}],{duration:3400,iterations:Infinity,easing:"linear"});
+  const pb=document.createElement("div");pb.style.cssText="position:absolute;left:4cqw;right:4cqw;bottom:4.5cqh;height:2px;background:rgba(255,255,255,.18)";c.appendChild(pb);
+  const pf=document.createElement("div");pf.style.cssText="width:100%;height:100%;background:var(--a);transform-origin:left";pb.appendChild(pf);A(pf,[{scale:"0 1"},{scale:"1 1"}],{duration:T,easing:"linear"});
+  const bl=document.createElement("div");bl.style.cssText="position:absolute;right:6.5cqw;top:5.4cqh;width:1.2cqh;height:1.2cqh;background:var(--a)";c.appendChild(bl);A(bl,[{opacity:1},{opacity:0,offset:.5},{opacity:1,offset:.5001}],{duration:900,iterations:Infinity,easing:"steps(1)"});
+  const e=txtEl(`left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:${z}px;letter-spacing:.15em;padding-left:.15em`);c.appendChild(e);
+  const ch=chars(sb.plain,e);list.push(...ch);ch.forEach((x,i)=>A(x,[{opacity:0,filter:"blur(8px)"},{opacity:1,filter:"blur(0)"}],{duration:D()*.7,delay:300+i*45}));
+  if(sb.en)enter(e,sb.en,list)},
+ "parallax-depth"(sb,c,w,big,sm,dur,list){const T=Math.max(600,dur*1000),z=Math.min(big*.6,SWd()/Math.max(sb.plain.length,3)*.9);
+  [{s:2.1,b:9,o:.16,dx:2},{s:1.45,b:3.5,o:.3,dx:5},{s:1,b:0,o:1,dx:9,main:1},{s:1.28,b:6,o:.3,dx:22}].forEach((L0,i)=>{
+   const e=txtEl(`left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:${z}px;letter-spacing:.1em;padding-left:.1em;filter:blur(${L0.b}px);opacity:${L0.o}`);e.style.transform="none";c.appendChild(e);if(!L0.main)e.dataset.nm=1;
+   if(L0.main){list.push(...chars(sb.plain,e))}else e.textContent=sb.plain;
+   A(e,[{translate:`${-L0.dx}cqw -50%`,scale:L0.s*.96},{translate:`${L0.dx}cqw -50%`,scale:L0.s*1.04}],{duration:T,easing:"linear"});
+   if(L0.main&&sb.en)enter(e,sb.en,list)})}
+});
+/* ===== [LAY-F] 版型 F：polaroid page-flip ink-bleed laser-scan split-flap wave-path mirror-reflect cylinder iris-frame annotate。皆為時間的純函數（A() 暫停動畫 + 種子亂數）===== */
+const PAPER="#f3eee2",INK="#2a2622",NS="http://www.w3.org/2000/svg";
+const regProp=(...n)=>n.forEach(x=>{try{CSS.registerProperty({name:x,syntax:"<percentage>",inherits:false,initialValue:"-20%"})}catch(e){}});
+Object.assign(NL,{
+ polaroid(sb,c,w,big,sm,dur,list){const r=sr(sb.s),vw=SWd(),ch=[...sb.plain],n=ch.length<=3?1:ch.length<=6?2:3,k=Math.ceil(ch.length/n);
+  const parts=Array.from({length:n},(_,i)=>ch.slice(i*k,(i+1)*k).join("")).filter(Boolean),m=Math.max(...parts.map(p=>[...p].length),2),fs=Math.min(big*.38,vw*.6/parts.length/m*.9);
+  const row=txtEl("inset:0;display:flex;align-items:center;justify-content:center");c.appendChild(row);
+  parts.forEach((p,i)=>{const card=document.createElement("div");
+   card.style.cssText=`position:relative;top:${(r()-.5)*5}cqh;margin:0 -1.2cqw;padding:${fs*.28}px ${fs*.28}px ${fs*.9}px;background:${PAPER};rotate:${(r()-.5)*12+(i-(parts.length-1)/2)*3}deg;box-shadow:0 1.2cqh 3cqh rgba(0,0,0,.55);z-index:${i}`;
+   const ph=txtEl(`position:relative;padding:${fs*.35}px ${fs*.4}px;background:linear-gradient(135deg,color-mix(in srgb,var(--a) 55%,#101826),#0b1020);font-size:${fs}px;letter-spacing:.1em;line-height:1.1;white-space:pre`);
+   list.push(...chars(p,ph));card.appendChild(ph);
+   if(i===0){const t=document.createElement("div");t.style.cssText=`position:absolute;left:50%;top:-${fs*.3}px;width:${fs*1.6}px;height:${fs*.55}px;translate:-50% 0;rotate:-4deg;background:rgba(255,235,160,.6)`;card.appendChild(t)}
+   row.appendChild(card);A(card,[{translate:`${(i%2?1:-1)*(90+r()*20)}cqw ${(r()-.5)*30}cqh`,scale:1.4,opacity:0},{translate:"0 0",scale:1,opacity:1}],{duration:D()*1.1,delay:i*320/CONFIG.speed,easing:"cubic-bezier(.2,.8,.2,1)"})});
+  if(sb.en)enter(row,sb.en,list)},
+ "page-flip"(sb,c,w,big,sm,dur,list){const i=subs.indexOf(sb),prev=i>0?subs[i-1].plain:"",vw=SWd(),vh=SHd(),ks=(+CONFIG.textScale||100)/100,pw=Math.min(vw*.4*ks,vw*.48,vh*.78*ks),ph=Math.min(vh*.56*ks,pw*.8,vh*.92);
+  const st=document.createElement("div");st.style.cssText=`position:absolute;inset:0;perspective:${vw*1.5}px`;c.appendChild(st);
+  const pg=(txt,css)=>{const p=txtEl(`top:${-ph/2}px;width:${pw}px;height:${ph}px;background:${PAPER};color:${INK};display:flex;align-items:center;justify-content:center;font-size:${Math.min(ph*.3,pw*.8/Math.max([...txt].length,3))}px;letter-spacing:.12em;box-shadow:0 1.5cqh 4cqh rgba(0,0,0,.45);${css}`);p.style.left="50%";p.style.top="50%";p.style.marginTop=-ph/2+"px";p.textContent=txt;return p};
+  const left=pg("","margin-left:"+(-pw)+"px;background:linear-gradient(90deg,#e6e0d0,#d9d2bf)");st.appendChild(left);
+  const right=pg(sb.plain,"background:linear-gradient(90deg,#d9d2bf,"+PAPER+" 10%)");st.appendChild(right);
+  const leaf=document.createElement("div");leaf.style.cssText=`position:absolute;left:50%;top:50%;margin-top:${-ph/2}px;width:${pw}px;height:${ph}px;transform-origin:left center;transform-style:preserve-3d`;
+  const f=pg(prev,"left:0;margin:0;top:0;backface-visibility:hidden");f.style.left="0";f.style.top="0";f.style.marginTop="0";const b=pg("","left:0;margin:0;backface-visibility:hidden;transform:rotateY(180deg);background:linear-gradient(90deg,#d9d2bf,#e9e3d3)");b.style.left="0";b.style.top="0";b.style.marginTop="0";
+  leaf.append(f,b);st.appendChild(leaf);const T=Math.max(800,dur*1000);
+  A(leaf,[{transform:"rotateY(0deg)"},{transform:"rotateY(-180deg)"}],{duration:Math.min(T*.45,D()*1.8),delay:150,easing:"cubic-bezier(.6,0,.3,1)"})},
+ "ink-bleed"(sb,c,w,big,sm,dur){const r=sr(sb.s),z=fit(sb,big)*1.05,T=Math.max(800,dur*1000),E=Math.min(T*.55,2000);regProp("--k0","--k1","--k2");
+  if(!document.getElementById("inkf")){const s=document.createElementNS(NS,"svg");s.setAttribute("width","0");s.setAttribute("height","0");s.style.position="absolute";
+   s.innerHTML='<filter id="inkf" x="-10%" y="-30%" width="120%" height="160%"><feTurbulence type="fractalNoise" baseFrequency=".022" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="9" xChannelSelector="R" yChannelSelector="G"/></filter>';document.body.appendChild(s)}
+  const o=CE(c,`font-size:${z}px;letter-spacing:.1em`);o.style.filter="url(#inkf)";const e=document.createElement("div");e.style.whiteSpace="pre";e.textContent=sb.plain;o.appendChild(e);
+  const g=[0,1,2].map(k=>`radial-gradient(circle at ${15+r()*70}% ${30+r()*40}%,#000 var(--k${k}),transparent calc(var(--k${k}) + 14%))`).join(",");e.style.webkitMaskImage=e.style.maskImage=g;
+  [0,1,2].forEach(k=>A(e,[{["--k"+k]:"-20%"},{["--k"+k]:"110%"}],{duration:E,delay:k*E*.15,easing:"cubic-bezier(.3,.6,.4,1)"}))},
+ "laser-scan"(sb,c,w,big,sm,dur){const i=subs.indexOf(sb),vert=i%2===1,z=fit(sb,big),S=Math.min(Math.max(dur*450,700),1800),SW=SWd(),SH=SHd();
+  const e=CE(c,`font-size:${z}px;letter-spacing:.12em`);e.textContent=sb.plain;const cl=vert?"inset(0 0 100% 0)":"inset(0 100% 0 0)";
+  A(e,[{clipPath:cl},{clipPath:"inset(0)"}],{duration:S,easing:"linear"});
+  const mk=css=>{const d=document.createElement("div");d.style.cssText="position:absolute;pointer-events:none;"+css;c.appendChild(d);return d};
+  const end=vert?`0 ${SH}px`:`${SW}px 0`,mv=d=>A(d,[{translate:"0 0",opacity:1},{translate:end,opacity:1,offset:.97},{translate:end,opacity:0}],{duration:S*1.03,easing:"linear"});
+  const gl="0 0 2cqh 4px var(--a),0 0 6cqh var(--a)";
+  mv(mk(vert?`left:0;right:0;top:0;height:3px;background:var(--a);box-shadow:${gl}`:`top:0;bottom:0;left:0;width:3px;background:var(--a);box-shadow:${gl}`));
+  mv(mk(vert?`left:0;right:0;top:-14cqh;height:14cqh;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--a) 35%,transparent))`:`top:0;bottom:0;left:-14cqw;width:14cqw;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--a) 35%,transparent))`));
+  const gr=mk("inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.07) 0 1px,transparent 1px 4cqh),repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 1px,transparent 1px 4cqh)");
+  A(gr,[{clipPath:cl,opacity:1},{clipPath:"inset(0)",opacity:1,offset:.5},{clipPath:"inset(0)",opacity:.35}],{duration:S*1.5,easing:"linear"})},
+ "split-flap"(sb,c,w,big,sm,dur){const r=sr(sb.s),chs=[...sb.plain],fs=Math.min(big*.45,SWd()/Math.max(chs.length,4)*.78),pool=[...new Set([...subs.map(x=>x.plain).join(""),..."ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"])].filter(x=>!/\s/.test(x));
+  const row=CE(c,`font-size:${fs}px;gap:.12em;letter-spacing:0`);row.dataset.rg="1";
+  chs.forEach((ch,i)=>{if(/\s/.test(ch)){const s=document.createElement("div");s.style.width=".5em";row.appendChild(s);return}
+   const n=7+(r()*5|0),items=Array.from({length:n-1},()=>pool[r()*pool.length|0]);items.push(ch);
+   const t=document.createElement("div");t.style.cssText=`position:relative;width:${/[\x00-\xff]/.test(ch)?.7:1.05}em;height:1.3em;line-height:1.3em;overflow:hidden;text-align:center;background:linear-gradient(#2e3441 50%,#232834 50%);border-radius:.1em;border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 0 .15em rgba(0,0,0,.6)`;
+   const col=document.createElement("div");items.forEach(x=>{const d=document.createElement("div");d.textContent=x;col.appendChild(d)});t.appendChild(col);
+   const sp=document.createElement("div");sp.style.cssText="position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:rgba(0,0,0,.85)";t.appendChild(sp);row.appendChild(t);
+   A(col,[{translate:"0 0"},{translate:`0 ${-(n-1)*1.3}em`}],{duration:(500+r()*500)/CONFIG.speed,delay:i*70/CONFIG.speed,easing:`steps(${n-1},end)`});
+   A(t,[{opacity:0},{opacity:1}],{duration:200,delay:i*70/CONFIG.speed})})},
+ "wave-path"(sb,c,w,big,sm,dur,list){const z=Math.min(big*.5,SWd()/Math.max(sb.plain.length,3)*.85),e=CE(c,`font-size:${z}px;letter-spacing:.1em`),ch=chars(sb.plain,e);list.push(...ch);
+  const P=4200/CONFIG.speed,amp=z*.32,ph=.7,N=24,wch=z*1.1;
+  ch.forEach((x,i)=>{const kf=Array.from({length:N+1},(_,j)=>{const a=2*Math.PI*j/N+i*ph,sl=amp*ph/wch*Math.cos(a);return{translate:`0 ${(amp*Math.sin(a)).toFixed(1)}px`,rotate:`${(Math.atan(sl)*180/Math.PI).toFixed(1)}deg`}});A(x,kf,{duration:P,iterations:Infinity,easing:"linear"})});
+  if(sb.en)enter(e,sb.en,list)},
+ "mirror-reflect"(sb,c,w,big,sm,dur,list){const z=fit(sb,big)*.9,col=txtEl(`inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:${z}px;letter-spacing:.12em`);c.appendChild(col);
+  const e=document.createElement("div");e.style.cssText="line-height:1.15;white-space:pre";list.push(...chars(sb.plain,e));
+  const rf=document.createElement("div"),mk="linear-gradient(to top,rgba(0,0,0,.9),transparent 78%)";rf.style.cssText=`line-height:1.15;white-space:pre;transform:scaleY(-1);opacity:.45;-webkit-mask-image:${mk};mask-image:${mk}`;
+  chars(sb.plain,rf).forEach((x,i)=>A(x,[{transform:"translateY(0) skewX(0deg)"},{transform:"translateY(.03em) skewX(3deg)"},{transform:"translateY(-.02em) skewX(-3deg)"},{transform:"translateY(0) skewX(0deg)"}],{duration:2600+i*180,iterations:Infinity,easing:"ease-in-out"}));
+  const wl=document.createElement("div");wl.style.cssText="width:70cqw;height:2px;background:linear-gradient(90deg,transparent,var(--a),transparent);opacity:.7;margin:.02em 0";col.append(e,wl,rf);
+  if(sb.en){enter(e,sb.en,list);A(rf,[{opacity:0},{opacity:.45}],{duration:D()})}},
+ cylinder(sb,c,w,big){const i=subs.indexOf(sb),prev=i>0?subs[i-1].plain:"",next=subs[i+1]?subs[i+1].plain:"",z=fit(sb,big)*.8,R=z*3.4,T=Math.max(800,dur(sb)),X=CONFIG.exit*1000,step=36;
+  const a=Math.min(.4,D()*1.3/T),b=Math.max(a+.05,1-X/T);
+  const st=document.createElement("div");st.style.cssText=`position:absolute;inset:0;perspective:${SWd()*1.6}px`;c.appendChild(st);
+  const dr=document.createElement("div");dr.style.cssText="position:absolute;left:0;right:0;top:50%;height:0;transform-style:preserve-3d";st.appendChild(dr);
+  const row=(t,ang,op)=>{if(!t)return;const e=txtEl(`left:0;right:0;top:${-z*.6}px;height:${z*1.2}px;line-height:${z*1.2}px;text-align:center;font-size:${z}px;letter-spacing:.12em;white-space:pre;transform:rotateX(${ang}deg) translateZ(${R}px)`);e.textContent=t;dr.appendChild(e);A(e,op,{duration:T,easing:"linear"})};
+  row(prev,step,[{opacity:1},{opacity:.3,offset:a},{opacity:.3}]);row(sb.plain,0,[{opacity:.3},{opacity:1,offset:a},{opacity:1,offset:b},{opacity:.3}]);row(next,-step,[{opacity:.3},{opacity:.3,offset:b},{opacity:1}]);
+  A(dr,[{transform:`translateZ(${-R}px) rotateX(${-step}deg)`,easing:"cubic-bezier(.3,.7,.3,1)"},{transform:`translateZ(${-R}px) rotateX(0deg)`,offset:a},{transform:`translateZ(${-R}px) rotateX(0deg)`,offset:b,easing:"cubic-bezier(.7,0,.7,.3)"},{transform:`translateZ(${-R}px) rotateX(${step}deg)`}],{duration:T,easing:"linear"})},
+ "iris-frame"(sb,c,w,big,sm,dur,list){const i=subs.indexOf(sb),rect=i%2===1,vw=SWd(),vh=SHd(),T=Math.max(800,dur*1000),X=CONFIG.exit*1000,n=Math.max(sb.plain.length,2);
+  const d=Math.min(vh*.8,vw*.62),W0=rect?Math.min(vw*.78,d*1.7):d,H0=rect?d*.55:d,fs=Math.min(big*.42,W0*.82/n),a=Math.min(.35,D()*1.2/T),b=Math.max(a+.05,1-X/T);
+  const ap=document.createElement("div");ap.style.cssText=`position:absolute;left:50%;top:50%;translate:-50% -50%;border:2px solid var(--a);border-radius:${rect?"1.2cqh":"50%"};box-shadow:0 0 0 120vmax rgba(0,0,0,.86),0 0 3cqh var(--a),inset 0 0 3cqh rgba(122,168,255,.25);pointer-events:none`;c.appendChild(ap);
+  A(ap,[{width:"0px",height:"0px",easing:"cubic-bezier(.3,.7,.3,1)"},{width:W0+"px",height:H0+"px",offset:a},{width:W0+"px",height:H0+"px",offset:b,easing:"cubic-bezier(.7,0,.7,.3)"},{width:"0px",height:"0px"}],{duration:T,easing:"linear"});
+  const e=CE(c,`font-size:${fs}px;letter-spacing:.12em`);list.push(...chars(sb.plain,e));
+  A(e,[{opacity:0},{opacity:0,offset:a*.6},{opacity:1,offset:a},{opacity:1,offset:b},{opacity:0}],{duration:T,easing:"linear"});if(sb.en)enter(e,sb.en,list)},
+ annotate(sb,c,w,big){const e=txtEl(`inset:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;padding:0 8cqw;font-size:${Math.min(big*.5,SWd()/Math.max(sb.plain.length,4)*.9)}px;letter-spacing:.12em;white-space:pre-wrap`);c.appendChild(e);
+  const SHP=["M6 22 C2 8,38 1,78 4 C104 7,102 36,60 38 C20 40,-2 30,10 12","M2 34 C28 30,58 38,98 31","M50 3 L56 18 L72 18 L59 27 L64 42 L50 33 L36 42 L41 27 L28 18 L44 18 Z"];
+  let parts=sb.raw.split(/(\{[^}]*\})/).filter(Boolean),k=0;if(!sb.br.length)parts=["{"+sb.raw+"}"];
+  parts.forEach(p=>{const kw=/^\{/.test(p),sp=document.createElement("span");sp.style.cssText="position:relative;display:inline-block";const tx=document.createElement("span");tx.textContent=kw?p.slice(1,-1):p;sp.appendChild(tx);e.appendChild(sp);A(sp,[{opacity:0},{opacity:1}],{duration:D()});
+   if(kw){const m=k%3,sv=document.createElementNS(NS,"svg");sv.setAttribute("viewBox",m===2?"0 0 100 45":"0 0 100 40");sv.setAttribute("preserveAspectRatio","none");
+    sv.style.cssText=m===2?"position:absolute;right:-.55em;top:-.75em;width:.8em;height:.8em;overflow:visible":"position:absolute;left:-.3em;top:-.2em;width:calc(100% + .6em);height:calc(100% + .4em);overflow:visible";
+    const pa=document.createElementNS(NS,"path");pa.setAttribute("d",SHP[m]);pa.setAttribute("pathLength","1");Object.assign(pa.style,{fill:"none",stroke:"var(--a)",strokeWidth:m===2?"2.5px":"4px",strokeLinecap:"round",strokeLinejoin:"round",strokeDasharray:"1",vectorEffect:"non-scaling-stroke",filter:"drop-shadow(0 0 .12em var(--a))"});
+    sv.appendChild(pa);sp.appendChild(sv);A(pa,[{strokeDashoffset:1},{strokeDashoffset:0}],{duration:D()*.9,delay:D()+(k++)*350,easing:"cubic-bezier(.6,0,.3,1)"})}})}
+});
+const dur=sb=>(sb.e-sb.s)*1000;
+
+
+/* ===== [LAY-G] 版型 G：pv-lyric（橫排、靠左）／pv-vertical（直排、靠右）— 仿 PV 歌詞排版 =====
+   語法：#pv-lyric 看天台上{流星}(路過)　（大字字體：#pv-lyric*字體名 單句指定，或面板「強調字字體」全域設定）
+     {…}＝毛筆大字關鍵字（發光、色差收斂、帶淡墨暈影）；(…) 或（…）＝關鍵字右下的小註解，可省略。
+     沒寫 {} 時，自動把句尾 2 個字當關鍵字。毛筆字體請在字體選單選「毛筆」，或用「載入字體」放入自己的毛筆字型。
+   固定毫秒的延遲請乘 tK（短句縮放係數），否則短句時會拖到退場之後。
+   與全域設定共用：動畫時長＝進場秒數、顏色＝強調色、位置＝文字位置錨點。預設組合「仿PV歌詞」搭配最合適。 */
+delete CONFIG.kwFont;delete CFG_DEFAULTS.kwFont;   /* v2 試用版遺留的舊設定鍵 */
+const pvKwFont=sb=>sb.font?(FONTS[sb.font]||sb.font):(emFontCss(sb)||FONTS.毛筆);   /* 優先順序見上方「強調字字體」說明 */
+FONTS.毛筆='"Zhi Mang Xing","Ma Shan Zheng","Liu Jian Mao Cao","Kaiti TC",BiauKai,DFKai-SB,"Noto Serif TC",serif';
+function pvBuild(sb,c,big,vert){
+ let note="",raw=sb.raw.replace(/[（(]([^）)]*)[）)]/,(_,t)=>(note=t.trim(),"")).trim();
+ let items=raw.split(/(\{[^}]*\})/).filter(Boolean).map(p=>/^\{/.test(p)?{t:p.slice(1,-1),k:1}:{t:p.trim(),k:0}).filter(x=>x.t);
+ if(!items.some(x=>x.k)){const a=[...raw],cut=Math.max(0,a.length-2);items=[{t:a.slice(0,cut).join("").trim(),k:0},{t:a.slice(cut).join(""),k:1}].filter(x=>x.t)}
+ const n=items.reduce((s,x)=>s+[...x.t].length*(x.k?1.9:1),0)||1,
+  base=Math.min(big*.2,vert?SHd()*.74/(n*1.25):SWd()*.62/(n*1.15)),acc=CONFIG.accent;
+ const GLOW=`0 0 .12em #fff,0 0 .5em ${acc},0 0 1.1em ${acc}`,SPLIT=`-.08em 0 rgba(255,60,110,.85),.08em 0 rgba(60,220,255,.85),0 0 .5em ${acc}`;
+ const e=txtEl(vert?`right:7cqw;top:12cqh;display:flex;flex-direction:row-reverse;align-items:flex-start;gap:.6em;font-size:${base}px;letter-spacing:.35em`
+  :`left:5cqw;top:54cqh;display:flex;align-items:baseline;gap:.4em;white-space:nowrap;font-size:${base}px;letter-spacing:.12em`);
+ c.appendChild(e);
+ const lastK=items.map(x=>x.k).lastIndexOf(1);
+ items.forEach((x,i)=>{
+  const sp=document.createElement(vert?"div":"span"),dl=i*150/CONFIG.speed*tK;
+  sp.style.cssText=vert?"position:relative;display:block;writing-mode:vertical-rl;width:fit-content;height:fit-content":"position:relative;display:inline-block";
+  if(!x.k){sp.textContent=x.t;sp.style.opacity=".92";e.appendChild(sp);
+   A(sp,[{opacity:0,filter:"blur(8px)",transform:vert?"translateY(-.8em)":"translateX(-.8em)"},{opacity:.92,filter:"blur(0)",transform:"none"}],{duration:D()*1.3,delay:dl});return}
+  sp.style.cssText+=`;font-family:${pvKwFont(sb)};font-size:1.9em;font-weight:700;letter-spacing:.02em;line-height:1.1;transform-origin:20% 70%;text-shadow:${GLOW}`;
+  sp.textContent=x.t;
+  const gh=document.createElement("span");gh.textContent=x.t;   /* 淡墨暈影：模糊、偏色、略偏移的同字複本 */
+  gh.style.cssText=`position:absolute;left:0;top:0;color:${acc};filter:blur(.1em);opacity:.5;transform:translate(.04em,.05em);pointer-events:none;letter-spacing:inherit`;sp.appendChild(gh);
+  e.appendChild(sp);
+  A(sp,[{opacity:0,filter:"blur(14px)",transform:"scale(1.35)",textShadow:SPLIT},{opacity:1,filter:"blur(0)",transform:"scale(1)",textShadow:GLOW}],{duration:D()*1.7,delay:dl+120/CONFIG.speed*tK});
+  A(gh,[{opacity:0},{opacity:.5}],{duration:D()*2.2,delay:dl+300/CONFIG.speed*tK});
+  if(note&&i===lastK){const nt=document.createElement("div");
+   nt.style.cssText=`position:absolute;${vert?"top:calc(100% + .2em);left:0":"left:calc(100% + .2em);bottom:-.15em"};writing-mode:horizontal-tb;font-family:${FONTS.黑體};font-size:.3em;font-weight:400;letter-spacing:.05em;line-height:1.3;white-space:nowrap;text-shadow:none;opacity:.8`;
+   nt.innerHTML="<div style='letter-spacing:.2em'>‹‹‹</div>";const t2=document.createElement("div");t2.textContent="（"+note+"）";nt.appendChild(t2);sp.appendChild(nt);
+   A(nt,[{opacity:0,transform:"translateY(.4em)"},{opacity:.8,transform:"none"}],{duration:D(),delay:dl+D()*.9})}
+ });
+ if(vert)A(e,[{clipPath:"inset(0 0 100% 0)"},{clipPath:"inset(-40% -40% -40% -40%)"}],{duration:D()*1.6,easing:"linear"});
+}
+registerLayout("pv-lyric",(sb,c,w,big)=>pvBuild(sb,c,big,false),{brace:1});
+registerLayout("pv-vertical",(sb,c,w,big)=>pvBuild(sb,c,big,true),{brace:1});
+/* ===== [LAY-H] 版型 H（pv 風格文字型，自行實作）：scatter strip cards glow-cards layered falling formula。皆為時間純函數（A() 暫停動畫＋種子亂數 sr()）；顏色取 --c／--a。
+   裝飾元素（非主文）標 data-nm（不參與位置量測）；{} 不是這些版型的關鍵字（沿用通用強調 applyHL）。 ===== */
+const _fz=(sb,big,k)=>Math.min(fit(sb,big)*k,SWd()*.84/(Math.max(sb.plain.length,3)*1.15));   /* 單行字寬上限：含字距 .1em，直式畫面也放得進 */
+const _chs=sb=>[...sb.plain].filter(x=>!/\s/.test(x));
+registerLayout("scatter",(sb,c,w,big,sm,dur,list)=>{   /* 散落字：每字在格內隨機偏移、旋轉、縮放，由四方飛入 */
+ const r=sr(sb.s),vw=SWd(),vh=SHd(),ch=_chs(sb),n=Math.max(1,ch.length),cols=Math.max(1,Math.min(n,Math.round(Math.sqrt(n*vw/vh*.8)))),rows=Math.ceil(n/cols),cw=vw*.78/cols,chh=vh*.62/rows,z=Math.min(cw,chh,big*.6)*.95;
+ ch.forEach((x,i)=>{const k=.75+r()*.6,fs=z*k,cx=vw*.11+(i%cols+.5)*cw+(r()-.5)*cw*.3,cy=vh*.19+(Math.floor(i/cols)+.5)*chh+(r()-.5)*chh*.3,rot=(r()-.5)*40,
+   e=txtEl(`left:${cx-fs/2}px;top:${cy-fs/2}px;width:${fs}px;line-height:${fs}px;text-align:center;font-size:${fs}px;letter-spacing:0;rotate:${rot}deg`);
+  e.textContent=x;if(r()<.25)e.style.color="var(--a)";c.appendChild(e);list.push(e);
+  A(e,[{opacity:0,translate:`${(r()-.5)*40}cqw ${(r()-.5)*40}cqh`,scale:2.2},{opacity:1,translate:"0 0",scale:1}],{duration:D(),delay:Math.min(i*70,dur*300)/CONFIG.speed})})});
+registerLayout("strip",(sb,c,w,big,sm,dur,list)=>{   /* 字條：強調色長條上的反白字，左右交錯滑入 */
+ const t=[...sb.plain],n=Math.min(3,Math.max(1,Math.ceil(t.length/6))),k=Math.ceil(t.length/n),vw=SWd(),vh=SHd(),z=Math.min(big*.42,vw*.8/Math.max(k,2)/1.1,vh*.8/n/1.7);
+ const col=document.createElement("div");col.style.cssText=`position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:${z*.25}px;rotate:-3deg`;c.appendChild(col);
+ for(let i=0;i<n;i++){const e=txtEl(`position:relative;align-self:${i%2?"flex-end":"flex-start"};margin:0 8cqw;padding:.08em .35em;background:var(--a);color:color-mix(in srgb,var(--a) 10%,#000);font-size:${z}px;line-height:1.15;letter-spacing:.1em;white-space:pre`);
+  list.push(...chars(t.slice(i*k,i*k+k).join(""),e));col.appendChild(e);A(e,[{opacity:0,translate:`${i%2?60:-60}cqw 0`},{opacity:1,translate:"0 0"}],{duration:D(),delay:i*150/CONFIG.speed})}});
+function cardsBuild(sb,c,big,list,glow){
+ const r=sr(sb.s),vw=SWd(),vh=SHd(),T=_chs(sb),g=T.length>8?2:1,parts=[];for(let i=0;i<T.length;i+=g)parts.push(T.slice(i,i+g).join(""));
+ const m=Math.max(1,parts.length),rows=Math.ceil(m/7),per=Math.ceil(m/rows),z=Math.min(big*.5,vw*.9/(per*(g+.75)),vh*.7/rows/1.5);
+ const row=document.createElement("div");row.style.cssText=`position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:${z*.3}px ${z*.2}px`;c.appendChild(row);
+ parts.forEach((p,i)=>{const e=txtEl(`position:relative;top:${((r()-.5)*.15).toFixed(3)}em;padding:.18em .25em;font-size:${z}px;line-height:1.1;letter-spacing:0;rotate:${(r()-.5)*10}deg;`+(glow?"background:rgba(8,12,24,.55);color:var(--c);border:.04em solid var(--a);border-radius:.12em;box-shadow:0 0 .4em var(--a),inset 0 0 .3em color-mix(in srgb,var(--a) 40%,transparent);text-shadow:0 0 .3em var(--a)":"background:var(--c);color:#0b0d14;border-radius:.08em;box-shadow:.05em .08em 0 var(--a)"));
+  e.textContent=p;row.appendChild(e);list.push(e);A(e,[{opacity:0,transform:"translateY(-30cqh) scale(.7)"},{opacity:1,transform:"none"}],{duration:D(),delay:i*90/CONFIG.speed})})}
+registerLayout("cards",(sb,c,w,big,sm,dur,list)=>cardsBuild(sb,c,big,list,false));   /* 字卡：每字（>8 字時每 2 字）一張白卡，落下排成列 */
+registerLayout("glow-cards",(sb,c,w,big,sm,dur,list)=>cardsBuild(sb,c,big,list,true));   /* 發光字卡：暗底＋強調色發光邊框 */
+registerLayout("layered",(sb,c,w,big,sm,dur,list)=>{   /* 疊層字：主文後方三層強調色描邊殘影，向右下展開 */
+ const z=_fz(sb,big,1.1);
+ for(let i=3;i>=1;i--){const e=CE(c,`font-size:${z}px;letter-spacing:.1em;color:transparent;-webkit-text-stroke:max(1px,.03em) var(--a)`);e.textContent=sb.plain;e.dataset.nm=1;
+  A(e,[{opacity:0,translate:"0 0"},{opacity:.7-i*.15,translate:`${i*1.1}cqh ${i*1.1}cqh`}],{duration:D()*1.2,delay:80*i/CONFIG.speed})}
+ const e=CE(c,`font-size:${z}px;letter-spacing:.1em`);list.push(...chars(sb.plain,e));if(sb.en)enter(e,sb.en,list)});
+registerLayout("falling",(sb,c,w,big,sm,dur,list)=>{   /* 字雨：背景持續落下的淡字＋主文逐字落下彈跳 */
+ const r=sr(sb.s),vw=SWd(),z=Math.min(big*.6,vw/Math.max(sb.plain.length,3)*.85),pool=_chs(sb);
+ for(let i=0;i<14;i++){const e=txtEl(`left:${((i+.5)/14*100).toFixed(2)}cqw;top:-10cqh;font-size:${z*.35*(.7+r()*.6)}px;opacity:.25;letter-spacing:0;color:var(--a)`);delete e.dataset.t;e.dataset.nm=1;e.textContent=pool[r()*pool.length|0]||"・";c.appendChild(e);
+  A(e,[{translate:"0 0"},{translate:"0 130cqh"}],{duration:(2600+r()*2600)/CONFIG.speed,delay:-r()*4000,iterations:Infinity,easing:"linear"})}
+ const e=CE(c,`font-size:${z}px;letter-spacing:.1em;padding-left:.1em`),ch=chars(sb.plain,e);list.push(...ch);
+ ch.forEach((x,i)=>A(x,[{opacity:0,transform:"translateY(-90cqh)",easing:"cubic-bezier(.55,0,1,.45)"},{opacity:1,transform:"translateY(-80cqh)",offset:.03},{opacity:1,transform:"none",offset:.6,easing:"cubic-bezier(0,.55,.45,1)"},{transform:"translateY(-5cqh)",offset:.78,easing:"cubic-bezier(.55,0,1,.45)"},{transform:"none",offset:.9},{transform:"none"}],{duration:D()*1.6,delay:i*110/CONFIG.speed,easing:"linear"}))});
+registerLayout("formula",(sb,c,w,big,sm,dur,list)=>{   /* 公式覆蓋：主文後方漂浮的等寬公式碎片（種子產生） */
+ const r=sr(sb.s),vh=SHd(),z=_fz(sb,big,1),SY=["∑","∫","∂","∇","π","λ","Δ","√","∞","θ"],OP=["=","+","−","×","÷","≈","→"],VR=["x","y","t","f(x)","n","e","φ","dx","a²","b²"],pk=a=>a[r()*a.length|0];
+ for(let i=0;i<9;i++){const tk=[];for(let k=0,n=4+(r()*4|0);k<n;k++)tk.push(k%2?pk(OP):(r()<.4?pk(SY):pk(VR)));
+  const e=txtEl(`left:${(i%3)*33+2}cqw;top:${8+Math.floor(i/3)*30+r()*8}cqh;font-size:${Math.max(10,vh*.03)*(.8+r()*.8)}px;white-space:nowrap;letter-spacing:.08em;color:var(--a);font-family:ui-monospace,Consolas,monospace`);
+  delete e.dataset.t;e.dataset.nm=1;e.textContent=tk.join(" ");c.appendChild(e);
+  A(e,[{opacity:0},{opacity:.35}],{duration:D(),delay:i*120/CONFIG.speed});A(e,[{translate:"-2cqw 0"},{translate:"2cqw 0"}],{duration:6000,delay:-r()*6000,iterations:Infinity,direction:"alternate",easing:"ease-in-out"})}
+ const e=CE(c,`font-size:${z}px;letter-spacing:.1em`);list.push(...chars(sb.plain,e));if(sb.en)enter(e,sb.en,list)});
+/* ===== [MISC] 預設組合補登（電影字幕・街頭拼貼）/ 畫面比例 applyStage / 啟動序列（css→applyScene→panel）===== */
+PRESETS["電影字幕（底部置中）"]={font:"黑體",weight:500,spacing:.06,pulse:0,bounce:0,flash:0,particles:0,grain:0,vignette:0,trans:"cut",dim:30,textScale:35,textShadow:true,posAnchor:"bc",posSafe:8,lock:"center"};
+PRESETS.街頭拼貼={font:"英文展示",weight:700,spacing:.05,grain:.12,scratch:1,pulse:.06,accent:"#ffd166"};
+function applyStage(){const s=$("#stage"),a=CONFIG.aspect||"fill";
+ if(document.body.style.getPropertyValue("--edh")){   /* 句子編輯器開著：預覽縮進「頂欄下、編輯器上」的可用區；「填滿視窗」改用視窗比例縮放，版面才與全螢幕一致 */
+  const r=a==="9:16"?9/16:a==="16:9"?16/9:(innerWidth/innerHeight||16/9);
+  s.style.width=`min(var(--avw),calc(var(--avh)*${r}))`;s.style.height=`min(var(--avh),calc(var(--avw)/${r}))`;sizeCv();cur=-2;return}
+ s.style.width=a==="fill"?"100vw":a==="9:16"?"min(100vw,56.25vh)":"min(100vw,177.78vh)";s.style.height=a==="fill"?"100vh":a==="9:16"?"min(100vh,177.78vw)":"min(100vh,56.25vw)";sizeCv();cur=-2}
+css();applyScene();panel();
+/* ===== [QUICK] 快捷選單（頂欄「⚡ 快捷」或 Ctrl+K）：所有工具、匯出、載入、面板跳轉集中在 quickActions() 這一張表。
+   新增功能：在 quickActions() 的陣列加一筆 {id,g,t,h,k,on,run}：g＝群組（須在 QK_GROUPS；null＝只在搜尋時出現）、t＝名稱、h＝右側提示、
+   k＝搜尋關鍵字、on＝() => true 或「不可用的原因」字串、run＝執行內容。選單只負責呼叫既有函式／按鈕，不含功能邏輯；?check=1 的 selfCheck 會驗證這張表。===== */
+const QK_GROUPS=["匯出","載入","編輯","面板跳轉","檢視與系統"];
+const QK_SECS=["rhythm","preset","export","scene","pos","bg"];   /* 對應 secAnchor(p,id) 的面板區段 */
+function quickActions(){
+ const needSubs=()=>subs.length?true:"請先載入 SRT 或範例",click=q=>()=>$(q).click(),jump=id=>()=>showSec(id),
+ A=[
+  {id:"exp-srt",g:"匯出",t:"匯出帶標記的 SRT",h:"lyrics_tagged.srt",k:"srt export 字幕 標記 下載",on:needSubs,run:exportSRT},
+  {id:"exp-cfg",g:"匯出",t:"匯出設定 JSON",h:"lyrics_config.json",k:"config json 設定 下載",run:exportConfig},
+  {id:"exp-proj",g:"匯出",t:"匯出渲染專案 project.json",h:"字幕＋設定＋字體",k:"project render 離線 渲染 專案 備份",on:needSubs,run:async()=>{await exportProjectUI();showSec("export")}},
+  {id:"exp-cmd",g:"匯出",t:"複製離線渲染指令",h:"node render/run.mjs …",k:"command cmd 指令 複製",run:async()=>{const c=projCmd().cmd;try{await navigator.clipboard.writeText(c);note("已複製離線渲染指令："+c)}catch(e){prompt("複製這行指令：",c)}}},
+  {id:"exp-rec",g:"匯出",t:"全螢幕錄製並下載影片",h:"mp4／webm",k:"record 錄製 影片 錄影",on:needSubs,run:click("#rec")},
+  {id:"ld-srt",g:"載入",t:"載入 SRT 字幕",h:"",k:"srt load 字幕 開啟",run:click("#fs")},
+  {id:"ld-media",g:"載入",t:"載入音樂／影片",h:"",k:"media audio video 音樂 影片 媒體",run:click("#fm")},
+  {id:"ld-json",g:"載入",t:"匯入設定 JSON／渲染專案",h:"project.json 整包還原",k:"import json 匯入 還原 設定 專案",run:click("#cfgImport")},
+  {id:"ld-demo",g:"載入",t:"載入範例",h:"",k:"demo 範例 示範",run:click("#demo")},
+  {id:"ed-editor",g:"編輯",t:"句子編輯器（開／關）",h:"",k:"editor 編輯器 逐句",run:click("#ed")},
+  {id:"ed-rnd",g:"編輯",t:"隨機化版型與動畫",h:"可復原",k:"random 隨機 靈感",on:needSubs,run:click("#rnd")},
+  {id:"ed-undo",g:"編輯",t:"復原",h:"Ctrl+Z",k:"undo 復原",on:()=>histOf===subs&&histA.length?true:"沒有可復原的動作",run:undo},
+  {id:"ed-redo",g:"編輯",t:"重做",h:"Ctrl+Y",k:"redo 重做",on:()=>histOf===subs&&histB.length?true:"沒有可重做的動作",run:redo},
+  {id:"ed-unlock",g:"編輯",t:"解除版型鎖定",h:"",k:"unlock lock 鎖定 解除",on:()=>CONFIG.lock?true:"目前沒有鎖定版型",run:click("#unlock")},
+  {id:"ed-bake",g:"編輯",t:"把全域位置寫入各句",h:"",k:"position bake 位置 寫入",on:needSubs,run:bakePos},
+  {id:"ed-clrpos",g:"編輯",t:"清除所有句子的位置",h:"",k:"position clear 位置 清除",on:needSubs,run:clearPos},
+  {id:"nav-rhythm",g:"面板跳轉",t:"節奏・字體・顏色",h:"面板最上方",k:"bpm 字體 顏色 節奏 tap",run:jump("rhythm")},
+  {id:"nav-preset",g:"面板跳轉",t:"預設組合・鎖定版型・設定匯出入",h:"",k:"preset 預設 鎖定 匯出 匯入",run:jump("preset")},
+  {id:"nav-export",g:"面板跳轉",t:"面板的匯出區",h:"",k:"export 匯出",run:jump("export")},
+  {id:"nav-scene",g:"面板跳轉",t:"畫面比例・粒子・轉場・疊加層",h:"",k:"aspect 比例 粒子 轉場 疊加 特效 錄製幀率",run:jump("scene")},
+  {id:"nav-pos",g:"面板跳轉",t:"位置微調",h:"",k:"position 位置 錨點 參考線",run:jump("pos")},
+  {id:"nav-bg",g:"面板跳轉",t:"背景與亮度・陰影",h:"",k:"background 背景 亮度 陰影 影片",run:jump("bg")},
+  {id:"sys-play",g:"檢視與系統",t:"播放／暫停",h:"空白鍵",k:"play pause 播放 暫停",run:click("#play")},
+  {id:"sys-panel",g:"檢視與系統",t:"顯示／隱藏參數面板",h:"",k:"panel 參數 面板",run:click("#tg")},
+  {id:"sys-guides",g:"檢視與系統",t:"顯示／隱藏參考線",h:CONFIG.guides?"目前：開":"目前：關",k:"guides 參考線 安全邊界",run:()=>{CONFIG.guides=!CONFIG.guides;save();guidesCss();panel()}},
+  {id:"sys-reset",g:"檢視與系統",t:"清除記住的設定（恢復預設）",h:"會重新載入",k:"reset 重設 清除 預設",run:()=>resetSettings()}];
+ Object.keys(PRESETS).forEach(n=>A.push({id:"preset:"+n,g:null,t:"預設組合："+n,h:"",k:"preset 預設 組合 套用",run:()=>applyPreset(n)}));
+ [["","（不鎖定）"],...LAYOUTS.map(l=>[l,l])].forEach(([l,n])=>A.push({id:"lock:"+l,g:null,t:"鎖定版型："+n,h:"",k:"lock layout 鎖定 版型",run:()=>{CONFIG.lock=l;cur=-2;save();panel()}}));
+ [["","（清除）"],...SCENE_NAMES.map(n=>[n,n])].forEach(([n,t])=>{
+  A.push({id:"scene-cur:"+n,g:null,t:"場景層：套用到目前這句 "+t,h:"",k:"scene 場景層 圖案 疊加 &",on:needSubs,run:()=>{const x=subs[selIdx];if(!x)return;pushHist();x.scene=n;cur=-2;refreshEditor()}});
+  A.push({id:"scene-all:"+n,g:null,t:"場景層：套用到全部句子 "+t,h:"",k:"scene 場景層 圖案 疊加 &",on:needSubs,run:()=>{pushHist();subs.forEach(x=>x.scene=n);cur=-2;refreshEditor()}})});
+ return A}
+if(!RENDER)(()=>{
+ const box=$("#qk"),inp=$("#qks"),list=$("#qkl"),btn=$("#qkb");let items=[],act=0;
+ const recent=()=>{try{const r=JSON.parse(localStorage.getItem(LS_QK)||"[]");return Array.isArray(r)?r:[]}catch(e){return[]}},
+  remember=id=>{try{localStorage.setItem(LS_QK,JSON.stringify([id,...recent().filter(x=>x!==id)].slice(0,4)))}catch(e){}},
+  isOn=()=>box.classList.contains("on"),close=()=>box.classList.remove("on"),
+  setAct=(i,scroll)=>{if(!items.length)return;act=(i+items.length)%items.length;items.forEach((it,j)=>it.d.classList.toggle("act",j===act));scroll&&items[act].d.scrollIntoView({block:"nearest"})},
+  pick=it=>{if(!it)return;if(!it.ok)return note(it.r);close();remember(it.a.id);   /* 先關選單再執行；同一次點擊內執行，錄製／選檔才拿得到使用者授權 */
+   try{const r=it.a.run();r&&r.catch&&r.catch(e=>alert("執行失敗："+e.message))}catch(e){alert("執行失敗："+e.message)}},
+  mk=(tag,cls,txt)=>{const e=document.createElement(tag);e.className=cls;if(txt!=null)e.textContent=txt;return e};
+ function draw(){
+  const q=inp.value.trim().toLowerCase().split(/\s+/).filter(Boolean),all=quickActions(),byId=new Map(all.map(a=>[a.id,a]));
+  list.textContent="";items=[];
+  const add=a=>{const r=a.on?a.on():true,ok=r===true,d=mk("div","qi"+(ok?"":" dis")),it={a,d,ok,r};
+   d.append(mk("span","",a.t),mk("span","qh",ok?(a.h||""):r));d.onclick=()=>pick(it);d.onmouseenter=()=>setAct(items.indexOf(it));list.append(d);items.push(it)};
+  if(q.length){const hit=all.filter(a=>{const h=(a.t+" "+(a.g||"")+" "+(a.k||"")).toLowerCase();return q.every(w=>h.includes(w))});
+   hit.forEach(add);if(!hit.length)list.append(mk("div","qe","找不到符合的功能"))}
+  else{const rc=recent().map(id=>byId.get(id)).filter(Boolean);
+   if(rc.length){list.append(mk("div","qg","最近使用"));rc.forEach(add)}
+   QK_GROUPS.forEach(g=>{const xs=all.filter(a=>a.g===g);if(xs.length){list.append(mk("div","qg",g));xs.forEach(add)}});
+   list.append(mk("div","qe","輸入關鍵字，可直接搜尋「預設組合」與「鎖定版型」"))}
+  setAct(0)}
+ const open=()=>{box.classList.add("on");inp.value="";draw();inp.focus()};
+ btn.onclick=()=>isOn()?close():open();
+ inp.oninput=draw;
+ inp.addEventListener("keydown",e=>{if(e.key==="ArrowDown"){e.preventDefault();setAct(act+1,1)}else if(e.key==="ArrowUp"){e.preventDefault();setAct(act-1,1)}else if(e.key==="Enter"){e.preventDefault();pick(items[act])}});
+ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&isOn())close();else if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==="k"&&!recording){e.preventDefault();isOn()?close():open()}});
+ document.addEventListener("pointerdown",e=>{if(isOn()&&!box.contains(e.target)&&!btn.contains(e.target))close()});
+})();
+
+/* ===== [RECORD] 全螢幕錄製：同一次點擊內先全螢幕再 getDisplayMedia（倒數 → MediaRecorder → 下載）===== */
+let rec=null,chunks=[],stream=null,finishing=false,counting=false;
+$("#rec").onclick=async()=>{
+ if(!navigator.mediaDevices?.getDisplayMedia||typeof MediaRecorder==="undefined")return alert("此瀏覽器不支援螢幕錄製，請使用最新版 Chrome 或 Edge。");
+ if(!subs.length)return alert("請先載入 SRT 或載入範例。");
+ let fsP=document.documentElement.requestFullscreen?.().catch(()=>{});
+ try{stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:Number(CONFIG.recFps)||60},audio:true,preferCurrentTab:true,selfBrowserSurface:"include",systemAudio:"include"})}
+ catch(e){document.fullscreenElement&&document.exitFullscreen();return alert("未取得錄製授權（"+(e.name||"錯誤")+"）。請在授權視窗選「此分頁」。")}
+ await fsP;recording=true;counting=true;edLayout();chunks=[];finishing=false;rec=null;stream.getVideoTracks()[0].onended=()=>stopRec();pause();
+ if(CONFIG.aspect!=="fill"&&window.CropTarget){try{await stream.getVideoTracks()[0].cropTo(await CropTarget.fromElement($("#stage")))}catch(e){note("無法裁切成指定比例，將錄製整個視窗："+e.message)}}
+ if(!stream.getAudioTracks().length)note("警告：沒有音訊軌。請勾選「分享分頁音訊」；示範模式本來就是靜音。");
+ await document.fonts.ready;if(!counting)return;
+ const cd=$("#cd");cd.style.display="flex";document.body.classList.add("rec");
+ for(let i=3;i>0&&counting;i--){cd.textContent=i;await new Promise(r=>setTimeout(r,1000))}  // 倒數為 UI 用途，非動畫計時
+ if(!counting)return;counting=false;cd.style.display="none";if(CONFIG.recLite){perfLite=true;sizeCv()}
+ const types=["video/mp4;codecs=avc1,mp4a.40.2","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
+ const mt=types.find(t=>MediaRecorder.isTypeSupported(t))||"";
+ chunks=[];finishing=false;
+ rec=new MediaRecorder(stream,{mimeType:mt,videoBitsPerSecond:(Number(CONFIG.recFps)||60)<=30?8e6:12e6,audioBitsPerSecond:192e3});
+ rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+ rec.onstop=()=>finish(rec.mimeType||mt);
+ stream.getVideoTracks()[0].onended=()=>stopRec();   // 使用者按「停止共用」
+ rec.start(1000);
+ vt=0;cur=-2;if(hasMedia)m.currentTime=0;play();
+};
+document.addEventListener("fullscreenchange",()=>{if(!document.fullscreenElement&&recording)stopRec()});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&recording)note("請保持此分頁在前景")});
+function stopRec(){if(counting){counting=false;recording=false;stream&&stream.getTracks().forEach(t=>t.stop());$("#cd").style.display="none";document.body.classList.remove("rec");document.fullscreenElement&&document.exitFullscreen();note("已取消錄製");return}
+ if(rec&&rec.state!=="inactive")rec.stop();else if(recording)finish("")}
+function done(){if(recording)setTimeout(stopRec,hasMedia?300:0)}
+function finish(mt){perfLite=false;perfPart=null;sizeCv();
+ if(finishing)return;finishing=true;recording=false;pause();
+ stream&&stream.getTracks().forEach(t=>t.stop());
+ document.body.classList.remove("rec");document.fullscreenElement&&document.exitFullscreen();
+ if(!chunks.length)return alert("沒有錄到任何資料。");
+ const ext=/mp4/.test(mt)?"mp4":"webm",d=new Date(),z=n=>String(n).padStart(2,"0");
+ const name=`lyrics_${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.${ext}`;
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(chunks,{type:mt||"video/webm"}));a.download=name;document.body.appendChild(a);a.click();a.remove();
+ note("已下載 "+name);
+}
+/* 登記一致性自我檢查：網址加 ?check=1 開啟，結果印在瀏覽器主控台（F12）；平常不執行、不影響使用。
+   新增版型／設定後若漏登記（LAYOUTS、BRACE_LAYOUTS、FULLBLEED、CFG_DEFAULTS），這裡會列出來。 */
+function selfCheck(){
+ const L=new Set(LAYOUTS),inline=new Set(["split","lowerleft","bounce","slam","neon","karaoke"]),out=[];
+ Object.keys(NL).filter(k=>!L.has(k)).forEach(k=>out.push("NL 有、LAYOUTS 沒有："+k));
+ [...L].filter(k=>!NL[k]&&!inline.has(k)).forEach(k=>out.push("LAYOUTS 有、NL 沒有："+k));
+ [...BRACE_LAYOUTS].filter(k=>!L.has(k)).forEach(k=>out.push("BRACE_LAYOUTS 不在 LAYOUTS："+k));
+ [...FULLBLEED].filter(k=>!L.has(k)).forEach(k=>out.push("FULLBLEED 不在 LAYOUTS："+k));
+ LAYOUTS.filter((k,i)=>LAYOUTS.indexOf(k)!==i).forEach(k=>out.push("LAYOUTS 重複："+k));
+ Object.keys(CONFIG).filter(k=>!(k in CFG_DEFAULTS)).forEach(k=>out.push("CONFIG 有、CFG_DEFAULTS 沒有（匯入設定時舊值會殘留）："+k));
+ {Object.keys(SCENES).filter(n=>!SCENE_NAMES.includes(n)||!/^(under|over)$/.test(SCENES[n].layer)||typeof SCENES[n].draw!=="function").forEach(n=>out.push("場景層登記不一致："+n));SCENE_NAMES.filter((k,i)=>SCENE_NAMES.indexOf(k)!==i).forEach(k=>out.push("SCENE_NAMES 重複："+k))}
+ {const ids=new Set();quickActions().forEach(a=>{ids.has(a.id)&&out.push("快捷表 id 重複："+a.id);ids.add(a.id);a.g===null||QK_GROUPS.includes(a.g)||out.push("快捷表群組未登記："+a.id+"／"+a.g);typeof a.run==="function"||out.push("快捷表缺 run："+a.id)});
+  ["#fs","#fm","#demo","#rec","#ed","#rnd","#unlock","#tg","#play","#qkb","#qk","#cfgImport"].forEach(q=>$(q)||out.push("缺少元素："+q));
+  QK_SECS.forEach(id=>$('#panel [data-sec="'+id+'"]')||out.push("面板缺少區段錨點："+id))}
+ out.length?console.warn("[selfCheck] 發現 "+out.length+" 項：\n"+out.join("\n")):console.info("[selfCheck] 登記一致");return out}
+if(/[?&]check=1(&|$)/.test(location.search))window.addEventListener("load",selfCheck);
+window.__selfCheck=selfCheck;
+/* ===== [RENDER-API] 離線渲染介面（render/run.mjs 呼叫：__loadProject / __renderFrame / __layer）===== */
+let __fps=30,__last=-1;
+if(RENDER){
+ __fps=Number(new URLSearchParams(location.search).get("fps"))||30;
+ document.body.classList.add("rec");document.documentElement.classList.add("rendering");CONFIG.autoPerf=false;perfLite=false;CONFIG.aspect="fill";
+ /* CSS 動畫（背景流動、kb 推近）從一開始就暫停，避免瀏覽器合成器在頁面載入初期自行播放而造成不一致 */
+ {const st=document.createElement("style");st.textContent="*{animation-play-state:paused!important}";document.head.appendChild(st)}
+ /* 節拍閃動、轉場原本是即時播放的 Web Animation：離線時改為暫停，並依「虛擬時間」逐幀推進 */
+ let rt=[],inRT=false,vnow=0;const _an=Element.prototype.animate;
+ Element.prototype.animate=function(k,o){const a=_an.call(this,k,o);if(inRT){a.pause();a.currentTime=0;rt.push({a,t0:vnow})}return a};
+ const wrap=f=>function(...x){inRT=true;try{return f.apply(this,x)}finally{inRT=false}};
+ onBeat=wrap(onBeat);transition=wrap(transition);
+ let __dur=0,__aud=null;endT=()=>__dur>0?__dur:(subs.length?subs[subs.length-1].e+1:0);
+ const __im=document.createElement("img");__im.id="mimg";m.after(__im);
+ window.__loadProject=async p=>{
+  for(const f of p.fonts||[]){try{const ff=new FontFace(f.name,await(await fetch("data:application/octet-stream;base64,"+(f.b64||f.data))).arrayBuffer());await ff.load();document.fonts.add(ff);FONTS[f.name]=`"${f.name}",`+FONTS.明體}catch(e){console.error("字體載入失敗："+f.name+"："+e.message)}}
+  an=null;__aud=null;
+  Object.assign(CONFIG,p.config||{});CONFIG.aspect="fill";CONFIG.autoPerf=false;
+  __dur=+p.mediaDuration||0;__im.style.display=p.bgVideo?"block":"none";__im.removeAttribute("src");
+  subs=parseSRT(p.srt==="@demo"||!p.srt?DEMO:p.srt);hasMedia=false;playing=true;vt=0;cur=-2;lastBeat=0;lastT=0;lastCt=-1;__last=-1;rt=[];
+  css();applyScene();sizeCv();await document.fonts.ready;
+  return{duration:endT(),fps:__fps,frames:Math.ceil(endT()*__fps),width:innerWidth,height:innerHeight,subs:subs.length}};
+ window.__setAudio=a=>{lo=a.lo;hi=a.hi;fb=new Uint8Array(512);__aud={rows:Uint8Array.from(a.rows),nb:a.hi-a.lo+1,S:a.S,R:a.R,ptr:0};
+  an={getByteFrequencyData(arr){const o=__aud.ptr++*__aud.nb;for(let i=0;i<__aud.nb;i++)arr[lo+i]=o+i<__aud.rows.length?__aud.rows[o+i]:0}}};
+ window.__renderFrame=async(t,bg)=>{
+  const dt=__last<0?1/__fps:Math.max(0,t-__last);__last=t;vnow=t;vt=t;playing=true;
+  if(__aud){__aud.ptr=Math.round(t*__fps)*__aud.S;for(let j=0;j<__aud.S-1;j++)audioStep(t*1000-(__aud.S-1-j)*1000/__aud.R)}
+  step(t*1000,dt);
+  rt=rt.filter(o=>{const ct=(vnow-o.t0)*1000;if(ct>=o.a.effect.getComputedTiming().endTime){o.a.cancel();return false}o.a.currentTime=ct;return true});
+  document.getAnimations().forEach(a=>{if(a instanceof CSSAnimation){a.pause();a.currentTime=t*1000}});
+  if(bg&&__im.getAttribute("src")!==bg){__im.src=bg;try{await __im.decode()}catch(e){}}
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));return true};
+ window.__layer=m=>{const r=document.documentElement.classList;r.toggle("alpha",m==="text");r.toggle("nobg",m==="text");r.toggle("ambonly",m==="amb")};   // 'text'＝透明文字層；'amb'＝氛圍層（無文字）；其他＝一般完整畫面
+window.__ready=document.fonts.ready.then(()=>true);
+}else requestAnimationFrame(t=>{lastP=t;loop(t)});
+</script></body></html>

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>動態歌詞字幕工具 [fix-1010e]</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+ 動態歌詞字幕工具（單一 HTML，雙擊用最新版 Chrome / Edge 開啟，零外部連線）
+ 1. 載入 SRT 與音樂/影片；未載入時為示範模式（靜音）。空白鍵播放/暫停，←→ 跳轉 5 秒。
+ 2. 句首標記：#版型+進場+退場~特效1,特效2^位置*字體@樣式，例：#neon+fade+blur-out~float^bc；{字}{字} 用於 split / keyword / marker。
+    ^位置：tl tc tr / ml mc mr / bl bc br 九宮格錨點，可加 :X:Y 微調（畫面寬高的 %），auto＝版型原位。
+ 3. 「句子編輯器」可逐句改設定並匯出帶標記的 SRT；「隨機化」找靈感；面板有預設組合與設定匯出入。
+ 4. 面板可設畫面比例（16:9 / 9:16）、錄製幀率、錄製輕量模式；所有參數集中在檔案頂部 CONFIG。
+ 5. 「全螢幕錄製」：授權時選「此分頁」並勾選分享分頁音訊；結束自動下載。示範模式錄出的影片為靜音。
+ 6. 錄製掉幀時：改 30 fps、開輕量模式、縮小比例、避開模糊類版型與全開疊加層。 
+-->
+<style>
+@@STYLE@@</style></head><body>
+<div id="stage"><div id="bg"></div><video id="m" playsinline></video><div id="mask"></div>
+<canvas id="cv"></canvas><div id="pulse"><div id="L"></div></div>
+<canvas id="cv2"></canvas><div id="guides"><i id="vc"></i><i id="vl"></i><i id="vr"></i><i id="hc"></i><i id="ht"></i><i id="hb"></i></div></div>
+<div id="bar">
+ <label class="fb" title="載入 SRT 字幕">📄 載入 SRT<input type="file" id="fs" accept=".srt,.txt"></label>
+ <label class="fb" title="載入音樂或影片">🎵 載入媒體<input type="file" id="fm" accept="audio/*,video/*"></label>
+ <button id="play">播放</button><input type="range" id="seek" min="0" max="1000" value="0">
+ <span id="tm">0.0</span><button id="demo">載入範例</button><button id="rec">全螢幕錄製</button><button id="ed">句子編輯器</button><button id="rnd">隨機化</button><button id="unlock" style="display:none;background:#7a2a3a">🔒 版型已鎖定，按此解除</button><button id="qkb" title="所有工具與匯出功能（Ctrl+K）">⚡ 快捷</button><button id="tg">參數</button>
+</div>
+<div id="panel"></div><div id="note"></div><div id="cd"></div>
+<div id="qk"><input id="qks" type="text" placeholder="搜尋功能…（例：srt、錄製、位置、霓虹）" autocomplete="off"><div id="qkl"></div></div>
+<script>
+@@SCRIPT@@</script></body></html>

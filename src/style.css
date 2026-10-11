@@ -1,0 +1,76 @@
+:root{--c:#fff;--a:#7aa8ff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#050608;color:var(--c);overflow:hidden;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+#bg{position:fixed;inset:0;background:linear-gradient(120deg,#07080d,#10162a,#0a0a12,#171026);background-size:300% 300%;animation:flow 24s ease infinite}
+@keyframes flow{50%{background-position:100% 50%}}
+#m{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;display:none}
+#mimg{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;display:none}
+#mask{position:fixed;inset:0;background:rgba(0,0,0,.5)}
+#pulse{position:fixed;inset:0}
+#L{position:absolute;inset:0}
+.w{position:absolute;inset:0}
+.ch{display:inline-block;white-space:pre}
+#bar{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;align-items:center;padding:8px 12px;background:rgba(10,12,20,.85);font-size:13px;z-index:5}
+button,select,input[type=file]{font:inherit;color:#fff;background:#232a44;border:1px solid #3a4470;border-radius:4px;padding:4px 10px}
+#seek{flex:1}
+#bar,#panel,#edm,#note,#projbox{color:#fff}   /* 工具介面固定白字：不跟著「文字顏色」(--c) 走 */
+#panel{position:fixed;top:44px;right:0;width:230px;bottom:0;background:rgba(10,12,20,.85);padding:10px;font-size:12px;overflow:auto;z-index:5;transition:transform .3s}
+#panel.off{transform:translateX(100%)}
+#panel label{display:block;margin:6px 0 2px}#panel input[type=range]{width:100%}
+body.rec #bar,body.rec #panel,body.rec #note,body.rec #edm,body.rec #edgrip{display:none}
+#note{position:fixed;left:12px;bottom:10px;font-size:12px;opacity:.7;z-index:5;max-width:60vw}
+#cd{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:30vh;background:#000;z-index:9}
+.ln{height:2px;background:rgba(255,255,255,.6)}
+#guides{position:absolute;inset:0;pointer-events:none;display:none}
+#guides.on,#guides.drag{display:block}
+#guides i{position:absolute;background:rgba(122,200,255,.35)}
+#guides i.hit{background:#ffd23a;box-shadow:0 0 6px #ffd23a}
+#vc,#vl,#vr{top:0;bottom:0;width:1px}#hc,#ht,#hb{left:0;right:0;height:1px}#vc{left:50%}#hc{top:50%}
+body.rec #guides,html.rendering #guides{display:none!important}
+#stage{touch-action:none}
+#cv,#cv2{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+.kb #bg{animation:flow 24s ease infinite,kb 30s ease-in-out infinite alternate}.kb #m{animation:kb 30s ease-in-out infinite alternate}@keyframes kb{to{transform:scale(1.12)}}
+#stage{--avw:calc(100vw - var(--edr,0px));--avh:calc(100vh - var(--edt,0px) - var(--edh,0px));position:fixed;inset:var(--edt,0px) var(--edr,0px) var(--edh,0px) 0;margin:auto;overflow:hidden;contain:layout paint;container-type:size;background:#050608}
+/* 透明背景 / 只輸出字：預覽時以棋盤格表示透明；離線渲染時真正透明 */
+html.nobg,html.nobg body{background:repeating-conic-gradient(#2b2b2b 0 25%,#3c3c3c 0 50%) 0 0/24px 24px}
+html.nobg #stage{background:transparent}
+html.nobg #bg,html.nobg #m,html.nobg #mimg,html.nobg #mask{display:none!important}
+html.alpha #cv,html.alpha #cv2{display:none}
+html.ambonly #pulse{visibility:hidden}   /* --layers 的氛圍層：隱藏文字、保留背景／遮罩／粒子／暗角／噪點／疊加特效 */
+html.rendering.nobg,html.rendering.nobg body{background:transparent}
+body.tshadow #L{text-shadow:var(--tsh,0 .185cqh 1.11cqh rgba(0,0,0,.35))}
+body.tshadow #L [style*="background-clip"]{text-shadow:none!important;filter:var(--dsh,drop-shadow(0 .185cqh 1.11cqh rgba(0,0,0,.35)))}
+/* 綠幕（離線渲染 --chroma，CONFIG.chroma＝顏色）：背景只剩純色；畫布、遮罩、影片、整頁濾鏡、各種陰影與發光一律關閉，避免把顏色混進背景 */
+html.chroma,html.chroma body,html.chroma #stage,html.chroma #bg{background:var(--ck)!important;animation:none!important}
+html.chroma #m,html.chroma #mimg,html.chroma #mask,html.chroma #cv,html.chroma #cv2{display:none!important}
+html.chroma body,html.chroma #L,html.chroma #L path{filter:none!important}
+html.chroma #L,html.chroma #L *{text-shadow:none!important;box-shadow:none!important}
+/* 頂欄精簡：檔案欄位改成按鈕式（原生 input 隱藏，功能不變），窄視窗可橫向捲動不擠壞 */
+.fb{font:inherit;background:#232a44;border:1px solid #3a4470;border-radius:4px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+.fb:hover{background:#2c3558}.fb input{display:none}
+#bar{overflow-x:auto;scrollbar-width:none}#bar button{white-space:nowrap}#seek{min-width:60px}
+/* 面板分組（可收合） */
+#panel details.ps{border:1px solid #2a3252;border-radius:6px;margin:0 0 6px;background:rgba(255,255,255,.03)}
+#panel summary{cursor:pointer;padding:7px 8px;font-weight:700;list-style:none;display:flex;justify-content:space-between;user-select:none}
+#panel summary::-webkit-details-marker{display:none}
+#panel summary::after{content:"▸";opacity:.6;transition:transform .15s}
+#panel details[open]>summary{border-bottom:1px solid #2a3252;position:sticky;top:-10px;background:#10152a;z-index:1;border-radius:6px 6px 0 0}
+#panel details[open]>summary::after{transform:rotate(90deg)}
+#panel .pb{padding:2px 8px 10px}
+#panel .pt{display:flex;gap:6px;margin-bottom:6px}#panel .pt button{flex:1;font-size:11px;padding:3px}
+/* 句子編輯器分隔線（可拖曳調整預覽／編輯器比例） */
+#edgrip{position:fixed;left:0;right:240px;height:8px;cursor:ns-resize;z-index:7;background:rgba(122,168,255,.25);touch-action:none}
+#edgrip:hover,#edgrip.drag{background:rgba(122,168,255,.65)}
+/* ===== [QUICK] 快捷選單 ===== */
+#qk{position:fixed;top:44px;right:8px;width:340px;max-height:calc(100vh - 56px);display:none;flex-direction:column;background:rgba(10,12,20,.97);border:1px solid #3a4470;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.55);z-index:8;font-size:13px;color:#fff}
+#qk.on{display:flex}
+#qks{margin:8px;width:calc(100% - 16px);font:inherit;color:#fff;background:#141a30;border:1px solid #3a4470;border-radius:4px;padding:6px 8px;outline:none}
+#qks:focus{border-color:var(--a)}
+#qkl{overflow:auto;padding:0 6px 8px}
+.qg{margin:8px 4px 2px;font-size:11px;letter-spacing:.08em;opacity:.55}
+.qi{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border-radius:5px;cursor:pointer}
+.qi.act{background:#2a3566}
+.qi.dis{opacity:.4}
+.qh{opacity:.55;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48%}
+.qe{padding:12px 8px;opacity:.6;text-align:center;line-height:1.6}
+body.rec #qk,html.rendering #qk{display:none!important}

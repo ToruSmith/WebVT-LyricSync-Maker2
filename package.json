@@ -1,0 +1,17 @@
+{
+ "name": "work",
+ "version": "1.0.0",
+ "description": "",
+ "main": "index.js",
+ "scripts": {
+  "build": "node build.mjs",
+  "check": "node build.mjs && node verify-kit/regress-all.mjs baseline.html index.html 16:9"
+ },
+ "keywords": [],
+ "author": "",
+ "license": "ISC",
+ "dependencies": {
+  "playwright": "^1.64.0"
+ },
+ "type": "module"
+}
