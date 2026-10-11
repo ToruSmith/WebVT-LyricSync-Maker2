@@ -1,0 +1,13 @@
+# 依賴與工具
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+.claude/settings.local.json
+
+# 離線渲染：使用者自己的輸入（歌曲、project.json、字體）與輸出（影片、暫存圖）
+input/
+output/
+
+# 測試截圖等產物
+test/out/
