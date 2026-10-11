@@ -5,7 +5,7 @@
  "main": "index.js",
  "scripts": {
   "build": "node build.mjs",
-  "check": "node build.mjs && node verify-kit/regress-all.mjs baseline.html index.html 16:9"
+  "check": "node build.mjs && node verify-kit/regress-all.mjs baseline.html index.html 16:9 && node verify-kit/regress-all.mjs baseline.html index.html 9:16 && node test/ui-parity.mjs && node test/spec-sync.mjs && node test/scene.mjs && node test/beatfx-layouts.mjs && node test/beatfx-layouts.mjs 9:16 && node test/styles.mjs && node test/styles.mjs 9:16"
  },
  "keywords": [],
  "author": "",

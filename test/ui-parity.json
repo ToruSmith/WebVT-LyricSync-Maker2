@@ -13,6 +13,7 @@
   "preset",
   "export",
   "scene",
+  "layers",
   "pos",
   "bg"
  ],
@@ -37,29 +38,89 @@
   "nav-preset",
   "nav-export",
   "nav-scene",
+  "nav-layers",
   "nav-pos",
   "nav-bg",
   "sys-play",
   "sys-panel",
   "sys-guides",
-  "sys-reset"
+  "sys-reset",
+  "scene-global:",
+  "scene-global:halftone",
+  "scene-global:dots",
+  "scene-global:checker",
+  "scene-global:burst",
+  "scene-global:radial-rects",
+  "scene-global:perspective-grid",
+  "scene-global:flow-lines",
+  "scene-global:stripes",
+  "scene-global:hatch",
+  "scene-global:diag-split",
+  "scene-global:blocks",
+  "scene-global:breathing-blocks",
+  "scene-global:squares",
+  "scene-global:glow-ring",
+  "scene-global:rings",
+  "scene-global:pulse-circle",
+  "scene-global:glitch-bars",
+  "scene-global:guides",
+  "scene-global:dashed-lines",
+  "scene-global:ruler",
+  "scene-global:target",
+  "scene-global:color-wash",
+  "scene-global:gradient-fade",
+  "scene-global:pink-stripes",
+  "scene-global:diag-fill",
+  "scene-global:diag-structure",
+  "scene-global:organic-blob",
+  "scene-global:edge-clouds",
+  "scene-global:scattered-shapes",
+  "scene-global:diamond-shapes",
+  "scene-global:shadow-shapes",
+  "scene-global:balancing-circles",
+  "scene-global:web-lines",
+  "scene-global:cross-pattern",
+  "scene-global:triangle-grid",
+  "scene-global:pink-grid",
+  "scene-global:jigsaw-grid",
+  "scene-global:texture-bg",
+  "scene-global:pixel-bg",
+  "scene-global:star-trail",
+  "scene-global:light-spot",
+  "scene-global:screen-border",
+  "scene-global:scalloped-border",
+  "scene-global:hud-corners",
+  "scene-global:hud-info",
+  "scene-global:hud-status",
+  "scene-global:data-monitors",
+  "scene-global:pixel-window",
+  "scene-global:desktop-icon",
+  "scene-global:smear-brush",
+  "scene-global:paper-tear",
+  "scene-global:blood-splatter",
+  "scene-global:crime-tape",
+  "scene-global:planet",
+  "bfx-off",
+  "bfx-light",
+  "bfx-mid",
+  "bfx-strong"
  ],
  "quickFamilies": [
   [
    "preset:",
-   12
+   28
   ],
   [
    "lock:",
-   61
+   69
   ],
   [
    "scene-cur:",
-   24
+   55
   ],
   [
    "scene-all:",
-   24
+   55
   ]
  ],
  "barIds": [
@@ -76,7 +137,7 @@
   "tm",
   "unlock"
  ],
- "panelInputs": 39,
+ "panelInputs": 40,
  "sliderLabels": [
   "BPM：",
   "節拍起點 offset(秒)：",
@@ -115,6 +176,11 @@
   "色彩",
   "節拍來源",
   "句間轉場",
+  "風格包（調色盤＋字體＋全域底層＋版型池＋後製；之後仍可逐句覆寫）",
+  "全域底層場景（句子沒有自己的 & 時套用；語法同 &：名稱:強度:速度:節拍連動:X:Y）",
+  "自動變化版型的候選池",
+  "從圖片取主色（寫入強調色，圖片不會載入）",
+  "場景成本預算（0＝不降級）：",
   "── 這一句的位置 ──",
   "錨點（下面的 X／Y 以它為原點）",
   "水平 X %（右為正，相對錨點）",

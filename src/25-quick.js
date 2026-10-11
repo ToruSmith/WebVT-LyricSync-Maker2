@@ -2,7 +2,7 @@
    新增功能：在 quickActions() 的陣列加一筆 {id,g,t,h,k,on,run}：g＝群組（須在 QK_GROUPS；null＝只在搜尋時出現）、t＝名稱、h＝右側提示、
    k＝搜尋關鍵字、on＝() => true 或「不可用的原因」字串、run＝執行內容。選單只負責呼叫既有函式／按鈕，不含功能邏輯；?check=1 的 selfCheck 會驗證這張表。===== */
 const QK_GROUPS=["匯出","載入","編輯","面板跳轉","檢視與系統"];
-const QK_SECS=["rhythm","preset","export","scene","pos","bg"];   /* 對應 secAnchor(p,id) 的面板區段 */
+const QK_SECS=["rhythm","preset","export","scene","layers","pos","bg"];   /* 對應 secAnchor(p,id) 的面板區段 */
 function quickActions(){
  const needSubs=()=>subs.length?true:"請先載入 SRT 或範例",click=q=>()=>$(q).click(),jump=id=>()=>showSec(id),
  A=[
@@ -26,13 +26,16 @@ function quickActions(){
   {id:"nav-preset",g:"面板跳轉",t:"預設組合・鎖定版型・設定匯出入",h:"",k:"preset 預設 鎖定 匯出 匯入",run:jump("preset")},
   {id:"nav-export",g:"面板跳轉",t:"面板的匯出區",h:"",k:"export 匯出",run:jump("export")},
   {id:"nav-scene",g:"面板跳轉",t:"畫面比例・粒子・轉場・疊加層",h:"",k:"aspect 比例 粒子 轉場 疊加 特效 錄製幀率",run:jump("scene")},
+  {id:"nav-layers",g:"面板跳轉",t:"風格包・全域場景層・版型池",h:"",k:"style pack 風格 場景層 全域 底層 版型池 取色 後製",run:jump("layers")},
   {id:"nav-pos",g:"面板跳轉",t:"位置微調",h:"",k:"position 位置 錨點 參考線",run:jump("pos")},
   {id:"nav-bg",g:"面板跳轉",t:"背景與亮度・陰影",h:"",k:"background 背景 亮度 陰影 影片",run:jump("bg")},
   {id:"sys-play",g:"檢視與系統",t:"播放／暫停",h:"空白鍵",k:"play pause 播放 暫停",run:click("#play")},
   {id:"sys-panel",g:"檢視與系統",t:"顯示／隱藏參數面板",h:"",k:"panel 參數 面板",run:click("#tg")},
   {id:"sys-guides",g:"檢視與系統",t:"顯示／隱藏參考線",h:CONFIG.guides?"目前：開":"目前：關",k:"guides 參考線 安全邊界",run:()=>{CONFIG.guides=!CONFIG.guides;save();guidesCss();panel()}},
   {id:"sys-reset",g:"檢視與系統",t:"清除記住的設定（恢復預設）",h:"會重新載入",k:"reset 重設 清除 預設",run:()=>resetSettings()}];
- Object.keys(PRESETS).forEach(n=>A.push({id:"preset:"+n,g:null,t:"預設組合："+n,h:"",k:"preset 預設 組合 套用",run:()=>applyPreset(n)}));
+ Object.keys(PRESETS).forEach(n=>A.push({id:"preset:"+n,g:null,t:"預設組合："+n,h:"",k:"preset 預設 組合 套用"+(STYLE_PACKS.has(n)?" 風格 風格包 style pack":""),run:()=>applyPreset(n)}));
+ [["","（清除）"],...SCENE_NAMES.map(n=>[n,n])].forEach(([n,t])=>A.push({id:"scene-global:"+n,g:null,t:"場景層：設為全域底層 "+t,h:"",k:"scene 場景層 全域 底層 sceneAll",run:()=>{CONFIG.sceneAll=n;cur=-2;save();panel()}}));
+ [["off","關閉","0,0,0,0"],["light","輕度","1,2,1,10"],["mid","中度","2,4,2,20"],["strong","強烈","3,6,3,40"]].forEach(([id,t,v])=>{const q=v.split(",").map(Number);A.push({id:"bfx-"+id,g:null,t:"後製：節拍後製 "+t,h:"",k:"beat fx 後製 節拍 震動 縮放 傾斜 色相 shake zoom tilt hue",run:()=>{Object.assign(CONFIG,{beatShake:q[0],beatZoom:q[1],beatTilt:q[2],beatHue:q[3]});cur=-2;save();toneCss();panel()}})});
  [["","（不鎖定）"],...LAYOUTS.map(l=>[l,l])].forEach(([l,n])=>A.push({id:"lock:"+l,g:null,t:"鎖定版型："+n,h:"",k:"lock layout 鎖定 版型",run:()=>{CONFIG.lock=l;cur=-2;save();panel()}}));
  [["","（清除）"],...SCENE_NAMES.map(n=>[n,n])].forEach(([n,t])=>{
   A.push({id:"scene-cur:"+n,g:null,t:"場景層：套用到目前這句 "+t,h:"",k:"scene 場景層 圖案 疊加 &",on:needSubs,run:()=>{const x=subs[selIdx];if(!x)return;pushHist();x.scene=n;cur=-2;refreshEditor()}});

@@ -4,7 +4,7 @@ const P=[["bpm","BPM",40,220,1],["offset","節拍起點 offset(秒)",0,5,.01],["
  ["speed","全域速度",.25,4,.05],["enter","進場秒數",.05,4,.05],["exit","退場秒數",.05,3,.05],["bigRatio","大字高度比例",.03,.8,.01],["textScale","文字整體縮放%",20,300,5],["spacing","字距(em)",-.1,2,.05],["weight","字重",100,900,100]];
 /* 面板區段錨點：panel() 重建時一併重建；showSec(id) 供 [QUICK]「面板跳轉」使用（id 清單見 QK_SECS） */
 function secAnchor(p,id){const a=document.createElement("span");a.dataset.sec=id;a.style.cssText="display:block;height:0";p.append(a)}
-const PANEL_TITLES={rhythm:"節奏・字體・顏色",preset:"預設組合・鎖定版型",export:"設定與專案 匯出／匯入",scene:"畫面・粒子・轉場・疊加層",pos:"位置微調",bg:"背景・亮度・陰影"};
+const PANEL_TITLES={rhythm:"節奏・字體・顏色",preset:"預設組合・鎖定版型",export:"設定與專案 匯出／匯入",scene:"畫面・粒子・轉場・疊加層",layers:"風格包・場景層・後製",pos:"位置微調",bg:"背景・亮度・陰影"};
 let panelOpen=(()=>{try{const r=JSON.parse(localStorage.getItem(LS_PO)||"null");return Array.isArray(r)?r:["rhythm"]}catch(e){return["rhythm"]}})();   /* 各分組展開狀態，panel() 重建後沿用 */
 function foldPanel(p){   /* 把 panel() 建好的扁平內容，依 secAnchor 折成 <details> 分組；只搬移節點，事件與參照都不變 */
  let box=null;
@@ -26,7 +26,7 @@ function panel(){
  const up=document.createElement("input");up.type="file";up.accept=".ttf,.otf,.woff,.woff2";up.onchange=async()=>{const f=up.files[0];if(!f)return;const buf=await f.arrayBuffer();await addFont(f.name.replace(/\.\w+$/,""),buf);idbPut(f.name,buf)};
  const ul=document.createElement("label");ul.textContent="上傳字體";p.append(ul,up);
  const au=document.createElement("label");au.innerHTML='<input type="checkbox" id="auto"> 自動變化版型';p.append(au);$("#auto").checked=CONFIG.auto;$("#auto").onchange=e=>{CONFIG.auto=e.target.checked;cur=-2};
- const tap=document.createElement("button");tap.textContent="Tap 打拍子";let taps=[];tap.onclick=()=>{const n=performance.now();if(taps.length&&n-taps[taps.length-1]>2000)taps=[];taps.push(n);if(taps.length>=4){const iv=(taps[taps.length-1]-taps[0])/(taps.length-1);CONFIG.bpm=Math.round(60000/iv);panel();save()}};p.append(tap);extra(p);extra3(p);posPanel(p);bgPanel(p);foldPanel(p);
+ const tap=document.createElement("button");tap.textContent="Tap 打拍子";let taps=[];tap.onclick=()=>{const n=performance.now();if(taps.length&&n-taps[taps.length-1]>2000)taps=[];taps.push(n);if(taps.length>=4){const iv=(taps[taps.length-1]-taps[0])/(taps.length-1);CONFIG.bpm=Math.round(60000/iv);panel();save()}};p.append(tap);extra(p);extra3(p);extra4(p);posPanel(p);bgPanel(p);foldPanel(p);
 }
 let selIdx=-1,posRef=null;const EDR=[],r2p=v=>String(Math.round((+v||0)*100)/100);
 const layOf=x=>{const l=CONFIG.lock||x.lay;return LAYOUTS.includes(l)?l:"lowerleft"};

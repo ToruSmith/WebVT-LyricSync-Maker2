@@ -51,14 +51,14 @@ function editor(){let d=$("#edm");if(d){d.remove();edLayout();return}
   sel(LAYOUTS,x.lay,v=>{x.lay=v||"lowerleft";x.auto=!v}),sel(ENTERS,x.en,v=>{x.en=v;if(v)x.auto=false}),sel(EXITS,x.ex,v=>{x.ex=v;if(v)x.auto=false}),sel(Object.keys(FONTS),x.font,v=>x.font=v));
   const f=document.createElement("input");f.placeholder="特效 float,shake";f.value=x.fx||"";f.onchange=()=>{x.fx=f.value;if(f.value)x.auto=false;cur=-2};
    const sI=document.createElement("input");sI.placeholder="樣式 neon,outline";sI.value=x.st||"";sI.onchange=()=>{x.st=sI.value.replace(/\s/g,"");x.auto=false;cur=-2};
-   const scI=document.createElement("input");scI.placeholder="場景層 halftone:60,burst";scI.title="場景層（&）：名稱[:強度]，逗號分隔，最多 3 層；Ctrl+K 搜尋「場景層」可一鍵套用";scI.value=x.scene||"";scI.onchange=()=>{x.scene=scI.value.replace(/\s/g,"");cur=-2};
+   const scI=document.createElement("input");scI.placeholder="場景層 halftone:60,burst";scI.title="場景層（&）：名稱[:強度]，逗號分隔，最多 3 層；Ctrl+K 搜尋「場景層」可一鍵套用";scI.value=x.scene||"";scI.onchange=()=>{x.scene=scI.value.replace(/\s/g,"");cur=-2};const scB=document.createElement("button");scB.type="button";scB.textContent="＋場景";scB.title="開啟場景層挑選窗";scB.onclick=()=>openScenePop(scB,()=>x.scene||"",v=>{x.scene=v;scI.value=v;cur=-2});
    const bI=document.createElement("input");bI.placeholder="副文";bI.value=x.sub||"";bI.onchange=()=>{x.sub=bI.value;cur=-2};
    const pp=(x.pos||"").split(":"),pS=document.createElement("select");[["","位置：跟隨全域"],["auto","位置：版型原位"],...Object.entries(ANCH).map(([k,v])=>[k,"位置："+v])].forEach(([v,t])=>pS.add(new Option(t,v)));pS.value=pp[0]||"";
    const nI=(ph,v)=>{const i=document.createElement("input");Object.assign(i,{type:"number",placeholder:ph,title:ph+"（畫面寬/高的 %；相對這句的錨點，不再與全域微調相加）",value:v||"",step:.5,min:-100,max:100});i.style.width="54px";return i},pX=nI("X%",pp[1]),pY=nI("Y%",pp[2]);
    const sp=()=>{const a=pS.value,xs=pX.value,ys=pY.value;x.pos=[a,...(xs!==""||ys!==""?[xs||0,ys||0]:[])].join(":");if(x.pos)x.auto=false;cur=-2;jumpTo(xi)};pS.onchange=pX.onchange=pY.onchange=sp;
    const ck=document.createElement("input");ck.type="checkbox";ck.checked=EDSEL.has(xi);
    ck.onclick=ev=>{const on=ck.checked;if(ev.shiftKey&&lastCk>=0){for(let i=Math.min(lastCk,xi);i<=Math.max(lastCk,xi);i++){on?EDSEL.add(i):EDSEL.delete(i);if(EDR[i])EDR[i].ck.checked=on}}else on?EDSEL.add(xi):EDSEL.delete(xi);lastCk=xi;cntUpd()};
-   EDR[xi]={pS,pX,pY,ck};r.append(f,sI,scI,bI,pS,pX,pY);r.prepend(ck);d.append(r)});
+   EDR[xi]={pS,pX,pY,ck};r.append(f,sI,scI,scB,bI,pS,pX,pY);r.prepend(ck);d.append(r)});
  const b=document.createElement("button");b.textContent="匯出帶標記的 SRT";b.onclick=exportSRT;d.append(b);document.body.append(d);edLayout();edRO&&edRO.observe(d)}
 /* 句子編輯器 × 預覽並排：編輯器開著（且高度 ≤72% 視窗）時，把預覽縮進頂欄下方、編輯器上方；錄製／離線渲染時一律還原。
    做法：在 body 設 --edt/--edh/--edr，CSS 的 #stage 與 applyStage() 依此計算可用區；沒設定時＝原本全視窗。 */
@@ -85,6 +85,7 @@ const PRESET_KEEP={textScale:100,textShadow:false,lock:""};
 function applyPreset(name){
  const P=PRESETS[name];if(!P)return false;const prev=PRESETS[CONFIG.presetName]||{},back={};
  Object.keys(PRESET_KEEP).forEach(k=>{if(k in prev)back[k]=PRESET_KEEP[k]});
+ if(typeof STYLE_PACKS!=="undefined"&&STYLE_PACKS.has(CONFIG.presetName))PACK_KEEP.forEach(k=>{back[k]=CFG_DEFAULTS[k]});   /* 離開風格包：把它動過的欄位還原成出廠預設（舊預設之間不受影響） */
  Object.assign(CONFIG,{bokeh:0,leak:0,lightning:0,scratch:0,crt:0,vhs:0,invBar:0,scan:0,grain:.05,pMode:"dots",tone:"",trans:"cut",kb:0,beatRot:0,particles:50,posAnchor:"",posX:0,posY:0,posSafe:6},back,P,{presetName:name});
  perfPart=null;applyScene();css();cur=-2;save();panel();return true}
 function extra(p){secAnchor(p,"preset");
