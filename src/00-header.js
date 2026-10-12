@@ -25,6 +25,7 @@
    25-quick       [QUICK]    ⚡快捷選單（Ctrl+K）：所有工具／匯出／清除的單一入口 quickActions()
    26-record      [RECORD]   全螢幕錄製、selfCheck()
    27-render-api  [RENDER-API] 離線渲染介面（render/run.mjs 呼叫）
+   28-thumbs-idx 28-thumbs  [THUMBS-IDX] [THUMBS]  縮圖預覽（懸停預覽＋🖼 挑選窗；thRow／thBtn／data-th）。idx 由 test/make-thumbs.mjs 產生勿手改；精靈圖在 thumbs/sheet.webp
    （另有 src/index.template.html、src/style.css；build.mjs 會把它們與所有 .js 組成 index.html。）
    檔名前綴有重複（15、16、23），串接順序以完整檔名排序為準；新增檔案請避免改動既有檔案的相對順序。
 

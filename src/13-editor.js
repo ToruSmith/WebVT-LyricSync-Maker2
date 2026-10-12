@@ -71,7 +71,7 @@ function applyPackTo(list,name,o){o=o||edPackOpt;
  note("已把風格包「"+name+"」套到 "+list.length+" 句"+(CONFIG.lock?"（注意：目前鎖定版型，版型不會生效）":"")+"；色彩／粒子等全域設定請用面板整套套用。匯出帶標記的 SRT 可存檔")}
 function edPackBtns(parent,getList){   /* 風格包按鈕列（詳細欄與批次區共用）：按一下＝套用 */
  const w=edMk("div","packs");[...STYLE_PACKS].forEach(n=>{const P=PRESETS[n],b=edMk("button","",n);b.type="button";
-  b.title=n+"｜字體 "+(P.font||"－")+"｜版型池 "+(P.layoutPool||"－")+"｜場景 "+(P.sceneAll||"－");b.onclick=()=>applyPackTo(getList(),n,edPackOpt);w.append(b)});parent.append(w)}
+  b.title=n+"｜字體 "+(P.font||"－")+"｜版型池 "+(P.layoutPool||"－")+"｜場景 "+(P.sceneAll||"－");b.onclick=()=>applyPackTo(getList(),n,edPackOpt);b.dataset.th="pack:"+n;w.append(b)});parent.append(w)}
 function edPackOptBoxes(parent){const w=edMk("div","edbtns");
  [["lay","版型"],["scene","場景＋節拍後製"],["font","字體"]].forEach(([k,t])=>{const l=edMk("label"),c=edMk("input");c.type="checkbox";c.checked=!!edPackOpt[k];c.onchange=()=>{edPackOpt[k]=c.checked};l.append(c,t);w.append(l)});parent.append(w)}
 
@@ -113,7 +113,7 @@ function edDetail(i){const d=$("#edm"),sd=d&&d.querySelector(".edside");if(!sd)r
    btn("接上句結尾",()=>subs[i-1]&&setT("s",subs[i-1].e),"開始時間＝上一句的結束"),btn("接下句開頭",()=>subs[i+1]&&setT("e",subs[i+1].s),"結束時間＝下一句的開始"));b.append(bx)});
  /* 2. 動畫 */
  G("anim","動畫",b=>{
-  F("版型",sel(LAYOUTS,x.auto?"":x.lay,v=>E(()=>{x.lay=v||defLay(x);x.auto=!v;reparse(x)},"lay"+i),"（自動：依預設／版型池）"),b);
+  F("版型",thRow(sel(LAYOUTS,x.auto?"":x.lay,v=>E(()=>{x.lay=v||defLay(x);x.auto=!v;reparse(x)},"lay"+i),"（自動：依預設／版型池）"),"lay"),b);
   const r=edMk("div","edrow2");
   F("進場",sel(ENTERS,x.en,v=>E(()=>{x.en=v;if(v)x.auto=false},"en"+i),"（預設）"),r);F("退場",sel(EXITS,x.ex,v=>E(()=>{x.ex=v;if(v)x.auto=false},"ex"+i),"（預設）"),r);b.append(r);
   const fi=inp("text",x.fx,"float,shake"),setFx=v=>{E(()=>{x.fx=v;if(v)x.auto=false},"fx"+i);fi.value=v};fi.onchange=()=>setFx(fi.value.replace(/\s/g,""));
@@ -167,7 +167,7 @@ function edBatchBox(){const dt=edMk("details","edbatch"),w=edMk("div","in"),b=(t
  b("把「目前這句」的位置套用到勾選",()=>{const src=subs[selIdx];if(!src)return;applyTo(y=>{y.pos=src.pos;if(y.pos)y.auto=false})});
  b("複製「目前這句」的外觀到勾選",()=>{const src=subs[selIdx];if(!src)return;edApply(y=>{if(y===src)return;ED_COPY.forEach(k=>{y[k]=src[k]});y.auto=src.auto;reparse(y)},"已把這句的外觀（版型、進退場、特效、樣式、字體、場景、位置）複製到勾選句；文字與時間不動")},"版型、進場、退場、特效、樣式、字體、場景、位置；文字與時間不動");
  w.append(edMk("span","sep"));
- const pk=edMk("select");pk.add(new Option("風格包…",""));[...STYLE_PACKS].forEach(n=>pk.add(new Option(n,n)));w.append(pk);
+ const pk=edMk("select");pk.add(new Option("風格包…",""));[...STYLE_PACKS].forEach(n=>pk.add(new Option(n,n)));w.append(pk,thBtn(pk,"pack"));
  b("套用風格包到勾選",()=>{if(!pk.value)return note("先選一個風格包");applyPackTo(selList(),pk.value,edPackOpt)});edPackOptBoxes(w);w.append(edMk("span","sep"));
  b("清除勾選句子的位置",()=>applyTo(y=>{y.pos=""}));
  b("清除勾選句子的場景",()=>{const l=selList();if(!l.length)return note("先在編輯器勾選要套用的句子");clearSceneSubs(l)});

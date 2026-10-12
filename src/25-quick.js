@@ -64,7 +64,8 @@ if(!RENDER)(()=>{
   const q=inp.value.trim().toLowerCase().split(/\s+/).filter(Boolean),all=quickActions(),byId=new Map(all.map(a=>[a.id,a]));
   list.textContent="";items=[];
   const add=a=>{const r=a.on?a.on():true,ok=r===true,d=mk("div","qi"+(ok?"":" dis")),it={a,d,ok,r};
-   d.append(mk("span","",a.t),mk("span","qh",ok?(a.h||""):r));d.onclick=()=>pick(it);d.onmouseenter=()=>setAct(items.indexOf(it));list.append(d);items.push(it)};
+   {const th=thFromId(a.id);if(th)d.dataset.th=th}   /* 縮圖懸停預覽（28-thumbs.js） */
+    d.append(mk("span","",a.t),mk("span","qh",ok?(a.h||""):r));d.onclick=()=>pick(it);d.onmouseenter=()=>setAct(items.indexOf(it));list.append(d);items.push(it)};
   if(q.length){const hit=all.filter(a=>{const h=(a.t+" "+(a.g||"")+" "+(a.k||"")).toLowerCase();return q.every(w=>h.includes(w))});
    hit.forEach(add);if(!hit.length)list.append(mk("div","qe","找不到符合的功能"))}
   else{const rc=recent().map(id=>byId.get(id)).filter(Boolean);

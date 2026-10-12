@@ -46,7 +46,7 @@ function extra(p){secAnchor(p,"preset");
  const l=document.createElement("label");l.textContent="預設組合";const ps=document.createElement("select");ps.style.width="100%";ps.add(new Option("選擇…",""));Object.keys(PRESETS).forEach(k=>ps.add(new Option(k,k)));
  ps.onchange=()=>applyPreset(ps.value);
  const l2=document.createElement("label");l2.textContent="鎖定單一版型";const ls=document.createElement("select");ls.style.width="100%";ls.add(new Option("（不鎖定）",""));LAYOUTS.forEach(k=>ls.add(new Option(k,k)));ls.value=CONFIG.lock||"";ls.onchange=()=>{CONFIG.lock=ls.value;cur=-2;save()};
- p.append(l,ps,l2,ls);emFontUI(p);
+ p.append(l,thRow(ps,"pre"),l2,thRow(ls,"lay"));emFontUI(p);
  mk("清除瀏覽器記住的設定（恢復預設）",()=>resetSettings("會清除瀏覽器記住的所有設定（顏色、色彩、陰影…）並重新載入頁面；已上傳的字體不受影響。確定嗎？"));
   secAnchor(p,"export");
   mk("匯出設定 JSON",exportConfig);

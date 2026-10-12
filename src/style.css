@@ -145,3 +145,17 @@ body.rec .menu,html.rendering .menu{display:none!important}
 @media (max-width:720px){#exwiz .xm{flex-direction:column}#exwiz .xl{flex:none;max-height:38%;border-right:0;border-bottom:1px solid #2a3252}}
 body.rec #exwiz,html.rendering #exwiz{display:none!important}
 #bar{z-index:7}   /* 浮出選單屬於 #bar 的堆疊層，要壓過右側面板（z 5）與編輯器（z 6） */
+/* 縮圖預覽（28-thumbs.js）：懸停小視窗、🖼 按鈕、縮圖挑選窗；錄製／離線渲染時一律隱藏 */
+#thtip{position:fixed;z-index:90;display:none;pointer-events:none;padding:5px;background:rgba(10,12,20,.97);border:1px solid #3a4470;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.55);color:#dfe6ff;font-size:11px;text-align:center}
+#thtip .thc{margin-top:3px}
+.thtile{flex:none;background-color:#05070d;background-repeat:no-repeat;border-radius:3px}
+.thtile.none{display:flex;align-items:center;justify-content:center;width:128px;height:72px;font-size:11px;opacity:.55;text-align:center}
+.throw{display:flex;gap:4px;align-items:center}.throw select{flex:1;min-width:0}
+.thbtn{flex:none;padding:1px 6px;font-size:12px;line-height:1.4}
+.thpop{position:fixed;z-index:70;overflow:auto;padding:8px;background:rgba(10,12,20,.97);border:1px solid #3a4470;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.55);font-size:12px;color:#dfe6ff}
+.thpop .thh{opacity:.7;margin-bottom:6px}
+.thgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:6px}
+.thcard{cursor:pointer;padding:2px;border:1px solid transparent;border-radius:5px;text-align:center}.thcard:hover{background:#1a2142}.thcard.on{border-color:#7aa8ff;background:#232c5a}
+.thcard .thtile{margin:0 auto}.thcard .thl{margin-top:2px;font-size:11px;word-break:break-all}
+.thpop.nothumb .thtile:not(.none){display:none}
+body.rec #thtip,html.rendering #thtip,body.rec .thpop,html.rendering .thpop{display:none!important}

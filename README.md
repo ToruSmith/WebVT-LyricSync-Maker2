@@ -240,6 +240,7 @@
 - **自我檢查**：網址加 `?check=1`（或在主控台呼叫 `window.__selfCheck()`），會列出漏登記的項目：`NL` 與 `LAYOUTS` 不一致、`BRACE_LAYOUTS`／`FULLBLEED` 不在 `LAYOUTS`、`LAYOUTS` 重複，以及 `CONFIG` 有但 `CFG_DEFAULTS` 沒有的欄位（匯入設定時舊值會殘留）。
 - **區段目錄與檔案地圖**：見 `src/00-header.js` 開頭的註解；用 `grep -n "===== \["` 搜 `src/` 下的 `.js` 檔取得區段位置，再只讀需要的檔案。`index.html` 是 `node build.mjs` 由 `src/` 串接出來的產物，不要直接編輯，也不要整份讀它。
 - **設定鍵**：新增設定要同時進 `CONFIG` 與 `CFG_DEFAULTS`（後者是匯入設定時的底）。
+- **縮圖預覽**：新增版型／場景層／風格包／預設組合後，執行 `node test/make-thumbs.mjs`（只重拍指定項目可加名稱：`node test/make-thumbs.mjs neon,波普`）再 `node build.mjs`，並把 `thumbs/sheet.webp` 與 `src/28-thumbs-idx.js` 一起提交；漏拍的項目介面會自動略過（`?check=1` 會列出）。
 
 - **滿版性質**（整個畫面都是它的一部分，例如邊框、滿版掃描）：把版型名稱加進 `FULLBLEED` 集合（用 `registerLayout(..., {full:1})`，或在 `src/` 對應版型檔補登），位置設定會被忽略。
 - **有獨立裝飾元素**（底色框、裝飾線、圖章）：想讓它跟著文字一起對齊就標 `data-pm`（`.ln` 線條自動算）；氛圍性質、不該影響對齊的（星點、整層光暈）標 `data-nm`。標完跑 `node test/coverage.mjs` 確認（本倉庫未收錄此腳本）。
@@ -264,6 +265,7 @@
     node test/beatfx-layouts.mjs [9:16]     # 節拍後製與版型
     node verify-kit/regress-all.mjs baseline.html index.html 16:9   # 與凍結基準逐像素回歸
     node render/run.mjs --selftest --seconds 12   # 同一專案渲染兩次，逐格比對，必須完全相同
+    node test/make-thumbs.mjs               # 重拍「縮圖預覽」的精靈圖 thumbs/sheet.webp（不屬於 check；見下方「縮圖預覽」）
 
 以下是早期版本使用過的腳本，**本倉庫目前未收錄**（保留名稱供查找；需要時請補檔，或以上面的項目取代）：
 `test/baseline.mjs`、`combos.mjs`、`allsheet.mjs`、`position.mjs`、`project-export.mjs`、`post.mjs`、`chroma.mjs`、`coverage.mjs`、`regress.mjs`、`phases.mjs`、`layers.mjs`、`audio-check.mjs`。
@@ -302,3 +304,4 @@
 - **節拍後製**：`beatShake／beatZoom／beatTilt／beatHue`；單句覆寫 `&bfx-shake:3`、`&bfx-off`。錄製時色相濾鏡自動關閉。
 - **自動取主色**：面板可從圖片取主色寫入強調色；勾「載入影片時自動取主色」則載入影片時自動寫入。
 - 驗證：`npm run check`（需 `baseline.html`＝凍結基準）；規格書與程式的同步檢查：`node test/spec-sync.mjs`（會比對功能手冊與程式內的版型／場景／風格包清單，手冊落後時會失敗）。
+- **縮圖預覽（版型／場景層／風格包／預設組合）**：滑鼠停在「場景層」與「版型池」的 chips、句子編輯器的風格包按鈕、⚡快捷選單的「鎖定版型／場景層／風格包／預設組合」項目上，約 0.15 秒後會跳出小預覽圖與名稱；下拉選單（版型、鎖定單一版型、預設組合、風格包）旁多了 🖼 按鈕，點開是縮圖格狀挑選窗（點一格＝選該項，等同用下拉選單選，復原與記憶行為完全一樣；Esc 關閉），滑鼠停在下拉選單上也會預覽「目前選項」。縮圖是單張精靈圖 `thumbs/sheet.webp`（約 90 KB，第一次需要時才載入，要跟 `index.html` 放在同一層；檔案不在時整組預覽自動略過，其他功能不受影響）。觸控裝置沒有懸停，請用 🖼 挑選窗。縮圖只是 UI 輔助，不參與渲染與錄製（錄製、離線渲染時一律隱藏）。

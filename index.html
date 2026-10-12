@@ -160,6 +160,20 @@ body.rec .menu,html.rendering .menu{display:none!important}
 @media (max-width:720px){#exwiz .xm{flex-direction:column}#exwiz .xl{flex:none;max-height:38%;border-right:0;border-bottom:1px solid #2a3252}}
 body.rec #exwiz,html.rendering #exwiz{display:none!important}
 #bar{z-index:7}   /* 浮出選單屬於 #bar 的堆疊層，要壓過右側面板（z 5）與編輯器（z 6） */
+/* 縮圖預覽（28-thumbs.js）：懸停小視窗、🖼 按鈕、縮圖挑選窗；錄製／離線渲染時一律隱藏 */
+#thtip{position:fixed;z-index:90;display:none;pointer-events:none;padding:5px;background:rgba(10,12,20,.97);border:1px solid #3a4470;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.55);color:#dfe6ff;font-size:11px;text-align:center}
+#thtip .thc{margin-top:3px}
+.thtile{flex:none;background-color:#05070d;background-repeat:no-repeat;border-radius:3px}
+.thtile.none{display:flex;align-items:center;justify-content:center;width:128px;height:72px;font-size:11px;opacity:.55;text-align:center}
+.throw{display:flex;gap:4px;align-items:center}.throw select{flex:1;min-width:0}
+.thbtn{flex:none;padding:1px 6px;font-size:12px;line-height:1.4}
+.thpop{position:fixed;z-index:70;overflow:auto;padding:8px;background:rgba(10,12,20,.97);border:1px solid #3a4470;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.55);font-size:12px;color:#dfe6ff}
+.thpop .thh{opacity:.7;margin-bottom:6px}
+.thgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:6px}
+.thcard{cursor:pointer;padding:2px;border:1px solid transparent;border-radius:5px;text-align:center}.thcard:hover{background:#1a2142}.thcard.on{border-color:#7aa8ff;background:#232c5a}
+.thcard .thtile{margin:0 auto}.thcard .thl{margin-top:2px;font-size:11px;word-break:break-all}
+.thpop.nothumb .thtile:not(.none){display:none}
+body.rec #thtip,html.rendering #thtip,body.rec .thpop,html.rendering .thpop{display:none!important}
 </style></head><body>
 <div id="stage"><div id="bg"></div><video id="m" playsinline></video><div id="mask"></div>
 <canvas id="cv"></canvas><div id="pulse"><div id="L"></div></div>
@@ -213,6 +227,7 @@ body.rec #exwiz,html.rendering #exwiz{display:none!important}
    25-quick       [QUICK]    ⚡快捷選單（Ctrl+K）：所有工具／匯出／清除的單一入口 quickActions()
    26-record      [RECORD]   全螢幕錄製、selfCheck()
    27-render-api  [RENDER-API] 離線渲染介面（render/run.mjs 呼叫）
+   28-thumbs-idx 28-thumbs  [THUMBS-IDX] [THUMBS]  縮圖預覽（懸停預覽＋🖼 挑選窗；thRow／thBtn／data-th）。idx 由 test/make-thumbs.mjs 產生勿手改；精靈圖在 thumbs/sheet.webp
    （另有 src/index.template.html、src/style.css；build.mjs 會把它們與所有 .js 組成 index.html。）
    檔名前綴有重複（15、16、23），串接順序以完整檔名排序為準；新增檔案請避免改動既有檔案的相對順序。
 
@@ -928,7 +943,7 @@ function applyPackTo(list,name,o){o=o||edPackOpt;
  note("已把風格包「"+name+"」套到 "+list.length+" 句"+(CONFIG.lock?"（注意：目前鎖定版型，版型不會生效）":"")+"；色彩／粒子等全域設定請用面板整套套用。匯出帶標記的 SRT 可存檔")}
 function edPackBtns(parent,getList){   /* 風格包按鈕列（詳細欄與批次區共用）：按一下＝套用 */
  const w=edMk("div","packs");[...STYLE_PACKS].forEach(n=>{const P=PRESETS[n],b=edMk("button","",n);b.type="button";
-  b.title=n+"｜字體 "+(P.font||"－")+"｜版型池 "+(P.layoutPool||"－")+"｜場景 "+(P.sceneAll||"－");b.onclick=()=>applyPackTo(getList(),n,edPackOpt);w.append(b)});parent.append(w)}
+  b.title=n+"｜字體 "+(P.font||"－")+"｜版型池 "+(P.layoutPool||"－")+"｜場景 "+(P.sceneAll||"－");b.onclick=()=>applyPackTo(getList(),n,edPackOpt);b.dataset.th="pack:"+n;w.append(b)});parent.append(w)}
 function edPackOptBoxes(parent){const w=edMk("div","edbtns");
  [["lay","版型"],["scene","場景＋節拍後製"],["font","字體"]].forEach(([k,t])=>{const l=edMk("label"),c=edMk("input");c.type="checkbox";c.checked=!!edPackOpt[k];c.onchange=()=>{edPackOpt[k]=c.checked};l.append(c,t);w.append(l)});parent.append(w)}
 
@@ -970,7 +985,7 @@ function edDetail(i){const d=$("#edm"),sd=d&&d.querySelector(".edside");if(!sd)r
    btn("接上句結尾",()=>subs[i-1]&&setT("s",subs[i-1].e),"開始時間＝上一句的結束"),btn("接下句開頭",()=>subs[i+1]&&setT("e",subs[i+1].s),"結束時間＝下一句的開始"));b.append(bx)});
  /* 2. 動畫 */
  G("anim","動畫",b=>{
-  F("版型",sel(LAYOUTS,x.auto?"":x.lay,v=>E(()=>{x.lay=v||defLay(x);x.auto=!v;reparse(x)},"lay"+i),"（自動：依預設／版型池）"),b);
+  F("版型",thRow(sel(LAYOUTS,x.auto?"":x.lay,v=>E(()=>{x.lay=v||defLay(x);x.auto=!v;reparse(x)},"lay"+i),"（自動：依預設／版型池）"),"lay"),b);
   const r=edMk("div","edrow2");
   F("進場",sel(ENTERS,x.en,v=>E(()=>{x.en=v;if(v)x.auto=false},"en"+i),"（預設）"),r);F("退場",sel(EXITS,x.ex,v=>E(()=>{x.ex=v;if(v)x.auto=false},"ex"+i),"（預設）"),r);b.append(r);
   const fi=inp("text",x.fx,"float,shake"),setFx=v=>{E(()=>{x.fx=v;if(v)x.auto=false},"fx"+i);fi.value=v};fi.onchange=()=>setFx(fi.value.replace(/\s/g,""));
@@ -1024,7 +1039,7 @@ function edBatchBox(){const dt=edMk("details","edbatch"),w=edMk("div","in"),b=(t
  b("把「目前這句」的位置套用到勾選",()=>{const src=subs[selIdx];if(!src)return;applyTo(y=>{y.pos=src.pos;if(y.pos)y.auto=false})});
  b("複製「目前這句」的外觀到勾選",()=>{const src=subs[selIdx];if(!src)return;edApply(y=>{if(y===src)return;ED_COPY.forEach(k=>{y[k]=src[k]});y.auto=src.auto;reparse(y)},"已把這句的外觀（版型、進退場、特效、樣式、字體、場景、位置）複製到勾選句；文字與時間不動")},"版型、進場、退場、特效、樣式、字體、場景、位置；文字與時間不動");
  w.append(edMk("span","sep"));
- const pk=edMk("select");pk.add(new Option("風格包…",""));[...STYLE_PACKS].forEach(n=>pk.add(new Option(n,n)));w.append(pk);
+ const pk=edMk("select");pk.add(new Option("風格包…",""));[...STYLE_PACKS].forEach(n=>pk.add(new Option(n,n)));w.append(pk,thBtn(pk,"pack"));
  b("套用風格包到勾選",()=>{if(!pk.value)return note("先選一個風格包");applyPackTo(selList(),pk.value,edPackOpt)});edPackOptBoxes(w);w.append(edMk("span","sep"));
  b("清除勾選句子的位置",()=>applyTo(y=>{y.pos=""}));
  b("清除勾選句子的場景",()=>{const l=selList();if(!l.length)return note("先在編輯器勾選要套用的句子");clearSceneSubs(l)});
@@ -1104,7 +1119,7 @@ function extra(p){secAnchor(p,"preset");
  const l=document.createElement("label");l.textContent="預設組合";const ps=document.createElement("select");ps.style.width="100%";ps.add(new Option("選擇…",""));Object.keys(PRESETS).forEach(k=>ps.add(new Option(k,k)));
  ps.onchange=()=>applyPreset(ps.value);
  const l2=document.createElement("label");l2.textContent="鎖定單一版型";const ls=document.createElement("select");ls.style.width="100%";ls.add(new Option("（不鎖定）",""));LAYOUTS.forEach(k=>ls.add(new Option(k,k)));ls.value=CONFIG.lock||"";ls.onchange=()=>{CONFIG.lock=ls.value;cur=-2;save()};
- p.append(l,ps,l2,ls);emFontUI(p);
+ p.append(l,thRow(ps,"pre"),l2,thRow(ls,"lay"));emFontUI(p);
  mk("清除瀏覽器記住的設定（恢復預設）",()=>resetSettings("會清除瀏覽器記住的所有設定（顏色、色彩、陰影…）並重新載入頁面；已上傳的字體不受影響。確定嗎？"));
   secAnchor(p,"export");
   mk("匯出設定 JSON",exportConfig);
@@ -2008,17 +2023,17 @@ function clearAllLayers(){
 /* ---- 場景層挑選器：chips 切換「名稱」是否在字串中（保留其他 token 的參數與 bfx-*／none）---- */
 const tokName=t=>t.split(":")[0];
 function scToggle(str,name){const a=(str||"").split(",").filter(Boolean),i=a.findIndex(t=>tokName(t)===name);if(i>=0)a.splice(i,1);else a.push(name);return a.join(",")}
-function chipBox(names,getStr,setStr,title,after){
+function chipBox(names,getStr,setStr,title,after,kind){   /* kind（lay／scene）有給才掛縮圖懸停預覽（見 28-thumbs.js） */
  const box=document.createElement("div");box.className="chips";
- names.forEach(n=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=n;b.title=title(n);
+ names.forEach(n=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=n;b.title=title(n);if(kind)b.dataset.th=kind+":"+n;
   const sync=()=>b.classList.toggle("on",(getStr()||"").split(",").some(t=>tokName(t)===n));sync();
   b.onclick=()=>{setStr(scToggle(getStr(),n));box.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",(getStr()||"").split(",").some(t=>tokName(t)===x.textContent)));after&&after()};box.append(b)});
  return box}
 const sceneTitle=n=>{const s=SCENES[n];return n+"｜"+(s.layer==="under"?"文字之下":"文字之上")+"｜成本："+s.cost+(s.lab?"｜實驗室（自行詮釋）":"")};
 function scenePicker(getStr,setStr,after){
  const w=document.createElement("div"),main=SCENE_NAMES.filter(n=>!SCENES[n].lab),lab=SCENE_NAMES.filter(n=>SCENES[n].lab);
- w.append(chipBox(main,getStr,setStr,sceneTitle,after));
- const d=document.createElement("details"),s=document.createElement("summary");s.textContent="實驗室（P2／P3，自行詮釋）";d.append(s,chipBox(lab,getStr,setStr,sceneTitle,after));w.append(d);return w}
+ w.append(chipBox(main,getStr,setStr,sceneTitle,after,"scene"));
+ const d=document.createElement("details"),s=document.createElement("summary");s.textContent="實驗室（P2／P3，自行詮釋）";d.append(s,chipBox(lab,getStr,setStr,sceneTitle,after,"scene"));w.append(d);return w}
 /* 句子編輯器用：浮動挑選窗（單例；錄製／離線時由 CSS 隱藏） */
 let scPop=null;
 function openScenePop(anchor,getStr,setStr){
@@ -2052,14 +2067,14 @@ function extra4(p){secAnchor(p,"layers");
  const btn=(t,f,tip)=>{const b=document.createElement("button");b.type="button";b.textContent=t;if(tip)b.title=tip;b.onclick=f;b.style.cssText="margin:4px 4px 6px 0";return b};
  const offChips=box=>box.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));   /* 清除後同步 chip 的亮暗（不重畫面板，避免捲動位置跳掉） */
  const ps=document.createElement("select");ps.style.width="100%";ps.add(new Option("（無風格包）",""));[...STYLE_PACKS].forEach(k=>ps.add(new Option(k,k)));ps.value=STYLE_PACKS.has(CONFIG.presetName)?CONFIG.presetName:"";ps.onchange=()=>ps.value?applyPreset(ps.value):clearPack();
- p.append(lab("風格包（調色盤＋字體＋全域底層＋版型池＋後製；之後仍可逐句覆寫）"),ps,btn("清除風格包",clearPack,"把目前風格包動過的設定還原成預設；選單改回「（無風格包）」效果相同"),btn("一鍵清除全部",clearAllLayers,"風格包＋全域底層場景＋版型池＋所有句子自己的場景標記；會先確認"),note2("套用後會開啟「自動變化版型」；有自己標記的句子不受影響。再套用其他組合時，風格包動過的欄位會還原。"));
+ p.append(lab("風格包（調色盤＋字體＋全域底層＋版型池＋後製；之後仍可逐句覆寫）"),thRow(ps,"pack"),btn("清除風格包",clearPack,"把目前風格包動過的設定還原成預設；選單改回「（無風格包）」效果相同"),btn("一鍵清除全部",clearAllLayers,"風格包＋全域底層場景＋版型池＋所有句子自己的場景標記；會先確認"),note2("套用後會開啟「自動變化版型」；有自己標記的句子不受影響。再套用其他組合時，風格包動過的欄位會還原。"));
  const si=document.createElement("input");si.style.width="100%";si.placeholder="全域底層場景，例：halftone:60,burst";si.value=CONFIG.sceneAll||"";si.dataset.k2="sceneAll";
  const setS=v=>{CONFIG.sceneAll=v.replace(/\s/g,"");si.value=CONFIG.sceneAll;cur=-2;save()};si.onchange=()=>setS(si.value);
  const sPick=scenePicker(()=>CONFIG.sceneAll,setS);
  p.append(lab("全域底層場景（句子沒有自己的 & 時套用；語法同 &：名稱:強度:速度:節拍連動:X:Y）"),si,btn("清除全域底層場景",()=>{setS("");offChips(sPick)}),sPick,note2("單句覆寫：在句子編輯器的「場景層」欄寫 &…；寫 none＝這句不要全域底層。bfx-shake／zoom／tilt／hue:數值＝這句的節拍後製強度，bfx-off＝這句關閉節拍後製。"));
  const lp=document.createElement("input");lp.style.width="100%";lp.placeholder="版型池，逗號分隔；空＝全部（需開「自動變化版型」）";lp.value=CONFIG.layoutPool||"";
  const setP=v=>{CONFIG.layoutPool=v.replace(/\s/g,"");lp.value=CONFIG.layoutPool;cur=-2;save()};lp.onchange=()=>setP(lp.value);
- const d=document.createElement("details"),s=document.createElement("summary");s.textContent="挑選版型池（"+LAYOUTS.length+" 種）";d.append(s,chipBox(LAYOUTS,()=>CONFIG.layoutPool,setP,n=>n));
+ const d=document.createElement("details"),s=document.createElement("summary");s.textContent="挑選版型池（"+LAYOUTS.length+" 種）";d.append(s,chipBox(LAYOUTS,()=>CONFIG.layoutPool,setP,n=>n,null,"lay"));
  p.append(lab("自動變化版型的候選池"),lp,btn("清除版型池",()=>{setP("");offChips(d)}),d);
  const cb=document.createElement("label"),ci=document.createElement("input");ci.type="checkbox";ci.checked=!!CONFIG.autoAccent;ci.onchange=()=>{CONFIG.autoAccent=ci.checked;save()};cb.append(ci," 載入影片時自動取主色當強調色");p.append(cb);
  const fi=document.createElement("input");fi.type="file";fi.accept="image/*";fi.onchange=()=>{const f=fi.files[0];fi.value="";if(!f)return;const im=new Image(),u=URL.createObjectURL(f);im.onload=()=>{setAccentFrom(im,im.naturalWidth,im.naturalHeight)||note("這張圖找不到鮮明的顏色");URL.revokeObjectURL(u)};im.src=u};
@@ -2142,7 +2157,8 @@ if(!RENDER)(()=>{
   const q=inp.value.trim().toLowerCase().split(/\s+/).filter(Boolean),all=quickActions(),byId=new Map(all.map(a=>[a.id,a]));
   list.textContent="";items=[];
   const add=a=>{const r=a.on?a.on():true,ok=r===true,d=mk("div","qi"+(ok?"":" dis")),it={a,d,ok,r};
-   d.append(mk("span","",a.t),mk("span","qh",ok?(a.h||""):r));d.onclick=()=>pick(it);d.onmouseenter=()=>setAct(items.indexOf(it));list.append(d);items.push(it)};
+   {const th=thFromId(a.id);if(th)d.dataset.th=th}   /* 縮圖懸停預覽（28-thumbs.js） */
+    d.append(mk("span","",a.t),mk("span","qh",ok?(a.h||""):r));d.onclick=()=>pick(it);d.onmouseenter=()=>setAct(items.indexOf(it));list.append(d);items.push(it)};
   if(q.length){const hit=all.filter(a=>{const h=(a.t+" "+(a.g||"")+" "+(a.k||"")).toLowerCase();return q.every(w=>h.includes(w))});
    hit.forEach(add);if(!hit.length)list.append(mk("div","qe","找不到符合的功能"))}
   else{const rc=recent().map(id=>byId.get(id)).filter(Boolean);
@@ -2286,6 +2302,7 @@ function selfCheck(){
  {const ids=new Set();quickActions().forEach(a=>{ids.has(a.id)&&out.push("快捷表 id 重複："+a.id);ids.add(a.id);a.g===null||QK_GROUPS.includes(a.g)||out.push("快捷表群組未登記："+a.id+"／"+a.g);typeof a.run==="function"||out.push("快捷表缺 run："+a.id)});
   ["#fs","#fm","#demo","#rec","#ed","#rnd","#unlock","#tg","#play","#qkb","#qk","#cfgImport"].forEach(q=>$(q)||out.push("缺少元素："+q));
   QK_SECS.forEach(id=>$('#panel [data-sec="'+id+'"]')||out.push("面板缺少區段錨點："+id))}
+ {const m=thMissing();m.length&&console.info("[selfCheck] 這些項目沒有縮圖（不影響功能；node test/make-thumbs.mjs 重拍）："+m.join(" "))}
  out.length?console.warn("[selfCheck] 發現 "+out.length+" 項：\n"+out.join("\n")):console.info("[selfCheck] 登記一致");return out}
 if(/[?&]check=1(&|$)/.test(location.search))window.addEventListener("load",selfCheck);
 window.__selfCheck=selfCheck;
@@ -2324,4 +2341,76 @@ if(RENDER){
  window.__layer=m=>{const r=document.documentElement.classList;r.toggle("alpha",m==="text");r.toggle("nobg",m==="text");r.toggle("ambonly",m==="amb")};   // 'text'＝透明文字層；'amb'＝氛圍層（無文字）；其他＝一般完整畫面
 window.__ready=document.fonts.ready.then(()=>true);
 }else requestAnimationFrame(t=>{lastP=t;loop(t)});
+/* ===== [THUMBS-IDX] 縮圖精靈圖索引（由 test/make-thumbs.mjs 產生，請勿手改；邏輯在 28-thumbs.js）===== */
+var TH_DATA={w:128,h:72,cols:12,v:"9b7bb427",idx:"lay:split,lay:lowerleft,lay:bounce,lay:slam,lay:neon,lay:karaoke,lay:typewriter,lay:vertical,lay:blurfocus,lay:wipe,lay:glitch,lay:stack,lay:outline-big,lay:subtitle-box,lay:poster,lay:scroll,lay:orbit,lay:diagonal,lay:marquee,lay:circle-badge,lay:zoom-tunnel,lay:split-screen,lay:flash-words,lay:keyword,lay:trail,lay:text-mask,lay:danmaku,lay:longshadow,lay:bubble,lay:border-run,lay:blinds,lay:hanko,lay:collage,lay:handwrite,lay:marker,lay:center,lay:ripple-pool,lay:constellation,lay:particle-form,lay:hud-frame,lay:parallax-depth,lay:polaroid,lay:page-flip,lay:ink-bleed,lay:laser-scan,lay:split-flap,lay:wave-path,lay:mirror-reflect,lay:cylinder,lay:iris-frame,lay:annotate,lay:pv-lyric,lay:pv-vertical,lay:scatter,lay:strip,lay:cards,lay:glow-cards,lay:layered,lay:falling,lay:formula,lay:staggered-text,lay:noise-text,lay:victim-outline,lay:cute-outline,lay:vertical-sub,lay:hero-text,lay:shatter-text,lay:crayon-shatter,scene:halftone,scene:dots,scene:checker,scene:burst,scene:radial-rects,scene:perspective-grid,scene:flow-lines,scene:stripes,scene:hatch,scene:diag-split,scene:blocks,scene:breathing-blocks,scene:squares,scene:glow-ring,scene:rings,scene:pulse-circle,scene:glitch-bars,scene:guides,scene:dashed-lines,scene:ruler,scene:target,scene:color-wash,scene:gradient-fade,scene:pink-stripes,scene:diag-fill,scene:diag-structure,scene:organic-blob,scene:edge-clouds,scene:scattered-shapes,scene:diamond-shapes,scene:shadow-shapes,scene:balancing-circles,scene:web-lines,scene:cross-pattern,scene:triangle-grid,scene:pink-grid,scene:jigsaw-grid,scene:texture-bg,scene:pixel-bg,scene:star-trail,scene:light-spot,scene:screen-border,scene:scalloped-border,scene:hud-corners,scene:hud-info,scene:hud-status,scene:data-monitors,scene:pixel-window,scene:desktop-icon,scene:smear-brush,scene:paper-tear,scene:blood-splatter,scene:crime-tape,scene:planet,pack:藍色衝擊,pack:斬擊,pack:藍色構成,pack:城市文字雨,pack:夜色,pack:波普,pack:青墨,pack:電腦,pack:戰場,pack:幾何,pack:全息,pack:賽博監控,pack:情緒電影,pack:剪影極簡,pack:歇斯底里之夜,pack:戒尺,preset:動畫PV,preset:霓虹夜,preset:簡約明體,preset:強烈節奏,preset:遊戲PV,preset:復古VHS,preset:櫻花日系,preset:賽博龐克,preset:極簡海報,preset:仿PV歌詞,preset:電影字幕（底部置中）,preset:街頭拼貼"};
+/* ===== [THUMBS] 縮圖預覽：版型／場景層／風格包／預設組合 的「懸停預覽」與「縮圖挑選窗」。純 UI 輔助，不碰 CONFIG／subs／畫面渲染，離線渲染（RENDER）完全不啟用。
+   資料：thumbs/sheet.webp（單張精靈圖，首次需要時才載入；檔案不在就自動略過、功能照常）＋ 28-thumbs-idx.js（TH_DATA：名稱→格子位置，兩者都由 node test/make-thumbs.mjs 產生，勿手改）。
+   用法（其他檔案只需這兩種，不依賴載入順序）：
+     ① 任何元素加 data-th="lay:名稱｜scene:名稱｜pack:名稱｜preset:名稱" → 滑鼠停留 0.15 秒顯示預覽（chipBox(...,kind)、edPackBtns、⚡快捷選單已接好）。
+     ② 下拉選單：把 select 用 thRow(select,kind) 包起來（kind＝lay／scene／pack／pre；pre＝預設組合，自動分辨風格包或一般預設）→ 多一顆 🖼 按鈕開縮圖挑選窗，
+        挑選後只是改 select.value 並觸發 change，原本的 onchange 照跑；滑鼠停在 select 上也會預覽「目前選項」。
+   新增版型／場景／風格包後：node test/make-thumbs.mjs → node build.mjs；漏拍的項目介面會自動略過（?check=1 的 selfCheck 會列出）。 */
+var thM=null,thSt=0,thQ=[],thTimer=0,thCur=null,thTipEl=null,thPop=null;   /* thSt：0 未載入 1 載入中 2 可用 -1 檔案不存在 */
+const TH_LABEL={lay:"版型",scene:"場景層",pack:"風格包",preset:"預設組合"};
+function thIx(key){   /* key→精靈圖格子序號；沒有縮圖回 -1 */
+ if(typeof TH_DATA==="undefined"||!TH_DATA.idx)return -1;
+ if(!thM){thM=new Map();TH_DATA.idx.split(",").forEach((k,i)=>{if(k&&k!=="-")thM.set(k,i)})}
+ const i=thM.get(key);return i==null?-1:i}
+function thResolve(kind,v){return !v?"":kind==="pre"?(STYLE_PACKS.has(v)?"pack:":"preset:")+v:kind+":"+v}
+function thFromId(id){   /* 快捷選單項目 id → 縮圖 key（沒有對應回 ""） */
+ const i=id.indexOf(":"),h=id.slice(0,i),n=id.slice(i+1);if(i<0||!n)return "";
+ return h==="lock"?"lay:"+n:/^scene-(global|cur|all)$/.test(h)?"scene:"+n:/^pack-(cur|all)$/.test(h)?"pack:"+n:h==="preset"?thResolve("pre",n):""}
+function thMissing(){   /* 給 selfCheck：目前登記了、但沒有縮圖的項目 */
+ const a=[];LAYOUTS.forEach(n=>thIx("lay:"+n)<0&&a.push("lay:"+n));SCENE_NAMES.forEach(n=>thIx("scene:"+n)<0&&a.push("scene:"+n));
+ Object.keys(PRESETS).forEach(n=>{const k=thResolve("pre",n);thIx(k)<0&&a.push(k)});return a}
+function thReady(cb){   /* 精靈圖確認載得到才顯示（檔案缺了就整組功能靜默略過） */
+ if(thSt===2)return cb();if(thSt===-1||typeof TH_DATA==="undefined")return;
+ thQ.push(cb);if(thSt===1)return;thSt=1;
+ const im=new Image();im.onload=()=>{thSt=2;thQ.splice(0).forEach(f=>f())};im.onerror=()=>{thSt=-1;thQ=[];thHide();thPop&&thPop.classList.add("nothumb")};
+ im.src="thumbs/sheet.webp?v="+TH_DATA.v}
+function thTile(key,s){   /* 以 CSS 背景裁切精靈圖，s＝倍率；沒有縮圖回 null */
+ const i=thIx(key);if(i<0)return null;const d=document.createElement("div"),w=TH_DATA.w*s,h=TH_DATA.h*s;d.className="thtile";
+ d.style.cssText="width:"+w+"px;height:"+h+"px;background-image:url(\"thumbs/sheet.webp?v="+TH_DATA.v+"\");background-size:"+TH_DATA.cols*w+"px auto;background-position:"+(-(i%TH_DATA.cols)*w)+"px "+(-Math.floor(i/TH_DATA.cols)*h)+"px";return d}
+function thKeyOf(el){const k=el.dataset.th;if(k)return k;return el.tagName==="SELECT"&&el.dataset.thk?thResolve(el.dataset.thk,el.value):""}
+
+/* ---- 懸停預覽 ---- */
+function thHide(){clearTimeout(thTimer);thCur=null;if(thTipEl)thTipEl.style.display="none"}
+function thShow(el){
+ const key=thKeyOf(el);if(!key||thIx(key)<0)return;
+ thReady(()=>{if(thCur!==el||!el.isConnected)return;
+  if(!thTipEl){thTipEl=document.createElement("div");thTipEl.id="thtip";document.body.append(thTipEl)}
+  const c=document.createElement("div"),k=key.indexOf(":");c.className="thc";c.textContent=(TH_LABEL[key.slice(0,k)]||"")+"｜"+key.slice(k+1);
+  thTipEl.textContent="";thTipEl.append(thTile(key,1.5),c);thTipEl.style.display="block";
+  const r=el.getBoundingClientRect(),w=thTipEl.offsetWidth,h=thTipEl.offsetHeight;
+  let y=r.bottom+6;if(y+h>innerHeight-4)y=Math.max(4,r.top-h-6);
+  thTipEl.style.left=Math.max(4,Math.min(innerWidth-w-4,r.left))+"px";thTipEl.style.top=y+"px"})}
+
+/* ---- 縮圖挑選窗（依 select 現有的 option 產生；點一格＝改 select.value＋觸發 change） ---- */
+function thPopClose(){if(thPop){thPop.remove();thPop=null}}
+function thPickSel(btn,sel,kind){
+ if(thPop&&thPop.anchor===btn){thPopClose();return}thPopClose();thHide();thReady(()=>{});
+ const d=document.createElement("div"),g=document.createElement("div"),h=document.createElement("div");d.className="thpop"+(thSt===-1?" nothumb":"");d.anchor=btn;g.className="thgrid";
+ h.className="thh";h.textContent="點一格套用（Esc 關閉）";d.append(h,g);
+ [...sel.options].forEach(o=>{
+  const c=document.createElement("div"),key=thResolve(kind,o.value),t=key?thTile(key,1):null;c.className="thcard"+(o.value===sel.value?" on":"");c.title=o.text;
+  if(t)c.append(t);else{const n=document.createElement("div");n.className="thtile none";n.textContent=o.value?"（無縮圖）":o.text;c.append(n)}
+  const l=document.createElement("div");l.className="thl";l.textContent=o.value?o.text:"";if(o.value)c.append(l);
+  c.onclick=()=>{thPopClose();if(sel.value!==o.value||!o.value){sel.value=o.value;sel.dispatchEvent(new Event("change",{bubbles:true}))}};g.append(c)});
+ const r=btn.getBoundingClientRect(),W=Math.min(660,innerWidth-16),below=innerHeight-r.bottom-12,above=r.top-12,up=below<300&&above>below;   /* 下方放不下就往上開 */
+ d.style.width=W+"px";d.style.left=Math.max(8,Math.min(innerWidth-W-8,r.right-W))+"px";d.style.maxHeight=Math.max(160,Math.min(up?above:below,560))+"px";
+ document.body.append(d);thPop=d;d.style.top=Math.max(8,Math.min(innerHeight-d.offsetHeight-8,up?r.top-d.offsetHeight-4:r.bottom+4))+"px";   /* 一律夾在視窗內 */
+ const on=g.querySelector(".on");on&&on.scrollIntoView({block:"nearest"})}
+function thBtn(sel,kind){   /* 只回傳 🖼 按鈕（空間窄的工具列用）；同時讓 select 支援懸停預覽 */
+ sel.dataset.thk=kind;const b=document.createElement("button");b.type="button";b.className="thbtn";b.textContent="🖼";b.title="用縮圖挑選（滑鼠停在下拉選單上，也會預覽目前選項）";b.onclick=()=>thPickSel(b,sel,kind);return b}
+function thRow(sel,kind){const d=document.createElement("div");d.className="throw";d.append(sel,thBtn(sel,kind));return d}
+
+if(!RENDER){
+ document.addEventListener("pointerover",e=>{
+  if(e.pointerType&&e.pointerType!=="mouse")return;
+  const el=e.target.closest&&e.target.closest("[data-th],[data-thk]");if(el===thCur)return;
+  thHide();if(!el)return;thCur=el;thTimer=setTimeout(()=>thShow(el),150)},true);
+ document.addEventListener("pointerdown",e=>{thHide();if(thPop&&!thPop.contains(e.target)&&e.target!==thPop.anchor)thPopClose()},true);
+ document.addEventListener("keydown",e=>{if(e.key==="Escape")thPopClose();thHide()},true);
+ addEventListener("scroll",thHide,true);addEventListener("blur",thHide);document.documentElement.addEventListener("mouseleave",thHide);
+}
 </script></body></html>

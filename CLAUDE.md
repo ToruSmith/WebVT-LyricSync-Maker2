@@ -27,10 +27,16 @@
 - 工具／匯出／清除功能的入口集中在 `25-quick.js` 的 `quickActions()`（Ctrl+K）；面板按鈕在 `extra()`／`extra3()`／`extra4()`。UI 對等測試（`test/ui-parity.mjs`）只檢查「舊項目不消失」，所以可以新增、不能無故刪改既有的面板項目與快捷 id。
 - 程式風格偏密集（一行多個語句）。用 `Edit` 時請先 `Read` 目標行，`old_string` 取足夠唯一的片段；不要為了排版整檔重排（會讓 diff 無法檢視）。
 
+## 縮圖預覽（`28-thumbs.js`）
+
+- 版型／場景層／風格包／預設組合的懸停預覽與 🖼 縮圖挑選窗；**純 UI，不碰 CONFIG／subs／渲染**，`RENDER` 時不啟用。資料是 `thumbs/sheet.webp`（精靈圖，首次需要才載入，檔案不在就靜默略過）＋ `src/28-thumbs-idx.js`（`TH_DATA`，**由 `node test/make-thumbs.mjs` 產生，別手改**）。
+- 接入方式只有兩種：① 元素加 `data-th="lay|scene|pack|preset:名稱"`（chipBox 的第 6 參數 `kind`、`edPackBtns`、快捷選單 `thFromId(a.id)` 已接好）；② 下拉選單用 `thRow(select,kind)` 包起來（窄工具列用 `thBtn`），kind＝`lay`／`scene`／`pack`／`pre`（`pre`＝預設組合，自動分辨風格包或一般預設）。挑選窗只是改 `select.value` 並觸發 `change`，原本的 `onchange` 照跑，所以不要在別處重複寫套用邏輯。
+- 新增版型／場景／風格包後：`node test/make-thumbs.mjs`（可帶名稱只重拍部分）→ `node build.mjs`，把 `thumbs/sheet.webp`、`src/28-thumbs-idx.js` 與 `index.html` 一起提交。沒重拍也不會壞，只是該項目沒有預覽（`?check=1` 的 selfCheck 會列出）。
+
 ## 已知落差（不是你搞壞的）
 
 - README 提到的部分測試腳本（`test/chroma.mjs`、`post.mjs`、`position.mjs` 等）不在本倉庫；實際存在的見 README「驗證」。
-- `test/_dbg.mjs`、`_err.mjs`、`_sheet.mjs` 是臨時除錯腳本，寫死 `/tmp/sh`，不屬於 `npm run check`。
+- `test/_dbg.mjs`、`_err.mjs`、`_sheet.mjs` 是臨時除錯腳本，寫死 `/tmp/sh`，不屬於 `npm run check`（縮圖改用正式的 `test/make-thumbs.mjs`，同樣不屬於 check）。
 - 功能手冊若沒有「風格包／場景層／7.6」等章節，`spec-sync` 會失敗：代表手冊比程式舊，需補手冊而不是改測試。
 
 ## UI 結構備忘（頂欄・編輯器・匯出精靈）
