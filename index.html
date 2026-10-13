@@ -855,8 +855,8 @@ LAYOUTS.push("scroll","orbit","diagonal","marquee","circle-badge","zoom-tunnel",
 ENTERS.push("scramble","split-reveal");EXITS.push("dissolve","shatter","glitch-out");FXS.push("wave","shimmer","gradient-flow","chromatic","outline-pulse","highlight-word");
 /* ===== 階段 2（JIZURA 移植）：新增進場／退場／保持。只往表裡加，不改既有項目；進場的表在 04-anim.js 的 enter()。
    來源對照（JIZURA key）：blur-stagger＝blurStagger／track-in＝trackIn／skew-in＝skewIn／wipe＝wipe／clock-wipe＝clockWipe／neon-on＝neonOn；
-   blur-out-stagger＝blurOutStagger／vacuum＝vacuumOut／sweep-cover＝sweepCover／wipe-out＝wipe／clock-out＝clockOut；breathe＝breathe／track-breathe＝trackBreathe／zoom-slow＝zoomSlow／focus-rack＝focusRack。
-   部分部品改寫自 JIZURA（852wa/JIZURA，MIT）：只讀數值與動作設計，用關鍵影格重寫。 ===== */
+   vacuum＝vacuumOut／sweep-cover＝sweepCover／wipe-out＝wipe／clock-out＝clockOut；breathe＝breathe／track-breathe＝trackBreathe／zoom-slow＝zoomSlow／focus-rack＝focusRack。
+   部分部品改寫自 JIZURA（原作者 hakoniwa，MIT，備份於 ToruSmith/JIZURA；授權全文見根目錄 LICENSE）：只讀數值與動作設計，用關鍵影格重寫。 ===== */
 /* 時計ワイプ：conic-gradient 遮罩，角度寫死在 36 段關鍵影格裡（相鄰兩段的遮罩圖會交叉淡化，看起來是連續掃過）。
    不能用「註冊 --ang 再在遮罩裡 var(--ang)」：動畫值裡的 var() 取的是動畫前的底值，--ang 動起來遮罩也不會跟著變（已在 Chromium 實測）。
    純時間函數（WAAPI 暫停＋由時間設定）。不支援 conic 遮罩時退回斜向擦除（CLOCK_DIAG）。 */
@@ -866,7 +866,6 @@ const CLOCK_KF=inn=>{const a=[];for(let k=0;k<=36;k++){const d=(10*k).toFixed(0)
 /* 退場 */
 {const BAR="linear-gradient(var(--a),var(--a))";
 Object.assign(EXTRA_EX,{
- "blur-out-stagger":[{opacity:1,filter:"blur(0)"},{opacity:.7,filter:"blur(4px)",offset:.4},{opacity:0,filter:"blur(10px)"}],   /* 退場路徑只有整句（逐字版要改 05-build.js 的呼叫方式，規格不允許），所以是整句近似版 */
  vacuum:[{opacity:1,transform:"none",filter:"blur(0)"},{opacity:0,transform:"scale(0)",filter:"blur(6px)"}],   /* 收向舞台中心（取不到文字中心） */
  "sweep-cover":[{clipPath:"inset(0 0 0 0)",backgroundImage:BAR,backgroundRepeat:"no-repeat",backgroundSize:"0 100%",backgroundPosition:"0% 0",offset:0},
   {clipPath:"inset(0 0 0 0)",backgroundImage:BAR,backgroundRepeat:"no-repeat",backgroundSize:".3cqw 100%",backgroundPosition:"0% 0",offset:.02},
@@ -880,7 +879,7 @@ Object.assign(FXH,{
   A(e,[{letterSpacing:(ls-.03*fs)+"px"},{letterSpacing:(ls+.03*fs)+"px"}],{duration:2500,iterations:Infinity,direction:"alternate",easing:"ease-in-out"})})},
  "zoom-slow"(fw,dur){A(fw,[{scale:1},{scale:1.06}],{duration:dur*1000,easing:"linear"})},
  "focus-rack"(fw,dur){const l=cl(fw);if(!l.length)return;const t=dur*1000/l.length;l.forEach((c,i)=>A(c,[{filter:"blur(0)"},{filter:"blur(1.5px)",offset:.5},{filter:"blur(0)"}],{duration:t*1.6,delay:i*t,easing:"linear"}))}});
-ENTERS.push("blur-stagger","track-in","skew-in","wipe","clock-wipe","neon-on");EXITS.push("blur-out-stagger","vacuum","sweep-cover","wipe-out","clock-out");FXS.push("breathe","track-breathe","zoom-slow","focus-rack");
+ENTERS.push("blur-stagger","track-in","skew-in","wipe","clock-wipe","neon-on");EXITS.push("vacuum","sweep-cover","wipe-out","clock-out");FXS.push("breathe","track-breathe","zoom-slow","focus-rack");
 /* ===== [UI-EDITOR] 預設組合表 PRESETS / 隨機化 randomize / 帶標記 SRT 的產生與匯出（tc・tag・srtText・exportSRT）；句子編輯器本體 editor() 在下方 [EXPORT] 區段 ===== */
 const PRESETS={動畫PV:{font:"圓體",pulse:.05,accent:"#7aa8ff",weight:300,spacing:.5},霓虹夜:{font:"黑體",pulse:.07,accent:"#ff2bd6",weight:300,spacing:.3,dim:60},
  簡約明體:{font:"明體",pulse:.02,accent:"#cccccc",weight:300,spacing:.6,bounce:4},強烈節奏:{font:"英文展示",pulse:.12,bounce:30,flash:.2,speed:1.3,weight:700,spacing:.1},
@@ -1989,7 +1988,8 @@ function shatterBuild(sb,c,big,list,crayon){   /* 每個字拆成 4 片三角碎
 registerLayout("shatter-text",(sb,c,w,big,sm,dur,list)=>shatterBuild(sb,c,big,list,false));   /* 碎裂字（P3）：4 片碎片拼合 */
 registerLayout("crayon-shatter",(sb,c,w,big,sm,dur,list)=>shatterBuild(sb,c,big,list,true));   /* 蠟筆碎裂（P3）：同上，字心強調色、粗糙描邊與微傾斜 */
 /* ===== [LAY-J] 版型 J（JIZURA 移植・階段 0＋1，「實驗室」）：margin baseline full-track line-focus scale-steps；共用小工具 hair／tick／capSize。
-   部分部品改寫自 JIZURA（852wa/JIZURA，MIT）：只讀其設計與數值後用 DOM＋細線重寫，沒有搬 Canvas 程式碼；原專案採 MIT 授權，授權全文見原專案 LICENSE。
+   部分部品改寫自 JIZURA（原作者 hakoniwa；備份於 ToruSmith/JIZURA）。JIZURA is Copyright (c) 2026 hakoniwa, released under the MIT License（授權全文見本倉庫根目錄 LICENSE 的「Third-party notices」）。
+   只讀其設計與數值後用 DOM＋細線重寫，沒有搬 Canvas 程式碼。
    對應：margin＝tyMargin（余白）／baseline＝tyBaseline（罫線組）／full-track＝tyFullTrack（全幅字送り）／line-focus＝tyLineFocus（行中強調）／scale-steps＝tyScaleSteps（級数上げ）。
    皆為時間純函數（A() 暫停動畫＋種子亂數 sr()，不用 Math.random、不累積狀態）；只用文字加細線，不畫底板、不加不透明底色；
    非主文的線與點標 data-nm；不做 JIZURA 自帶的羅馬字、編號、時間碼。baseline／line-focus 吃 {}（BRACE_LAYOUTS）。 ===== */

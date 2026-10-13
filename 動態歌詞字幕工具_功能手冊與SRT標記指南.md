@@ -2,7 +2,7 @@
 
 > 給 AI 助手（Gemini）閱讀的規格書。目的：讀完後，能根據使用者提供的歌詞 SRT 與用途（例如 MAD 上字幕），為每一句選擇合適的版型、動畫與特效，輸出可直接匯入本工具的「帶標記 SRT」，並建議全域設定。
 > 本文只列出**實際存在**的名稱（已對照目前的 `index.html` 核對）。凡不在清單內的名稱一律不要使用（工具遇到未知版型會退回 `lowerleft`，未知進退場／特效可能無效）。
-> 目前共 **53 種版型**、21 種進場、13 種退場、15 種持續特效、10 種逐字樣式。
+> 目前共 **53 種版型**、21 種進場、12 種退場、15 種持續特效、10 種逐字樣式。
 > **先讀第 0 節（30 秒速讀）**，需要查名稱與細節再看第 3–8 節。
 
 ---
@@ -211,9 +211,9 @@
 
 **進場（第一個 `+`）**：`fade` `rise` `drop` `zoomin` `zoomout` `spin` `flip` `stagger` `mask-up` `elastic` `swing` `ripple` `scramble` `split-reveal` `iris` `blur-stagger` `track-in` `skew-in` `wipe` `clock-wipe` `neon-on`
 
-**退場（第二個 `+`）**：`fade` `sink` `zoomout-fade` `blur-out` `slide-out` `dissolve` `shatter` `glitch-out` `blur-out-stagger` `vacuum` `sweep-cover` `wipe-out` `clock-out`
+**退場（第二個 `+`）**：`fade` `sink` `zoomout-fade` `blur-out` `slide-out` `dissolve` `shatter` `glitch-out` `vacuum` `sweep-cover` `wipe-out` `clock-out`
 
-用字提示（依名稱字面意義）：`fade` 柔和；`rise`／`drop` 由下／上進入；`zoomin`／`zoomout` 縮放；`elastic` 彈性；`scramble` 亂碼還原（適合科技、故障）；`stagger` 逐字錯開；`iris` 圓形光圈由小開大；`dissolve`／`shatter`／`glitch-out` 退場時溶解／碎裂／故障；`blur-stagger` 逐字由模糊變清楚（沒有逐字資料的版型退回整句淡入）；`track-in` 字距由寬收攏；`skew-in` 斜切滑入（直排文字改從上方進入）；`wipe`／`wipe-out` 由左向右擦出／擦掉；`clock-wipe`／`clock-out` 時鐘式順時針擦出／擦掉；`neon-on` 霓虹燈閃爍點亮；`blur-out-stagger` 整句漸模糊淡出；`vacuum` 向畫面中心縮小吸走；`sweep-cover` 一條強調色細線由左掃過、把字蓋掉。
+用字提示（依名稱字面意義）：`fade` 柔和；`rise`／`drop` 由下／上進入；`zoomin`／`zoomout` 縮放；`elastic` 彈性；`scramble` 亂碼還原（適合科技、故障）；`stagger` 逐字錯開；`iris` 圓形光圈由小開大；`dissolve`／`shatter`／`glitch-out` 退場時溶解／碎裂／故障；`blur-stagger` 逐字由模糊變清楚（沒有逐字資料的版型退回整句淡入）；`track-in` 字距由寬收攏；`skew-in` 斜切滑入（直排文字改從上方進入）；`wipe`／`wipe-out` 由左向右擦出／擦掉；`clock-wipe`／`clock-out` 時鐘式順時針擦出／擦掉；`neon-on` 霓虹燈閃爍點亮；`vacuum` 向畫面中心縮小吸走；`sweep-cover` 一條強調色細線由左掃過、把字蓋掉。
 
 注意：`pv-lyric`／`pv-vertical` 有自己的進場動畫（模糊對焦、毛筆字由大縮小），一般不需要再指定進場。
 
