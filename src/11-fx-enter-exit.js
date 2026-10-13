@@ -37,3 +37,31 @@ Object.assign(NL,{
   const l=document.createElement("div");l.className="ln";l.style.cssText="position:absolute;left:10cqw;right:10cqw;top:50%";c.appendChild(l);A(l,[{transform:"scaleX(0)"},{transform:"scaleX(1)"}],{duration:D()})}});
 LAYOUTS.push("scroll","orbit","diagonal","marquee","circle-badge","zoom-tunnel","split-screen");
 ENTERS.push("scramble","split-reveal");EXITS.push("dissolve","shatter","glitch-out");FXS.push("wave","shimmer","gradient-flow","chromatic","outline-pulse","highlight-word");
+/* ===== 階段 2（JIZURA 移植）：新增進場／退場／保持。只往表裡加，不改既有項目；進場的表在 04-anim.js 的 enter()。
+   來源對照（JIZURA key）：blur-stagger＝blurStagger／track-in＝trackIn／skew-in＝skewIn／wipe＝wipe／clock-wipe＝clockWipe／neon-on＝neonOn；
+   blur-out-stagger＝blurOutStagger／vacuum＝vacuumOut／sweep-cover＝sweepCover／wipe-out＝wipe／clock-out＝clockOut；breathe＝breathe／track-breathe＝trackBreathe／zoom-slow＝zoomSlow／focus-rack＝focusRack。
+   部分部品改寫自 JIZURA（852wa/JIZURA，MIT）：只讀數值與動作設計，用關鍵影格重寫。 ===== */
+/* 時計ワイプ：conic-gradient 遮罩，角度寫死在 36 段關鍵影格裡（相鄰兩段的遮罩圖會交叉淡化，看起來是連續掃過）。
+   不能用「註冊 --ang 再在遮罩裡 var(--ang)」：動畫值裡的 var() 取的是動畫前的底值，--ang 動起來遮罩也不會跟著變（已在 Chromium 實測）。
+   純時間函數（WAAPI 暫停＋由時間設定）。不支援 conic 遮罩時退回斜向擦除（CLOCK_DIAG）。 */
+const CLOCK_OK=!!(window.CSS&&CSS.supports&&(CSS.supports("mask-image","conic-gradient(#000 0deg,transparent 0)")||CSS.supports("-webkit-mask-image","conic-gradient(#000 0deg,transparent 0)")));
+const CLOCK_KF=inn=>{const a=[];for(let k=0;k<=36;k++){const d=(10*k).toFixed(0),m=inn?`conic-gradient(#000 ${d}deg,transparent 0)`:`conic-gradient(transparent ${d}deg,#000 0)`;a.push({maskImage:m,WebkitMaskImage:m,offset:k/36})}return a},
+ CLOCK_DIAG=["polygon(-1% 0,0% 0,-30% 100%,-1% 100%)","polygon(-1% 0,130% 0,100% 100%,-1% 100%)"];
+/* 退場 */
+{const BAR="linear-gradient(var(--a),var(--a))";
+Object.assign(EXTRA_EX,{
+ "blur-out-stagger":[{opacity:1,filter:"blur(0)"},{opacity:.7,filter:"blur(4px)",offset:.4},{opacity:0,filter:"blur(10px)"}],   /* 退場路徑只有整句（逐字版要改 05-build.js 的呼叫方式，規格不允許），所以是整句近似版 */
+ vacuum:[{opacity:1,transform:"none",filter:"blur(0)"},{opacity:0,transform:"scale(0)",filter:"blur(6px)"}],   /* 收向舞台中心（取不到文字中心） */
+ "sweep-cover":[{clipPath:"inset(0 0 0 0)",backgroundImage:BAR,backgroundRepeat:"no-repeat",backgroundSize:"0 100%",backgroundPosition:"0% 0",offset:0},
+  {clipPath:"inset(0 0 0 0)",backgroundImage:BAR,backgroundRepeat:"no-repeat",backgroundSize:".3cqw 100%",backgroundPosition:"0% 0",offset:.02},
+  {clipPath:"inset(0 0 0 99.7%)",backgroundImage:BAR,backgroundRepeat:"no-repeat",backgroundSize:".3cqw 100%",backgroundPosition:"100% 0",offset:1}],   /* 一根強調色細條由左掃到右，條左側的字被 clipPath 隱藏；條與裁切同在整句容器上，所以長度一致 */
+ "wipe-out":[{clipPath:"inset(0)"},{clipPath:"inset(0 0 0 100%)"}],
+ "clock-out":CLOCK_OK?CLOCK_KF(0):[{clipPath:CLOCK_DIAG[1]},{clipPath:CLOCK_DIAG[0]}]})}
+/* 保持 */
+Object.assign(FXH,{
+ breathe(fw){A(fw,[{scale:1},{scale:1.03},{scale:1}],{duration:4000,iterations:Infinity,easing:"ease-in-out"})},   /* 用獨立的 scale 屬性，不和進場的 transform 打架 */
+ "track-breathe"(fw){tel(fw).forEach(e=>{const cs=getComputedStyle(e),fs=parseFloat(cs.fontSize)||16,ls=parseFloat(cs.letterSpacing)||0;   /* 字距寫在各文字元素上，不會從父層繼承，所以逐元素加動畫 */
+  A(e,[{letterSpacing:(ls-.03*fs)+"px"},{letterSpacing:(ls+.03*fs)+"px"}],{duration:2500,iterations:Infinity,direction:"alternate",easing:"ease-in-out"})})},
+ "zoom-slow"(fw,dur){A(fw,[{scale:1},{scale:1.06}],{duration:dur*1000,easing:"linear"})},
+ "focus-rack"(fw,dur){const l=cl(fw);if(!l.length)return;const t=dur*1000/l.length;l.forEach((c,i)=>A(c,[{filter:"blur(0)"},{filter:"blur(1.5px)",offset:.5},{filter:"blur(0)"}],{duration:t*1.6,delay:i*t,easing:"linear"}))}});
+ENTERS.push("blur-stagger","track-in","skew-in","wipe","clock-wipe","neon-on");EXITS.push("blur-out-stagger","vacuum","sweep-cover","wipe-out","clock-out");FXS.push("breathe","track-breathe","zoom-slow","focus-rack");

@@ -6,6 +6,10 @@ function chars(txt,parent,css){return[...txt].map(c=>{const s=document.createEle
 function txtEl(css){const d=document.createElement("div");d.style.cssText=`position:absolute;font-family:${FONTS[curFont||CONFIG.font]||curFont||CONFIG.font};font-weight:${CONFIG.weight};letter-spacing:${CONFIG.spacing}em;color:var(--c);${css}`;d.dataset.t="1";return d}
 function enter(el,kind,list){
  const d=D();
+ /* 階段 2（JIZURA 移植）新增進場：blur-stagger／skew-in／clock-wipe 需要 list／el／CLOCK_OK，所以在表之前單獨處理；wipe／track-in／neon-on 在下面的表 k 內 */
+ if(kind==="blur-stagger"&&list){list.forEach((c,i)=>A(c,[{opacity:0,filter:"blur(12px)",transform:"translateY(1cqh)"},{opacity:1,filter:"none",transform:"none"}],{duration:d,delay:i*60/CONFIG.speed}));return}   /* 無 list 時不在表內，退回整句淡入 */
+ if(kind==="skew-in"){const v=/vertical/.test(getComputedStyle(el).writingMode||"");A(el,[{opacity:0,transform:v?"translateY(-6cqh) skewY(-20deg)":"translateX(-6cqw) skewX(-20deg)"},{opacity:1,transform:"none"}],{duration:d});return}   /* 直式文字改從上方進入 */
+ if(kind==="clock-wipe"){A(el,CLOCK_OK?CLOCK_KF(1):[{clipPath:CLOCK_DIAG[0]},{clipPath:CLOCK_DIAG[1]}],{duration:d,easing:"linear"});return}   /* 時計ワイプ：conic-gradient 遮罩的逐段關鍵影格（var() 不會被動畫的 --ang 取代，所以直接寫死角度） */
    if(kind==="scramble"&&list){list.forEach((c,i)=>{scr.push({c,f:c.textContent,end:i*80/CONFIG.speed+d*.6});A(c,[{opacity:0},{opacity:1}],{duration:d*.3,delay:i*80/CONFIG.speed})});return}
   if(["stagger","ripple","flip"].includes(kind)&&list){const kf={stagger:[{opacity:0},{opacity:1}],ripple:[{opacity:0,transform:"translateY(3cqh)"},{opacity:1,transform:"translateY(-1.5cqh)",offset:.6},{opacity:1,transform:"none"}],flip:[{opacity:0,transform:"perspective(600px) rotateX(90deg)"},{opacity:1,transform:"none"}]}[kind];list.forEach((c,i)=>A(c,kf,{duration:d,delay:i*80/CONFIG.speed}));return}
  const k={fade:[{opacity:0},{opacity:1}],rise:[{opacity:0,transform:"translateY(5cqh)"},{opacity:1,transform:"none"}],
@@ -15,6 +19,8 @@ function enter(el,kind,list){
   spin:[{opacity:0,transform:"perspective(800px) rotateY(90deg)"},{opacity:1,transform:"none"}],
   elastic:[{opacity:0,transform:"scale(0)"},{opacity:1,transform:"scale(1.2)",offset:.5},{transform:"scale(.93)",offset:.75},{transform:"scale(1)"}],
   swing:[{opacity:0,transform:"rotate(-25deg)"},{opacity:1,transform:"rotate(14deg)",offset:.4},{transform:"rotate(-6deg)",offset:.7},{transform:"none"}],
-  "split-reveal":[{clipPath:"inset(50% 0 50% 0)",opacity:1},{clipPath:"inset(0)",opacity:1}],iris:[{clipPath:"circle(0% at 50% 50%)",opacity:1},{clipPath:"circle(75% at 50% 50%)",opacity:1}],"mask-up":[{clipPath:"inset(100% 0 0 0)",transform:"translateY(4cqh)"},{clipPath:"inset(0)",transform:"none"}]}[kind]||[{opacity:0},{opacity:1}];
+  "split-reveal":[{clipPath:"inset(50% 0 50% 0)",opacity:1},{clipPath:"inset(0)",opacity:1}],iris:[{clipPath:"circle(0% at 50% 50%)",opacity:1},{clipPath:"circle(75% at 50% 50%)",opacity:1}],"mask-up":[{clipPath:"inset(100% 0 0 0)",transform:"translateY(4cqh)"},{clipPath:"inset(0)",transform:"none"}],
+  wipe:[{clipPath:"inset(0 100% 0 0)",opacity:1},{clipPath:"inset(0)",opacity:1}],"track-in":[{opacity:0,letterSpacing:".6em"},{opacity:1}],   /* track-in：終點省略 letterSpacing＝落在該元素目前的字距（不寫死） */
+  "neon-on":[{opacity:0,textShadow:"0 0 0 transparent",offset:0,easing:"linear"},{opacity:1,offset:.1,easing:"linear"},{opacity:.3,offset:.2,easing:"linear"},{opacity:1,offset:.3,easing:"linear"},{opacity:.6,offset:.4,easing:"linear"},{opacity:1,offset:.5,easing:"linear"},{opacity:1,textShadow:"0 0 16px var(--a)",offset:1}]}[kind]||[{opacity:0},{opacity:1}];
  A(el,k,{duration:d});
 }
