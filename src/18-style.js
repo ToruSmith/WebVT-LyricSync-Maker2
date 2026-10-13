@@ -3,6 +3,7 @@ const tEls=c=>[...c.querySelectorAll("[data-t]")];
 const isV=e=>/^vertical/.test(e.style.writingMode||"");
 const charify=c=>{tEls(c).forEach(e=>{if(!isV(e)&&!e.querySelector(".ch")&&!e.children.length&&e.textContent.trim()){const t=e.textContent;e.textContent="";chars(t,e)}});return[...c.querySelectorAll(".ch")]};
 const addSh=(e,s)=>{e.style.textShadow=[e.style.textShadow,s].filter(Boolean).join(",")};
+const _lv=e=>{const c=[...e.querySelectorAll(".ch")];return c.length?c:[e]};   /* 逐字拆開時，背景裁字／偽元素要畫在每個字上（同 gradient-flow） */
 const ST={
  neon:e=>addSh(e,"0 0 .06em #fff,0 0 .3em var(--a),0 0 .7em var(--a),0 0 1.4em var(--a)"),
  "glow-soft":e=>addSh(e,"0 0 .3em rgba(255,255,255,.45),0 0 .9em color-mix(in srgb,var(--a) 70%,transparent)"),
@@ -10,11 +11,20 @@ const ST={
  longshadow:e=>addSh(e,Array.from({length:30},(_,i)=>`${(i+1)*.022}em ${(i+1)*.022}em 0 color-mix(in srgb,var(--a) 55%,#000)`).join(",")),
  trail:e=>addSh(e,Array.from({length:8},(_,i)=>`${-(i+1)*.05}em 0 ${(i+1)*.012}em rgba(255,255,255,${(.34-i*.04).toFixed(2)})`).join(",")),
  outline:e=>{e.style.color="transparent";e.style.webkitTextStroke=".04em var(--c)"},
- stamp:e=>Object.assign(e.style,{border:".07em solid var(--a)",color:"var(--a)",padding:".08em .3em",width:"fit-content",marginInline:"auto",rotate:"-4deg",borderRadius:".1em"})
+ stamp:e=>Object.assign(e.style,{border:".07em solid var(--a)",color:"var(--a)",padding:".08em .3em",width:"fit-content",marginInline:"auto",rotate:"-4deg",borderRadius:".1em"}),
+ /* ---- 階段 3 新增（概念參考 JIZURA 文字加工，MIT；自行以 CSS 實作）---- */
+ "double-line":e=>{_lv(e).forEach(x=>{x.style.color="transparent";x.style.webkitTextStroke=".12em var(--a)";x.style.paintOrder="stroke fill";x.dataset.dl=x.textContent})},   /* 二重縁：外層粗描邊（強調色）＋偽元素 ::after（style.css）疊細描邊（字色） */
+ "emphasis-dot":e=>{e.style.textEmphasis="filled dot var(--a)";e.style.webkitTextEmphasis="filled dot var(--a)";e.style.textEmphasisPosition=isV(e)?"over right":"over"},
+ "shadow-stack":e=>addSh(e,".04em 0 0 color-mix(in srgb,var(--a) 70%,transparent),.08em 0 0 color-mix(in srgb,var(--a) 45%,transparent),.12em 0 0 color-mix(in srgb,var(--a) 22%,transparent)"),
+ "split-tone":e=>_lv(e).forEach(x=>{x.style.backgroundImage="linear-gradient(180deg,var(--c) 50%,var(--a) 50%)";x.style.webkitBackgroundClip=x.style.backgroundClip="text";x.style.color="transparent";x.style.webkitTextFillColor="transparent"})
 };
 const STC={
  gradient:c=>{tEls(c).filter(isV).forEach(e=>{e.style.background="linear-gradient(180deg,var(--c),var(--a))";e.style.webkitBackgroundClip=e.style.backgroundClip="text";e.style.color="transparent"});const ch=charify(c),n=Math.max(1,ch.length-1);ch.forEach((x,i)=>{x.style.color=`color-mix(in srgb,var(--c) ${Math.round(100-i/n*100)}%,var(--a))`})},
  karaoke:(c,sb,dur)=>{tEls(c).filter(isV).forEach(e=>{e.style.background="linear-gradient(180deg,#fff 50%,rgba(255,255,255,.3) 50%)";e.style.backgroundSize="100% 200%";e.style.webkitBackgroundClip=e.style.backgroundClip="text";e.style.color="transparent";A(e,[{backgroundPosition:"0 100%"},{backgroundPosition:"0 0"}],{duration:dur*1000,easing:"linear"})});const ch=charify(c),n=Math.max(1,ch.length),t=dur*1000/n;ch.forEach((x,i)=>{x.style.color="rgba(255,255,255,.3)";A(x,[{color:"rgba(255,255,255,.3)"},{color:"#fff",textShadow:"0 0 .4em var(--a)"}],{duration:t,delay:i*t,easing:"linear"})})},
+ "gloss-sweep":(c,sb,dur)=>{   /* 光澤掃過：每個字畫亮帶漸層（不畫在父層），逐字延遲掃一次，不循環 */
+  const ch=charify(c),els=ch.length?ch:tEls(c).filter(isV);
+  els.forEach((x,i)=>{x.style.backgroundImage="linear-gradient(100deg,var(--c) 38%,#fff 50%,var(--c) 62%)";x.style.backgroundSize="300% 100%";x.style.webkitBackgroundClip=x.style.backgroundClip="text";x.style.color="transparent";x.style.webkitTextFillColor="transparent";
+   A(x,[{backgroundPosition:"100% 0"},{backgroundPosition:"0% 0"}],{duration:900,delay:D()*.6+i*70,easing:"ease-in-out"})})},
  glitch:c=>{const b="drop-shadow(-.04em 0 rgba(255,40,90,.85)) drop-shadow(.04em 0 rgba(0,220,255,.85))",s="steps(1,end)";
   tEls(c).forEach((e,i)=>A(e,[{translate:"0 0",filter:"none",easing:s},{translate:".02em 0",filter:b,offset:.06,easing:s},{translate:"-.03em .01em",filter:b,offset:.09,easing:s},{translate:"0 0",filter:"none",offset:.12,easing:s},{translate:"-.015em 0",filter:b,offset:.56,easing:s},{translate:"0 0",filter:"none",offset:.59}],{duration:1800+i*230,iterations:Infinity}))}
 };

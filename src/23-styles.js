@@ -36,6 +36,13 @@ regPack("歇斯底里之夜",{font:"英文展示",weight:800,spacing:.04,color:"
  sceneAll:"glitch-bars:70,burst:45,smear-brush:40",layoutPool:"noise-text,glitch,shatter-text,crayon-shatter,flash-words",beatShake:3,beatTilt:2,beatHue:30,beatZoom:5});
 regPack("戒尺",{font:"明體",weight:600,spacing:.15,color:"#f4efe6",accent:"#c8a24a",bgMode:"solid",bgColor:"#14110d",pulse:.02,bounce:4,flash:0,trans:"crossfade",particles:0,grain:.05,
  sceneAll:"ruler:55,dashed-lines:45,target:35",layoutPool:"poster,subtitle-box,annotate,strip,lowerleft"});
+/* 階段 3：JIZURA 風格取 schemes[0] 的 fg／accent（不帶背景色），字體只用 FONTS 既有鍵，版型池用階段 1 的 LAB 版型（概念參考 JIZURA，MIT） */
+regPack("金夜",{font:"明體",weight:500,spacing:.22,color:"#F3E7C4",accent:"#D4AF37",dim:50,pulse:.02,bounce:3,flash:0,speed:.85,trans:"crossfade",particles:0,vignette:.5,
+ sceneAll:"dashed-lines:30,gradient-fade:35",layoutPool:"margin,baseline,line-focus"});
+regPack("深海",{font:"圓體",weight:300,spacing:.3,color:"#E4FAFF",accent:"#1FD2E6",dim:55,pulse:.02,bounce:3,flash:0,speed:.85,trans:"crossfade",particles:0,vignette:.4,
+ sceneAll:"flow-lines:35,gradient-fade:35",layoutPool:"full-track,margin"});
+regPack("單色座標",{font:"等寬",weight:400,spacing:.12,color:"#FFFFFF",accent:"#FFFFFF",dim:50,pulse:.02,bounce:0,flash:0,trans:"cut",particles:0,
+ sceneAll:"guides:35",layoutPool:"scale-steps,baseline"});
 /* 離開風格包時要還原的欄位（只在「上一個套用的是風格包」時才還原，舊預設之間的行為完全不變） */
 const PACK_KEEP=["color","bgMode","bgColor","ghostOn","ghostA","ghostB","sceneAll","layoutPool","beatShake","beatZoom","beatTilt","beatHue","dim","vignette","speed","flash","bounce","pulse","weight","spacing","accent","auto","textShadow","lock"];
 

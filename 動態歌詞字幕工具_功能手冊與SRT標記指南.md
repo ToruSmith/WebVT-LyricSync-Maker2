@@ -2,7 +2,7 @@
 
 > 給 AI 助手（Gemini）閱讀的規格書。目的：讀完後，能根據使用者提供的歌詞 SRT 與用途（例如 MAD 上字幕），為每一句選擇合適的版型、動畫與特效，輸出可直接匯入本工具的「帶標記 SRT」，並建議全域設定。
 > 本文只列出**實際存在**的名稱（已對照目前的 `index.html` 核對）。凡不在清單內的名稱一律不要使用（工具遇到未知版型會退回 `lowerleft`，未知進退場／特效可能無效）。
-> 目前共 **53 種版型**、21 種進場、12 種退場、15 種持續特效、10 種逐字樣式。
+> 目前共 **53 種版型**、21 種進場、12 種退場、19 種持續特效、15 種逐字樣式。
 > **先讀第 0 節（30 秒速讀）**，需要查名稱與細節再看第 3–8 節。
 
 ---
@@ -221,13 +221,13 @@
 
 ## 5. 持續特效（`~`，每句至多一個）
 
-`float`（漂浮）`shake`（抖動）`flicker`（閃爍）`rainbow`（彩虹色）`wave`（波動）`shimmer`（流光掃過）`gradient-flow`（漸層流動）`chromatic`（色差抖動，隨 BPM）`outline-pulse`（輪廓光隨拍脈動）`highlight-word`（逐字依序亮起）`stopmotion`（定格動畫感）`breathe`（呼吸：整句微微放大縮小）`track-breathe`（字距輕微呼吸）`zoom-slow`（整句在句子時間內慢慢推近）`focus-rack`（逐字依序輕微失焦再對焦）
+`float`（漂浮）`shake`（抖動）`flicker`（閃爍）`rainbow`（彩虹色）`wave`（波動）`shimmer`（流光掃過）`gradient-flow`（漸層流動）`chromatic`（色差抖動，隨 BPM）`outline-pulse`（輪廓光隨拍脈動）`highlight-word`（逐字依序亮起）`stopmotion`（定格動畫感）`breathe`（呼吸：整句微微放大縮小）`track-breathe`（字距輕微呼吸）`zoom-slow`（整句在句子時間內慢慢推近）`focus-rack`（逐字依序輕微失焦再對焦）`cam-pull`（鏡頭拉遠：整句 1.06→1）`cam-pan-l`（鏡頭左移）`cam-pan-r`（鏡頭右移）`cam-tilt-up`（鏡頭上仰；三種平移量皆不到畫面寬度的 3%）
 
 ---
 
 ## 6. 樣式（`@`，可逗號疊加，單句最多 3 個）
 
-`neon` 霓虹、`glow-soft` 柔光、`outline` 空心、`chromatic` 色差、`gradient` 漸層、`longshadow` 長影、`trail` 拖影、`stamp` 蓋章、`glitch` 訊號閃爍、`karaoke` 逐字變亮。
+`neon` 霓虹、`glow-soft` 柔光、`outline` 空心、`chromatic` 色差、`gradient` 漸層、`longshadow` 長影、`trail` 拖影、`stamp` 蓋章、`glitch` 訊號閃爍、`karaoke` 逐字變亮、`double-line` 二重縁（粗外框＋細內線）、`emphasis-dot` 傍點（字上加圓點，直式在右側）、`gloss-sweep` 光澤掃過（逐字亮帶掃一次）、`shadow-stack` 多重影（三層水平漸淡）、`split-tone` 上下二色。
 
 限制：
 - `karaoke` 與 `gradient` 同用時以 `karaoke` 為準。
@@ -377,4 +377,4 @@
 
 - **場景層 `&`**：寫法範例 `#center&halftone:60:1.5,burst 歌詞`；參數順序 `名稱:強度:速度:節拍連動:X偏移:Y偏移`。已確認存在的場景名稱：`halftone`、`burst`；其他以工具編輯器「＋場景」挑選窗為準。`&` 與 `~`、`^`、`@` 同時出現時的先後順序尚未確認，混用前請先請使用者提供範例。
 - **節拍後製**：全域欄位 `beatShake`、`beatZoom`、`beatTilt`、`beatHue`；單句覆寫 `&bfx-shake:3`、`&bfx-off`。
-- **風格包**：面板一鍵套用（16 個），內容為調色盤＋字體＋全域底層場景（`sceneAll`）＋版型池（`layoutPool`）＋節拍後製，並開啟「自動變化版型」；沒有自己 `#` 標記的句子會依序從版型池輪流取版型。**使用風格包時，不要為了每句不同而替每句另寫版型。**
+- **風格包**：面板一鍵套用（19 個，新增 `金夜`、`深海`、`單色座標`），內容為調色盤＋字體＋全域底層場景（`sceneAll`）＋版型池（`layoutPool`）＋節拍後製，並開啟「自動變化版型」；沒有自己 `#` 標記的句子會依序從版型池輪流取版型。**使用風格包時，不要為了每句不同而替每句另寫版型。**

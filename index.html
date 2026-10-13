@@ -25,6 +25,7 @@ html,body{margin:0;height:100%;background:#050608;color:var(--c);overflow:hidden
 #L{position:absolute;inset:0}
 .w{position:absolute;inset:0}
 .ch{display:inline-block;white-space:pre}
+[data-dl]{position:relative}[data-dl]::after{content:attr(data-dl);position:absolute;left:0;top:0;white-space:pre;color:transparent;-webkit-text-stroke:.03em var(--c);paint-order:normal}
 #bar{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;align-items:center;padding:8px 12px;background:rgba(10,12,20,.85);font-size:13px;z-index:5}
 button,select,input[type=file]{font:inherit;color:#fff;background:#232a44;border:1px solid #3a4470;border-radius:4px;padding:4px 10px}
 #seek{flex:1}
@@ -879,6 +880,12 @@ Object.assign(FXH,{
   A(e,[{letterSpacing:(ls-.03*fs)+"px"},{letterSpacing:(ls+.03*fs)+"px"}],{duration:2500,iterations:Infinity,direction:"alternate",easing:"ease-in-out"})})},
  "zoom-slow"(fw,dur){A(fw,[{scale:1},{scale:1.06}],{duration:dur*1000,easing:"linear"})},
  "focus-rack"(fw,dur){const l=cl(fw);if(!l.length)return;const t=dur*1000/l.length;l.forEach((c,i)=>A(c,[{filter:"blur(0)"},{filter:"blur(1.5px)",offset:.5},{filter:"blur(0)"}],{duration:t*1.6,delay:i*t,easing:"linear"}))}});
+Object.assign(FXH,{   /* 鏡頭型（概念參考 JIZURA 鏡頭，MIT）：只動字幕容器 fw，用獨立屬性 scale／translate，位移 <3% 畫面 */
+ "cam-pull"(fw,dur){A(fw,[{scale:1.06},{scale:1}],{duration:dur*1000,easing:"linear"})},
+ "cam-pan-l"(fw,dur){A(fw,[{translate:"1.5cqw 0"},{translate:"-1.5cqw 0"}],{duration:dur*1000,easing:"linear"})},
+ "cam-pan-r"(fw,dur){A(fw,[{translate:"-1.5cqw 0"},{translate:"1.5cqw 0"}],{duration:dur*1000,easing:"linear"})},
+ "cam-tilt-up"(fw,dur){A(fw,[{translate:"0 1.5cqh"},{translate:"0 -1.5cqh"}],{duration:dur*1000,easing:"linear"})}});
+FXS.push("cam-pull","cam-pan-l","cam-pan-r","cam-tilt-up");
 ENTERS.push("blur-stagger","track-in","skew-in","wipe","clock-wipe","neon-on");EXITS.push("vacuum","sweep-cover","wipe-out","clock-out");FXS.push("breathe","track-breathe","zoom-slow","focus-rack");
 /* ===== [UI-EDITOR] 預設組合表 PRESETS / 隨機化 randomize / 帶標記 SRT 的產生與匯出（tc・tag・srtText・exportSRT）；句子編輯器本體 editor() 在下方 [EXPORT] 區段 ===== */
 const PRESETS={動畫PV:{font:"圓體",pulse:.05,accent:"#7aa8ff",weight:300,spacing:.5},霓虹夜:{font:"黑體",pulse:.07,accent:"#ff2bd6",weight:300,spacing:.3,dim:60},
@@ -1575,6 +1582,7 @@ const tEls=c=>[...c.querySelectorAll("[data-t]")];
 const isV=e=>/^vertical/.test(e.style.writingMode||"");
 const charify=c=>{tEls(c).forEach(e=>{if(!isV(e)&&!e.querySelector(".ch")&&!e.children.length&&e.textContent.trim()){const t=e.textContent;e.textContent="";chars(t,e)}});return[...c.querySelectorAll(".ch")]};
 const addSh=(e,s)=>{e.style.textShadow=[e.style.textShadow,s].filter(Boolean).join(",")};
+const _lv=e=>{const c=[...e.querySelectorAll(".ch")];return c.length?c:[e]};   /* 逐字拆開時，背景裁字／偽元素要畫在每個字上（同 gradient-flow） */
 const ST={
  neon:e=>addSh(e,"0 0 .06em #fff,0 0 .3em var(--a),0 0 .7em var(--a),0 0 1.4em var(--a)"),
  "glow-soft":e=>addSh(e,"0 0 .3em rgba(255,255,255,.45),0 0 .9em color-mix(in srgb,var(--a) 70%,transparent)"),
@@ -1582,11 +1590,20 @@ const ST={
  longshadow:e=>addSh(e,Array.from({length:30},(_,i)=>`${(i+1)*.022}em ${(i+1)*.022}em 0 color-mix(in srgb,var(--a) 55%,#000)`).join(",")),
  trail:e=>addSh(e,Array.from({length:8},(_,i)=>`${-(i+1)*.05}em 0 ${(i+1)*.012}em rgba(255,255,255,${(.34-i*.04).toFixed(2)})`).join(",")),
  outline:e=>{e.style.color="transparent";e.style.webkitTextStroke=".04em var(--c)"},
- stamp:e=>Object.assign(e.style,{border:".07em solid var(--a)",color:"var(--a)",padding:".08em .3em",width:"fit-content",marginInline:"auto",rotate:"-4deg",borderRadius:".1em"})
+ stamp:e=>Object.assign(e.style,{border:".07em solid var(--a)",color:"var(--a)",padding:".08em .3em",width:"fit-content",marginInline:"auto",rotate:"-4deg",borderRadius:".1em"}),
+ /* ---- 階段 3 新增（概念參考 JIZURA 文字加工，MIT；自行以 CSS 實作）---- */
+ "double-line":e=>{_lv(e).forEach(x=>{x.style.color="transparent";x.style.webkitTextStroke=".12em var(--a)";x.style.paintOrder="stroke fill";x.dataset.dl=x.textContent})},   /* 二重縁：外層粗描邊（強調色）＋偽元素 ::after（style.css）疊細描邊（字色） */
+ "emphasis-dot":e=>{e.style.textEmphasis="filled dot var(--a)";e.style.webkitTextEmphasis="filled dot var(--a)";e.style.textEmphasisPosition=isV(e)?"over right":"over"},
+ "shadow-stack":e=>addSh(e,".04em 0 0 color-mix(in srgb,var(--a) 70%,transparent),.08em 0 0 color-mix(in srgb,var(--a) 45%,transparent),.12em 0 0 color-mix(in srgb,var(--a) 22%,transparent)"),
+ "split-tone":e=>_lv(e).forEach(x=>{x.style.backgroundImage="linear-gradient(180deg,var(--c) 50%,var(--a) 50%)";x.style.webkitBackgroundClip=x.style.backgroundClip="text";x.style.color="transparent";x.style.webkitTextFillColor="transparent"})
 };
 const STC={
  gradient:c=>{tEls(c).filter(isV).forEach(e=>{e.style.background="linear-gradient(180deg,var(--c),var(--a))";e.style.webkitBackgroundClip=e.style.backgroundClip="text";e.style.color="transparent"});const ch=charify(c),n=Math.max(1,ch.length-1);ch.forEach((x,i)=>{x.style.color=`color-mix(in srgb,var(--c) ${Math.round(100-i/n*100)}%,var(--a))`})},
  karaoke:(c,sb,dur)=>{tEls(c).filter(isV).forEach(e=>{e.style.background="linear-gradient(180deg,#fff 50%,rgba(255,255,255,.3) 50%)";e.style.backgroundSize="100% 200%";e.style.webkitBackgroundClip=e.style.backgroundClip="text";e.style.color="transparent";A(e,[{backgroundPosition:"0 100%"},{backgroundPosition:"0 0"}],{duration:dur*1000,easing:"linear"})});const ch=charify(c),n=Math.max(1,ch.length),t=dur*1000/n;ch.forEach((x,i)=>{x.style.color="rgba(255,255,255,.3)";A(x,[{color:"rgba(255,255,255,.3)"},{color:"#fff",textShadow:"0 0 .4em var(--a)"}],{duration:t,delay:i*t,easing:"linear"})})},
+ "gloss-sweep":(c,sb,dur)=>{   /* 光澤掃過：每個字畫亮帶漸層（不畫在父層），逐字延遲掃一次，不循環 */
+  const ch=charify(c),els=ch.length?ch:tEls(c).filter(isV);
+  els.forEach((x,i)=>{x.style.backgroundImage="linear-gradient(100deg,var(--c) 38%,#fff 50%,var(--c) 62%)";x.style.backgroundSize="300% 100%";x.style.webkitBackgroundClip=x.style.backgroundClip="text";x.style.color="transparent";x.style.webkitTextFillColor="transparent";
+   A(x,[{backgroundPosition:"100% 0"},{backgroundPosition:"0% 0"}],{duration:900,delay:D()*.6+i*70,easing:"ease-in-out"})})},
  glitch:c=>{const b="drop-shadow(-.04em 0 rgba(255,40,90,.85)) drop-shadow(.04em 0 rgba(0,220,255,.85))",s="steps(1,end)";
   tEls(c).forEach((e,i)=>A(e,[{translate:"0 0",filter:"none",easing:s},{translate:".02em 0",filter:b,offset:.06,easing:s},{translate:"-.03em .01em",filter:b,offset:.09,easing:s},{translate:"0 0",filter:"none",offset:.12,easing:s},{translate:"-.015em 0",filter:b,offset:.56,easing:s},{translate:"0 0",filter:"none",offset:.59}],{duration:1800+i*230,iterations:Infinity}))}
 };
@@ -2200,6 +2217,13 @@ regPack("歇斯底里之夜",{font:"英文展示",weight:800,spacing:.04,color:"
  sceneAll:"glitch-bars:70,burst:45,smear-brush:40",layoutPool:"noise-text,glitch,shatter-text,crayon-shatter,flash-words",beatShake:3,beatTilt:2,beatHue:30,beatZoom:5});
 regPack("戒尺",{font:"明體",weight:600,spacing:.15,color:"#f4efe6",accent:"#c8a24a",bgMode:"solid",bgColor:"#14110d",pulse:.02,bounce:4,flash:0,trans:"crossfade",particles:0,grain:.05,
  sceneAll:"ruler:55,dashed-lines:45,target:35",layoutPool:"poster,subtitle-box,annotate,strip,lowerleft"});
+/* 階段 3：JIZURA 風格取 schemes[0] 的 fg／accent（不帶背景色），字體只用 FONTS 既有鍵，版型池用階段 1 的 LAB 版型（概念參考 JIZURA，MIT） */
+regPack("金夜",{font:"明體",weight:500,spacing:.22,color:"#F3E7C4",accent:"#D4AF37",dim:50,pulse:.02,bounce:3,flash:0,speed:.85,trans:"crossfade",particles:0,vignette:.5,
+ sceneAll:"dashed-lines:30,gradient-fade:35",layoutPool:"margin,baseline,line-focus"});
+regPack("深海",{font:"圓體",weight:300,spacing:.3,color:"#E4FAFF",accent:"#1FD2E6",dim:55,pulse:.02,bounce:3,flash:0,speed:.85,trans:"crossfade",particles:0,vignette:.4,
+ sceneAll:"flow-lines:35,gradient-fade:35",layoutPool:"full-track,margin"});
+regPack("單色座標",{font:"等寬",weight:400,spacing:.12,color:"#FFFFFF",accent:"#FFFFFF",dim:50,pulse:.02,bounce:0,flash:0,trans:"cut",particles:0,
+ sceneAll:"guides:35",layoutPool:"scale-steps,baseline"});
 /* 離開風格包時要還原的欄位（只在「上一個套用的是風格包」時才還原，舊預設之間的行為完全不變） */
 const PACK_KEEP=["color","bgMode","bgColor","ghostOn","ghostA","ghostB","sceneAll","layoutPool","beatShake","beatZoom","beatTilt","beatHue","dim","vignette","speed","flash","bounce","pulse","weight","spacing","accent","auto","textShadow","lock"];
 
@@ -2550,7 +2574,7 @@ if(RENDER){
 window.__ready=document.fonts.ready.then(()=>true);
 }else requestAnimationFrame(t=>{lastP=t;loop(t)});
 /* ===== [THUMBS-IDX] 縮圖精靈圖索引（由 test/make-thumbs.mjs 產生，請勿手改；邏輯在 28-thumbs.js）===== */
-var TH_DATA={w:128,h:72,cols:12,v:"9b7bb427",idx:"lay:split,lay:lowerleft,lay:bounce,lay:slam,lay:neon,lay:karaoke,lay:typewriter,lay:vertical,lay:blurfocus,lay:wipe,lay:glitch,lay:stack,lay:outline-big,lay:subtitle-box,lay:poster,lay:scroll,lay:orbit,lay:diagonal,lay:marquee,lay:circle-badge,lay:zoom-tunnel,lay:split-screen,lay:flash-words,lay:keyword,lay:trail,lay:text-mask,lay:danmaku,lay:longshadow,lay:bubble,lay:border-run,lay:blinds,lay:hanko,lay:collage,lay:handwrite,lay:marker,lay:center,lay:ripple-pool,lay:constellation,lay:particle-form,lay:hud-frame,lay:parallax-depth,lay:polaroid,lay:page-flip,lay:ink-bleed,lay:laser-scan,lay:split-flap,lay:wave-path,lay:mirror-reflect,lay:cylinder,lay:iris-frame,lay:annotate,lay:pv-lyric,lay:pv-vertical,lay:scatter,lay:strip,lay:cards,lay:glow-cards,lay:layered,lay:falling,lay:formula,lay:staggered-text,lay:noise-text,lay:victim-outline,lay:cute-outline,lay:vertical-sub,lay:hero-text,lay:shatter-text,lay:crayon-shatter,scene:halftone,scene:dots,scene:checker,scene:burst,scene:radial-rects,scene:perspective-grid,scene:flow-lines,scene:stripes,scene:hatch,scene:diag-split,scene:blocks,scene:breathing-blocks,scene:squares,scene:glow-ring,scene:rings,scene:pulse-circle,scene:glitch-bars,scene:guides,scene:dashed-lines,scene:ruler,scene:target,scene:color-wash,scene:gradient-fade,scene:pink-stripes,scene:diag-fill,scene:diag-structure,scene:organic-blob,scene:edge-clouds,scene:scattered-shapes,scene:diamond-shapes,scene:shadow-shapes,scene:balancing-circles,scene:web-lines,scene:cross-pattern,scene:triangle-grid,scene:pink-grid,scene:jigsaw-grid,scene:texture-bg,scene:pixel-bg,scene:star-trail,scene:light-spot,scene:screen-border,scene:scalloped-border,scene:hud-corners,scene:hud-info,scene:hud-status,scene:data-monitors,scene:pixel-window,scene:desktop-icon,scene:smear-brush,scene:paper-tear,scene:blood-splatter,scene:crime-tape,scene:planet,pack:藍色衝擊,pack:斬擊,pack:藍色構成,pack:城市文字雨,pack:夜色,pack:波普,pack:青墨,pack:電腦,pack:戰場,pack:幾何,pack:全息,pack:賽博監控,pack:情緒電影,pack:剪影極簡,pack:歇斯底里之夜,pack:戒尺,preset:動畫PV,preset:霓虹夜,preset:簡約明體,preset:強烈節奏,preset:遊戲PV,preset:復古VHS,preset:櫻花日系,preset:賽博龐克,preset:極簡海報,preset:仿PV歌詞,preset:電影字幕（底部置中）,preset:街頭拼貼"};
+var TH_DATA={w:128,h:72,cols:12,v:"e53f54a0",idx:"lay:split,lay:lowerleft,lay:bounce,lay:slam,lay:neon,lay:karaoke,lay:typewriter,lay:vertical,lay:blurfocus,lay:wipe,lay:glitch,lay:stack,lay:outline-big,lay:subtitle-box,lay:poster,lay:scroll,lay:orbit,lay:diagonal,lay:marquee,lay:circle-badge,lay:zoom-tunnel,lay:split-screen,lay:flash-words,lay:keyword,lay:trail,lay:text-mask,lay:danmaku,lay:longshadow,lay:bubble,lay:border-run,lay:blinds,lay:hanko,lay:collage,lay:handwrite,lay:marker,lay:center,lay:ripple-pool,lay:constellation,lay:particle-form,lay:hud-frame,lay:parallax-depth,lay:polaroid,lay:page-flip,lay:ink-bleed,lay:laser-scan,lay:split-flap,lay:wave-path,lay:mirror-reflect,lay:cylinder,lay:iris-frame,lay:annotate,lay:pv-lyric,lay:pv-vertical,lay:scatter,lay:strip,lay:cards,lay:glow-cards,lay:layered,lay:falling,lay:formula,lay:staggered-text,lay:noise-text,lay:victim-outline,lay:cute-outline,lay:vertical-sub,lay:hero-text,lay:shatter-text,lay:crayon-shatter,lay:margin,lay:baseline,lay:full-track,lay:line-focus,lay:scale-steps,scene:halftone,scene:dots,scene:checker,scene:burst,scene:radial-rects,scene:perspective-grid,scene:flow-lines,scene:stripes,scene:hatch,scene:diag-split,scene:blocks,scene:breathing-blocks,scene:squares,scene:glow-ring,scene:rings,scene:pulse-circle,scene:glitch-bars,scene:guides,scene:dashed-lines,scene:ruler,scene:target,scene:color-wash,scene:gradient-fade,scene:pink-stripes,scene:diag-fill,scene:diag-structure,scene:organic-blob,scene:edge-clouds,scene:scattered-shapes,scene:diamond-shapes,scene:shadow-shapes,scene:balancing-circles,scene:web-lines,scene:cross-pattern,scene:triangle-grid,scene:pink-grid,scene:jigsaw-grid,scene:texture-bg,scene:pixel-bg,scene:star-trail,scene:light-spot,scene:screen-border,scene:scalloped-border,scene:hud-corners,scene:hud-info,scene:hud-status,scene:data-monitors,scene:pixel-window,scene:desktop-icon,scene:smear-brush,scene:paper-tear,scene:blood-splatter,scene:crime-tape,scene:planet,pack:藍色衝擊,pack:斬擊,pack:藍色構成,pack:城市文字雨,pack:夜色,pack:波普,pack:青墨,pack:電腦,pack:戰場,pack:幾何,pack:全息,pack:賽博監控,pack:情緒電影,pack:剪影極簡,pack:歇斯底里之夜,pack:戒尺,pack:金夜,pack:深海,pack:單色座標,preset:動畫PV,preset:霓虹夜,preset:簡約明體,preset:強烈節奏,preset:遊戲PV,preset:復古VHS,preset:櫻花日系,preset:賽博龐克,preset:極簡海報,preset:仿PV歌詞,preset:電影字幕（底部置中）,preset:街頭拼貼"};
 /* ===== [THUMBS] 縮圖預覽：版型／場景層／風格包／預設組合 的「懸停預覽」與「縮圖挑選窗」。純 UI 輔助，不碰 CONFIG／subs／畫面渲染，離線渲染（RENDER）完全不啟用。
    資料：thumbs/sheet.webp（單張精靈圖，首次需要時才載入；檔案不在就自動略過、功能照常）＋ 28-thumbs-idx.js（TH_DATA：名稱→格子位置，兩者都由 node test/make-thumbs.mjs 產生，勿手改）。
    用法（其他檔案只需這兩種，不依賴載入順序）：

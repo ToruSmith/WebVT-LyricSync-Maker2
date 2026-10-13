@@ -10,6 +10,7 @@ html,body{margin:0;height:100%;background:#050608;color:var(--c);overflow:hidden
 #L{position:absolute;inset:0}
 .w{position:absolute;inset:0}
 .ch{display:inline-block;white-space:pre}
+[data-dl]{position:relative}[data-dl]::after{content:attr(data-dl);position:absolute;left:0;top:0;white-space:pre;color:transparent;-webkit-text-stroke:.03em var(--c);paint-order:normal}
 #bar{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;align-items:center;padding:8px 12px;background:rgba(10,12,20,.85);font-size:13px;z-index:5}
 button,select,input[type=file]{font:inherit;color:#fff;background:#232a44;border:1px solid #3a4470;border-radius:4px;padding:4px 10px}
 #seek{flex:1}
