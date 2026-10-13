@@ -63,4 +63,10 @@ Object.assign(FXH,{
   A(e,[{letterSpacing:(ls-.03*fs)+"px"},{letterSpacing:(ls+.03*fs)+"px"}],{duration:2500,iterations:Infinity,direction:"alternate",easing:"ease-in-out"})})},
  "zoom-slow"(fw,dur){A(fw,[{scale:1},{scale:1.06}],{duration:dur*1000,easing:"linear"})},
  "focus-rack"(fw,dur){const l=cl(fw);if(!l.length)return;const t=dur*1000/l.length;l.forEach((c,i)=>A(c,[{filter:"blur(0)"},{filter:"blur(1.5px)",offset:.5},{filter:"blur(0)"}],{duration:t*1.6,delay:i*t,easing:"linear"}))}});
+Object.assign(FXH,{   /* 鏡頭型（概念參考 JIZURA 鏡頭，MIT）：只動字幕容器 fw，用獨立屬性 scale／translate，位移 <3% 畫面 */
+ "cam-pull"(fw,dur){A(fw,[{scale:1.06},{scale:1}],{duration:dur*1000,easing:"linear"})},
+ "cam-pan-l"(fw,dur){A(fw,[{translate:"1.5cqw 0"},{translate:"-1.5cqw 0"}],{duration:dur*1000,easing:"linear"})},
+ "cam-pan-r"(fw,dur){A(fw,[{translate:"-1.5cqw 0"},{translate:"1.5cqw 0"}],{duration:dur*1000,easing:"linear"})},
+ "cam-tilt-up"(fw,dur){A(fw,[{translate:"0 1.5cqh"},{translate:"0 -1.5cqh"}],{duration:dur*1000,easing:"linear"})}});
+FXS.push("cam-pull","cam-pan-l","cam-pan-r","cam-tilt-up");
 ENTERS.push("blur-stagger","track-in","skew-in","wipe","clock-wipe","neon-on");EXITS.push("vacuum","sweep-cover","wipe-out","clock-out");FXS.push("breathe","track-breathe","zoom-slow","focus-rack");

@@ -18,7 +18,7 @@ async function shots(cfg, times) { const p = await open('index.html'); await p.e
   for (let f = 0, k = 0; k < times.length; f++) { await p.evaluate(x => window.__renderFrame(x), f / fps); if (f === Math.round(times[k] * fps)) { out.push(await p.screenshot()); k++ } } await p.context().close(); return out }
 const pre = await open('index.html');
 const info = await pre.evaluate(() => ({ packs: [...STYLE_PACKS], cfg: Object.fromEntries([...STYLE_PACKS].map(n => [n, PRESETS[n]])), L: LAYOUTS, S: SCENE_NAMES, D: Object.keys(CFG_DEFAULTS) }));
-ok(info.packs.length === 16, '風格包數量 16：' + info.packs.length);
+ok(info.packs.length === 19, '風格包數量 19：' + info.packs.length);
 for (const n of info.packs) { const c = info.cfg[n];
   for (const k of Object.keys(c)) ok(info.D.includes(k), `${n}：未知 CONFIG 鍵 ${k}`);
   ok(c.layoutPool && c.layoutPool.split(',').every(l => info.L.includes(l)), `${n}：版型池含未登記版型 ${c.layoutPool}`);
