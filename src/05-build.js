@@ -50,7 +50,10 @@ function build(sb){
  // 退場：必須在該句結束前完成
  const xd=CONFIG.exit*1000*tK,ds=dur*1000-xd;
  const EX={...EXTRA_EX,sink:[{opacity:1,transform:"none"},{opacity:0,transform:"translateY(4cqh)"}],"zoomout-fade":[{opacity:1,transform:"none"},{opacity:0,transform:"scale(1.3)"}],"blur-out":[{opacity:1,filter:"blur(0)"},{opacity:0,filter:"blur(16px)"}],"slide-out":[{opacity:1,transform:"none"},{opacity:0,transform:"translateX(-20cqw)"}]};
- A(w,EX[sb.ex]||[{opacity:1},{opacity:0}],{duration:xd,delay:ds,easing:"ease-in"});
+ const EC=EXIT_C[sb.ex],hasCh=!!(EC&&w.querySelector(".ch"));   /* 逐字退場（EXIT_C，src/23-motion-k.js）：有 .ch 才逐字，整句容器先撐住再淡掉；沒有就用 EX 裡的整句版 */
+ A(w,hasCh?HOLD:(EX[sb.ex]||[{opacity:1},{opacity:0}]),{duration:xd,delay:ds,easing:"ease-in"});
+ if(hasCh){const RR=sr(sb.s),L=[...w.querySelectorAll(".ch")];L.forEach((c,i)=>{const o=EC(c,i,L.length,RR);A(c,o.kf,{duration:xd*(o.dur||.6),delay:ds+(o.at||0)*xd,easing:o.ease||"ease-in"})})}
+ if(sb.ex==="track-out")tel(w).forEach(e=>A(e,[{opacity:1},{opacity:0,letterSpacing:".8em"}],{duration:xd,delay:ds,easing:"ease-in"}));
  if(sb.ex==="dissolve"||sb.ex==="shatter"){const RR=sr(sb.s);[...w.querySelectorAll(".ch")].forEach(c=>{const r=()=>RR()-.5,sh=sb.ex==="shatter";
   A(c,sh?[{opacity:1,transform:"none"},{opacity:0,transform:`translate(${r()*60}cqw,${r()*50}cqh) rotate(${r()*540}deg) scale(.3)`}]:[{opacity:1,transform:"none"},{opacity:0,transform:"translateY(-3cqh) scale(1.4)"}],{duration:xd*.6,delay:ds+RR()*xd*.4,easing:"ease-in"})})}
  // 持續特效（單句最多 3 個）

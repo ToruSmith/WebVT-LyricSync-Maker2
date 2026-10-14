@@ -4,6 +4,7 @@ const HOLD=[{opacity:1,filter:"none"},{opacity:1,offset:.85},{opacity:0}];
 const EXTRA_EX={dissolve:[{opacity:1,filter:"blur(0)"},{opacity:0,filter:"blur(10px)"}],shatter:HOLD,
  "glitch-out":[{opacity:1,transform:"none"},{opacity:1,transform:"translateX(14px) skewX(20deg)",filter:"hue-rotate(90deg)",offset:.3},{opacity:.6,transform:"translateX(-18px)",filter:"hue-rotate(200deg)",offset:.6},{opacity:0,transform:"translateX(6px)"}]};
 const EXTRA_FK={};
+const EXIT_C={};   /* 逐字退場：EXIT_C[名稱]=(字元素,索引,總字數,種子亂數)=>{kf,dur(占退場長度比例,預設.6),at(延遲比例),ease}；整句版放在 EXTRA_EX 當沒有 .ch 時的退路 */
 const tel=fw=>[...fw.querySelectorAll('[style*="font-family"]')],cl=fw=>[...fw.querySelectorAll(".ch")];
 const FXH={
  wave(fw){let l=cl(fw);if(!l.length)l=[fw];l.forEach((c,i)=>A(c,[{translate:"0 0"},{translate:"0 -1.2cqh"},{translate:"0 0"},{translate:"0 1.2cqh"},{translate:"0 0"}],{duration:1800,delay:0,iterations:Infinity,easing:"ease-in-out",iterationStart:(i*.12)%1}))},
