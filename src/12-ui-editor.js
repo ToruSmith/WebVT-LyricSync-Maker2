@@ -12,10 +12,11 @@ $("#barUndo").onclick=()=>undo();$("#barRedo").onclick=()=>redo();
 const tc=t=>{const z=(n,l=2)=>String(n).padStart(l,"0"),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return`${z(h)}:${z(m)}:${z(Math.floor(s))},${z(Math.round(s%1*1000),3)}`};
 const fTag=x=>x.font?"*"+encodeURIComponent(x.font).replace(/\*/g,"%2A"):"";
 const scTag=x=>x.scene?"&"+x.scene:"";
-const tag=x=>x.auto&&!x.en&&!x.ex&&!x.fx?(x.font||x.scene?"#"+fTag(x)+scTag(x)+" ":""):"#"+x.lay+(x.en||x.ex?"+"+(x.en||"fade"):"")+(x.ex?"+"+x.ex:"")+(x.fx?"~"+x.fx:"")+(x.pos?"^"+x.pos:"")+fTag(x)+(x.st?"@"+x.st:"")+scTag(x)+" ";
+const szTag=x=>{const a=x.bigR>0?String(+(+x.bigR).toFixed(3)):"",b=x.txtS>0?String(Math.round(x.txtS)):"";return a||b?"$"+a+(b?","+b:""):""};   /* 每句文字大小：$大字比例,縮放%；只有縮放時寫成 $,120 */
+const tag=x=>x.auto&&!x.en&&!x.ex&&!x.fx?(x.font||x.scene||szTag(x)?"#"+szTag(x)+fTag(x)+scTag(x)+" ":""):"#"+x.lay+(x.en||x.ex?"+"+(x.en||"fade"):"")+(x.ex?"+"+x.ex:"")+(x.fx?"~"+x.fx:"")+(x.pos?"^"+x.pos:"")+szTag(x)+fTag(x)+(x.st?"@"+x.st:"")+scTag(x)+" ";
 /* 依目前欄位重新解析一句的文字衍生欄位（raw／plain／br／hl／sub；auto 句同步 lay）。版型或文字改了之後 plain 會不同（BRACE_LAYOUTS 會把 {} 內文字抽走），
    這樣與「匯出 SRT 再匯入」的結果一致。改標記語法時，tag() 與 parseTag 要一起看。 */
-function reparse(x){const t=tag(x),n=parseTag((t||(/^\s*#/.test(x.raw)?"# ":""))+x.raw+(x.sub?"||"+x.sub:""),x.s,x.e);x.raw=n.raw;x.plain=n.plain;x.br=n.br;x.hl=n.hl;x.sub=n.sub;if(x.auto)x.lay=n.lay}
+function reparse(x){const t=tag(x),n=parseTag((t||(/^\s*#/.test(x.raw)?"# ":""))+x.raw+(x.sub?"||"+x.sub:""),x.s,x.e);x.raw=n.raw;x.bigR=n.bigR;x.txtS=n.txtS;x.plain=n.plain;x.br=n.br;x.hl=n.hl;x.sub=n.sub;if(x.auto)x.lay=n.lay}
 const srtText=()=>subs.map((x,i)=>`${i+1}\n${tc(x.s)} --> ${tc(x.e)}\n${tag(x)}${x.raw}${x.sub?"||"+x.sub:""}\n`).join("\n");
 function exportSRT(){dl(new Blob([srtText()],{type:"text/plain"}),"lyrics_tagged.srt")}
 /* 純文字 SRT：不含 # 標記（{} 強調括號也拿掉），副文接在第二行；給一般播放器／平台用 */

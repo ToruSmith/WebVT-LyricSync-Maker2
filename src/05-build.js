@@ -8,7 +8,7 @@ function build(sb){
  scr=[];lastCt=-1;curFont=sb.font||"";const w=document.createElement("div");w.className="w";L.appendChild(w);
  const lay=LAYOUTS.includes(CONFIG.lock||sb.lay)?(CONFIG.lock||sb.lay):"lowerleft",en=sb.en||({slam:"",bounce:""}[lay]===""?"":"rise"),dur=sb.e-sb.s,vw=SWd(),vh=SHd();
  tK=Math.max(.05,Math.min(1,dur*900/((((+CONFIG.enter||0)/(+CONFIG.speed||1))+(+CONFIG.exit||0))*1000||1)));
- const ks=(+CONFIG.textScale||100)/100,big=Math.min(CONFIG.bigRatio*vh,vw*.3)*ks,small=Math.min(vh*.045,vw*.03)*ks;
+ const ks=sbKs(sb),big=Math.min(sbBigR(sb)*vh,vw*.3)*ks,small=Math.min(vh*.045,vw*.03)*ks;
  const acc="var(--a)",fw=document.createElement("div");fw.className="w";w.appendChild(fw);const PS=FULLBLEED.has(lay)?null:resolvePos(sb);let host=fw;if(PS){host=document.createElement("div");host.className="w";fw.appendChild(host)}
  const content=document.createElement("div");content.className="w";host.appendChild(content);
  let list=null;

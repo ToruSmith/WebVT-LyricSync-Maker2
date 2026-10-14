@@ -15,7 +15,7 @@ const edMk=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=
 const fmtT=t=>{const m=Math.floor(t/60),s=(t-m*60).toFixed(2);return m+":"+(s<10?"0":"")+s};
 const defLay=x=>x.br&&x.br.length?"split":"lowerleft";
 const edClean=s=>String(s).replace(/\r/g,"").replace(/\|{2,}/g,"|").replace(/\n\s*\n+/g,"\n").trim();   /* 空行會讓 SRT 斷句、|| 是副文分隔，所以先清掉 */
-const ED_COPY=["lay","en","ex","fx","st","font","scene","pos"];   /* 「外觀」＝這些欄位（不含文字與時間） */
+const ED_COPY=["lay","en","ex","fx","st","font","scene","pos","bigR","txtS"];   /* 「外觀」＝這些欄位（不含文字與時間） */
 
 /* ---------- 列表 ---------- */
 function edTags(i){const x=subs[i],a=[],pv=subs[i-1];
@@ -25,6 +25,7 @@ function edTags(i){const x=subs[i],a=[],pv=subs[i-1];
  if(x.scene){const t=x.scene.split(",").filter(z=>!/^(bfx-|none)/.test(z));a.push(["c","場景 "+(t.length?t[0].split(":")[0]+(t.length>1?"+"+(t.length-1):""):"…")])}
  if(x.pos)a.push(["p","位置 "+x.pos]);
  if(x.font)a.push(["","字 "+x.font]);
+ if(x.bigR>0||x.txtS>0)a.push(["","字級 "+[x.bigR>0?"大"+x.bigR:"",x.txtS>0?x.txtS+"%":""].filter(Boolean).join("·")]);
  if(pv&&x.s<pv.e-.001)a.push(["w","⚠ 重疊"]);
  return a}
 function edRowFill(i){const r=EDR[i];if(!r)return;const x=subs[i];
@@ -117,14 +118,25 @@ function edDetail(i){const d=$("#edm"),sd=d&&d.querySelector(".edside");if(!sd)r
   const r=edMk("div","edrow2");
   F("進場",sel(ENTERS,x.en,v=>E(()=>{x.en=v;if(v)x.auto=false},"en"+i),"（預設）"),r);F("退場",sel(EXITS,x.ex,v=>E(()=>{x.ex=v;if(v)x.auto=false},"ex"+i),"（預設）"),r);b.append(r);
   const fi=inp("text",x.fx,"float,shake"),setFx=v=>{E(()=>{x.fx=v;if(v)x.auto=false},"fx"+i);fi.value=v};fi.onchange=()=>setFx(fi.value.replace(/\s/g,""));
-  F("持續特效（可複選）",chipBox(FXS,()=>x.fx||"",setFx,n=>"特效 ~"+n),b);F("",fi,b)});
+  F("持續特效（可複選）",chipBox(FXS,()=>x.fx||"",setFx,n=>"特效 ~"+n),b);F("",fi,b);
+  /* 逐句隨機（適配）：勾選要重抽的內容，按下去只動這一句；場景層與持續特效會依這句的版型挑「搭得上」的（規則見 13-rand.js 的 RND_* 表） */
+  b.append(edMk("div","edhint","🎲 隨機這一句：勾選要重抽的內容；場景層與持續特效會依版型挑搭得上的。"));edRandBoxes(b);
+  b.append(btn("🎲 隨機這一句",()=>edRandomize([i],edRandOpt),"重抽勾選的項目（可復原）；再按一次再抽一次"))});
  /* 3. 樣式・字體 */
  G("sty","樣式・字體",b=>{
   const si=inp("text",x.st,"neon,outline"),setSt=v=>{if(v.split(",").filter(Boolean).length>3){note("樣式最多 3 個");si.value=x.st||"";return false}E(()=>{x.st=v;if(v)x.auto=false},"st"+i);si.value=v;return true};
   si.onchange=()=>setSt(si.value.replace(/\s/g,""));
   F("樣式 @（最多 3 個，可疊加）",chipBox([...Object.keys(ST),...Object.keys(STC)],()=>x.st||"",v=>{setSt(v)},n=>"樣式 @"+n),b);F("",si,b);
   const fs=edMk("select"),fill=()=>{const v=x.font||"";fs.innerHTML="";fs.add(new Option("（跟隨全域字體）",""));Object.keys(FONTS).forEach(k=>fs.add(new Option(k,k)));fs.value=FONTS[v]?v:""};fill();fs.onmousedown=fill;   /* 展開前重建：之後才上傳的字體也看得到 */
-  fs.onchange=()=>E(()=>{x.font=fs.value},"font"+i);F("這一句的字體",fs,b)});
+  fs.onchange=()=>E(()=>{x.font=fs.value},"font"+i);F("這一句的字體",fs,b);
+  /* 文字大小：這一句自己的「大字高度比例」與「文字整體縮放%」，取代全域值（不是相乘）；留空＝跟隨全域。寫進標記 $大字比例,縮放% */
+  const mkSz=(key,lo,hi,step,ph)=>{const e=inp("number",x[key]>0?x[key]:"",ph);Object.assign(e,{min:lo,max:hi,step});e.title=ph;
+   e.onchange=()=>{let v=parseFloat(e.value);v=v>0&&isFinite(v)?Math.max(lo,Math.min(hi,v)):0;e.value=v||"";if(v===(x[key]>0?x[key]:0))return;E(()=>{x[key]=v},"sz"+key+i);hint()};return e},
+   bi=mkSz("bigR",.03,.8,.01,"大字高度比例 .03–.8"),ti=mkSz("txtS",20,300,5,"整體縮放 20–300%"),szh=edMk("div","edhint"),
+   hint=()=>{szh.textContent="留空＝跟隨全域（目前：大字高度比例 "+CONFIG.bigRatio+"、整體縮放 "+(+CONFIG.textScale||100)+"%）。這一句填了就取代全域值，不是相乘。"};
+  const sr2=edMk("div","edrow2");F("大字高度比例（.03–.8）",bi,sr2);F("整體縮放 %（20–300）",ti,sr2);b.append(sr2,szh);hint();
+  b.append(btn("文字大小回到跟隨全域",()=>{E(()=>{x.bigR=0;x.txtS=0},"sz"+i);bi.value=ti.value=""}));
+  if(["scroll","marquee","page-flip"].includes(layOf(x)))b.append(edMk("div","edhint edwarn","此版型自行讀取全域「整體縮放」，這一句的縮放不生效（大字高度比例與其他版型照常）。"))});
  /* 4. 場景層 */
  G("scn","場景層（&）",b=>{
   const sc=inp("text",x.scene,"halftone:60,burst"),setSc=v=>{E(()=>{x.scene=v},"sc"+i);sc.value=v};sc.onchange=()=>setSc(sc.value.replace(/\s/g,""));
@@ -146,7 +158,7 @@ function edDetail(i){const d=$("#edm"),sd=d&&d.querySelector(".edside");if(!sd)r
  G("pack","風格包（一鍵套用到這一句）",b=>{
   b.append(edMk("div","edhint","勾選要套用的內容後，按風格包名稱：版型從該包的版型池挑（再按一次換下一個）、場景層＋節拍後製、字體。色彩、粒子、後製等全域項目請用面板「風格包・場景層・後製」整套套用。"));
   edPackOptBoxes(b);edPackBtns(b,()=>[i]);
-  b.append(btn("這句回到自動（清除所有逐句設定）",()=>{pushHist();Object.assign(x,{auto:true,en:"",ex:"",fx:"",pos:"",st:"",font:"",scene:""});reparse(x);cur=-2;edRender();posRef&&posRef()},"清除版型、進退場、特效、位置、樣式、字體、場景；文字與時間不動"))});
+  b.append(btn("這句回到自動（清除所有逐句設定）",()=>{pushHist();Object.assign(x,{auto:true,en:"",ex:"",fx:"",pos:"",st:"",font:"",scene:"",bigR:0,txtS:0});reparse(x);cur=-2;edRender();posRef&&posRef()},"清除版型、進退場、特效、位置、樣式、字體、文字大小、場景；文字與時間不動"))});
  sd.scrollTop=top}
 
 /* ---------- 工具列與批次區 ---------- */
@@ -167,6 +179,7 @@ function edBatchBox(){const dt=edMk("details","edbatch"),w=edMk("div","in"),b=(t
  b("把「目前這句」的位置套用到勾選",()=>{const src=subs[selIdx];if(!src)return;applyTo(y=>{y.pos=src.pos;if(y.pos)y.auto=false})});
  b("複製「目前這句」的外觀到勾選",()=>{const src=subs[selIdx];if(!src)return;edApply(y=>{if(y===src)return;ED_COPY.forEach(k=>{y[k]=src[k]});y.auto=src.auto;reparse(y)},"已把這句的外觀（版型、進退場、特效、樣式、字體、場景、位置）複製到勾選句；文字與時間不動")},"版型、進場、退場、特效、樣式、字體、場景、位置；文字與時間不動");
  w.append(edMk("span","sep"));
+ edRandBoxes(w);b("🎲 隨機勾選的句子",()=>edRandomize(selList(),edRandOpt),"每句各自重抽勾選的項目（版型／進退場／持續特效／場景層，會依版型適配）；可復原");w.append(edMk("span","sep"));
  const pk=edMk("select");pk.add(new Option("風格包…",""));[...STYLE_PACKS].forEach(n=>pk.add(new Option(n,n)));w.append(pk,thBtn(pk,"pack"));
  b("套用風格包到勾選",()=>{if(!pk.value)return note("先選一個風格包");applyPackTo(selList(),pk.value,edPackOpt)});edPackOptBoxes(w);w.append(edMk("span","sep"));
  b("清除勾選句子的位置",()=>applyTo(y=>{y.pos=""}));

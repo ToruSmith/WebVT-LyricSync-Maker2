@@ -12,11 +12,16 @@ const ENTERS=["fade","rise","drop","zoomin","zoomout","spin","flip","stagger","m
 /* 登記一個新版型的唯一入口：{brace:1}＝{} 是強調關鍵字；{full:1}＝滿版（忽略位置）。舊版型維持原本的分散登記方式，不動。 */
 function registerLayout(name,fn,o={}){NL[name]=fn;if(!LAYOUTS.includes(name))LAYOUTS.push(name);if(o.brace)BRACE_LAYOUTS.add(name);if(o.full)FULLBLEED.add(name)}
 const BRACE_LAYOUTS=new Set(["split","poster","diagonal","circle-badge","keyword","hanko","marker","annotate"]);
+/* 每句文字大小（標記 $大字高度比例,整體縮放%）：單位與面板 bigRatio（.03–.8）／textScale（20–300）相同；空白或 0＝跟隨全域。
+   sb.bigR／sb.txtS 是「取代」全域值（不是相乘）；build() 與讀全域縮放的版型一律經 sbBigR／sbKs 取值（未設定時結果與原本完全相同）。 */
+function parseSz(s){const q=String(s||"").split(","),n=(i,lo,hi)=>{const v=parseFloat(q[i]);return v>0&&isFinite(v)?Math.max(lo,Math.min(hi,v)):0};return[n(0,.03,.8),n(1,20,300)]}
+const sbBigR=sb=>sb&&sb.bigR>0?sb.bigR:CONFIG.bigRatio,sbKs=sb=>((sb&&sb.txtS>0?sb.txtS:+CONFIG.textScale)||100)/100;
 function parseTag(txt,s,e){
- let lay,en,ex,fx,pos="",st="",scene="";
- const r=txt.match(/^#([\w-]+)?(?:\+([\w-]+))?(?:\+([\w-]+))?(?:~([^\s@^*&]+))?(?:\^([^\s@*&]+))?(?:\*([^\s@&]+))?(?:@([^\s&]+))?(?:&(\S+))?\s*/);
+ let lay,en,ex,fx,pos="",st="",scene="",sz="";
+ const r=txt.match(/^#([\w-]+)?(?:\+([\w-]+))?(?:\+([\w-]+))?(?:~([^\s@^*&$]+))?(?:\^([^\s@*&$]+))?(?:\$([\d.,]*))?(?:\*([^\s@&]+))?(?:@([^\s&]+))?(?:&(\S+))?\s*/);
  let font="";   /* 每句字體：*字體名（encodeURIComponent，* 另編成 %2A）；放在 ^位置 之後、@樣式 之前 */
- if(r){let fr;[,lay,en,ex,fx,pos,fr,st,scene]=r;st=st||"";scene=scene||"";pos=pos||"";if(fr){try{font=decodeURIComponent(fr)}catch(e){font=fr}}txt=txt.slice(r[0].length)}
+ if(r){let fr;[,lay,en,ex,fx,pos,sz,fr,st,scene]=r;st=st||"";scene=scene||"";pos=pos||"";if(fr){try{font=decodeURIComponent(fr)}catch(e){font=fr}}txt=txt.slice(r[0].length)}
+ const szP=parseSz(sz);
  let sub="";const bi=txt.indexOf("||");if(bi>=0){sub=txt.slice(bi+2).trim();txt=txt.slice(0,bi)}
  const br=[...txt.matchAll(/\{([^}]*)\}/g)].map(x=>x[1]);
  let plain=txt.replace(/\{[^}]*\}/g,"").trim();
@@ -27,7 +32,7 @@ function parseTag(txt,s,e){
  /* hl：主文每個字是否在 {} 內，供「非關鍵字版型」做通用強調 */
  let hl=[],ib=false;for(const c of txt){if(c==="{")ib=true;else if(c==="}")ib=false;else hl.push(ib)}
  const s0=txt.replace(/[{}]/g,""),lead=[...s0].length-[...s0.trimStart()].length;hl=hl.slice(lead,lead+[...txt.replace(/[{}]/g,"").trim()].length);
- return{s,e,lay,en,ex,fx,pos,st,font,sub,br,plain,hl,raw:txt,auto:!r||(!!(font||scene)&&!lay0&&!en&&!ex&&!fx&&!pos&&!st),scene};
+ return{s,e,lay,en,ex,fx,pos,st,font,sub,br,plain,hl,raw:txt,bigR:szP[0],txtS:szP[1],auto:!r||(!!(font||scene||sz)&&!lay0&&!en&&!ex&&!fx&&!pos&&!st),scene};
 }
 /* 通用強調：非關鍵字版型中，{} 內的字改用強調色＋加粗＋發光（不改動畫、不改排版） */
 const HL_SKIP=new Set(["text-mask","particle-form"]);   /* 這兩個版型在各自的程式內處理 {} 強調字 */

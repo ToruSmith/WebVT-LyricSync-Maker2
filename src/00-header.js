@@ -13,6 +13,7 @@
    10-lay-a 11-fx-enter-exit 16-lay-c 17-lay-d 21-lay-e 22-lay-f 23-lay-g 23-lay-h 23-lay-i   各組版型（17 也有種子亂數 sr()；23-lay-i 是實驗室版型）
    12-ui-editor   [UI-EDITOR] PRESETS 預設組合表、randomize、帶標記 SRT 的 tag／reparse／srtText／exportSRT／exportSRTPlain（句子編輯器本體在 13-editor）
    13-editor      [EDITOR]   句子編輯器（列表＋詳細欄）：editor／edRender／edRowFill／edDetail／applyPackTo／subsReplaced／edLayout
+   13-rand        [RAND]     逐句「隨機＋適配」：edRandomize／rndSentence／rndFit、RND_* 適配表、rndCheck（selfCheck 用）；單句與批次的 🎲 按鈕在 13-editor
    13-export      [EXPORT]   project.json 匯出、applyPreset()、extra()（預設組合・匯出入面板）
    14-ambient     [AMBIENT]  粒子／音訊／效能降級、applyScene()、extra3()（畫面・粒子・轉場面板）
    15-overlay     [OVERLAY]  transition() 與疊加層 overlays()
@@ -33,6 +34,8 @@
    新增版型：該版型區段的 NL 物件、LAYOUTS.push 名單；含 {} 強調字 → BRACE_LAYOUTS；滿版 → FULLBLEED；想放進範例 → DEMO
    新增「工具／匯出」功能：功能本體照舊寫在對應區段 → 到 [QUICK] 的 quickActions() 加一筆 {id,g,t,h,k,on,run} 就會出現在 ⚡快捷選單（Ctrl+K）→ 若要在面板有按鈕，再到 extra()/extra3()/extra4() 加。
    新增面板區段：該區塊開頭呼叫 secAnchor(p,"id")，並把 id 加進 [QUICK] 的 QK_SECS 與「面板跳轉」。
+   新增版型／場景／特效後：到 13-rand.js 補 RND_* 適配表（見 CLAUDE.md「新增項目要補的表」），selfCheck() 會列出沒歸類的場景與特效。
+   每句文字大小：sb.bigR／sb.txtS（標記 $大字比例,縮放%），一律經 sbBigR(sb)／sbKs(sb) 取值，不要直接讀 CONFIG.textScale。
    新增設定鍵：同時加進 CONFIG 與 CFG_DEFAULTS（後者是匯入設定與「清除」的底）。
    新增風格包：regPack(名稱,{…})。清除風格包時會自動還原該包定義過的所有欄位，不需另外維護清單；PACK_KEEP 只用於「從風格包切到別的預設組合」。
    共用函式：匯出＝exportSRT / exportConfig / exportProjectUI；重設＝resetSettings；localStorage 鍵＝LS_CFG / LS_QK / LS_PO。

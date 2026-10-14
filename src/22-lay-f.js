@@ -12,7 +12,7 @@ Object.assign(NL,{
    if(i===0){const t=document.createElement("div");t.style.cssText=`position:absolute;left:50%;top:-${fs*.3}px;width:${fs*1.6}px;height:${fs*.55}px;translate:-50% 0;rotate:-4deg;background:rgba(255,235,160,.6)`;card.appendChild(t)}
    row.appendChild(card);A(card,[{translate:`${(i%2?1:-1)*(90+r()*20)}cqw ${(r()-.5)*30}cqh`,scale:1.4,opacity:0},{translate:"0 0",scale:1,opacity:1}],{duration:D()*1.1,delay:i*320/CONFIG.speed,easing:"cubic-bezier(.2,.8,.2,1)"})});
   if(sb.en)enter(row,sb.en,list)},
- "page-flip"(sb,c,w,big,sm,dur,list){const i=subs.indexOf(sb),prev=i>0?subs[i-1].plain:"",vw=SWd(),vh=SHd(),ks=(+CONFIG.textScale||100)/100,pw=Math.min(vw*.4*ks,vw*.48,vh*.78*ks),ph=Math.min(vh*.56*ks,pw*.8,vh*.92);
+ "page-flip"(sb,c,w,big,sm,dur,list){const i=subs.indexOf(sb),prev=i>0?subs[i-1].plain:"",vw=SWd(),vh=SHd(),ks=sbKs(sb),pw=Math.min(vw*.4*ks,vw*.48,vh*.78*ks),ph=Math.min(vh*.56*ks,pw*.8,vh*.92);
   const st=document.createElement("div");st.style.cssText=`position:absolute;inset:0;perspective:${vw*1.5}px`;c.appendChild(st);
   const pg=(txt,css)=>{const p=txtEl(`top:${-ph/2}px;width:${pw}px;height:${ph}px;background:${PAPER};color:${INK};display:flex;align-items:center;justify-content:center;font-size:${Math.min(ph*.3,pw*.8/Math.max([...txt].length,3))}px;letter-spacing:.12em;box-shadow:0 1.5cqh 4cqh rgba(0,0,0,.45);${css}`);p.style.left="50%";p.style.top="50%";p.style.marginTop=-ph/2+"px";p.textContent=txt;return p};
   const left=pg("","margin-left:"+(-pw)+"px;background:linear-gradient(90deg,#e6e0d0,#d9d2bf)");st.appendChild(left);

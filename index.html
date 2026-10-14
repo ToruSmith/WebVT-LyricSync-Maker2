@@ -216,6 +216,7 @@ body.rec #thtip,html.rendering #thtip,body.rec .thpop,html.rendering .thpop{disp
    10-lay-a 11-fx-enter-exit 16-lay-c 17-lay-d 21-lay-e 22-lay-f 23-lay-g 23-lay-h 23-lay-i   各組版型（17 也有種子亂數 sr()；23-lay-i 是實驗室版型）
    12-ui-editor   [UI-EDITOR] PRESETS 預設組合表、randomize、帶標記 SRT 的 tag／reparse／srtText／exportSRT／exportSRTPlain（句子編輯器本體在 13-editor）
    13-editor      [EDITOR]   句子編輯器（列表＋詳細欄）：editor／edRender／edRowFill／edDetail／applyPackTo／subsReplaced／edLayout
+   13-rand        [RAND]     逐句「隨機＋適配」：edRandomize／rndSentence／rndFit、RND_* 適配表、rndCheck（selfCheck 用）；單句與批次的 🎲 按鈕在 13-editor
    13-export      [EXPORT]   project.json 匯出、applyPreset()、extra()（預設組合・匯出入面板）
    14-ambient     [AMBIENT]  粒子／音訊／效能降級、applyScene()、extra3()（畫面・粒子・轉場面板）
    15-overlay     [OVERLAY]  transition() 與疊加層 overlays()
@@ -236,6 +237,8 @@ body.rec #thtip,html.rendering #thtip,body.rec .thpop,html.rendering .thpop{disp
    新增版型：該版型區段的 NL 物件、LAYOUTS.push 名單；含 {} 強調字 → BRACE_LAYOUTS；滿版 → FULLBLEED；想放進範例 → DEMO
    新增「工具／匯出」功能：功能本體照舊寫在對應區段 → 到 [QUICK] 的 quickActions() 加一筆 {id,g,t,h,k,on,run} 就會出現在 ⚡快捷選單（Ctrl+K）→ 若要在面板有按鈕，再到 extra()/extra3()/extra4() 加。
    新增面板區段：該區塊開頭呼叫 secAnchor(p,"id")，並把 id 加進 [QUICK] 的 QK_SECS 與「面板跳轉」。
+   新增版型／場景／特效後：到 13-rand.js 補 RND_* 適配表（見 CLAUDE.md「新增項目要補的表」），selfCheck() 會列出沒歸類的場景與特效。
+   每句文字大小：sb.bigR／sb.txtS（標記 $大字比例,縮放%），一律經 sbBigR(sb)／sbKs(sb) 取值，不要直接讀 CONFIG.textScale。
    新增設定鍵：同時加進 CONFIG 與 CFG_DEFAULTS（後者是匯入設定與「清除」的底）。
    新增風格包：regPack(名稱,{…})。清除風格包時會自動還原該包定義過的所有欄位，不需另外維護清單；PACK_KEEP 只用於「從風格包切到別的預設組合」。
    共用函式：匯出＝exportSRT / exportConfig / exportProjectUI；重設＝resetSettings；localStorage 鍵＝LS_CFG / LS_QK / LS_PO。
@@ -412,11 +415,16 @@ const ENTERS=["fade","rise","drop","zoomin","zoomout","spin","flip","stagger","m
 /* 登記一個新版型的唯一入口：{brace:1}＝{} 是強調關鍵字；{full:1}＝滿版（忽略位置）。舊版型維持原本的分散登記方式，不動。 */
 function registerLayout(name,fn,o={}){NL[name]=fn;if(!LAYOUTS.includes(name))LAYOUTS.push(name);if(o.brace)BRACE_LAYOUTS.add(name);if(o.full)FULLBLEED.add(name)}
 const BRACE_LAYOUTS=new Set(["split","poster","diagonal","circle-badge","keyword","hanko","marker","annotate"]);
+/* 每句文字大小（標記 $大字高度比例,整體縮放%）：單位與面板 bigRatio（.03–.8）／textScale（20–300）相同；空白或 0＝跟隨全域。
+   sb.bigR／sb.txtS 是「取代」全域值（不是相乘）；build() 與讀全域縮放的版型一律經 sbBigR／sbKs 取值（未設定時結果與原本完全相同）。 */
+function parseSz(s){const q=String(s||"").split(","),n=(i,lo,hi)=>{const v=parseFloat(q[i]);return v>0&&isFinite(v)?Math.max(lo,Math.min(hi,v)):0};return[n(0,.03,.8),n(1,20,300)]}
+const sbBigR=sb=>sb&&sb.bigR>0?sb.bigR:CONFIG.bigRatio,sbKs=sb=>((sb&&sb.txtS>0?sb.txtS:+CONFIG.textScale)||100)/100;
 function parseTag(txt,s,e){
- let lay,en,ex,fx,pos="",st="",scene="";
- const r=txt.match(/^#([\w-]+)?(?:\+([\w-]+))?(?:\+([\w-]+))?(?:~([^\s@^*&]+))?(?:\^([^\s@*&]+))?(?:\*([^\s@&]+))?(?:@([^\s&]+))?(?:&(\S+))?\s*/);
+ let lay,en,ex,fx,pos="",st="",scene="",sz="";
+ const r=txt.match(/^#([\w-]+)?(?:\+([\w-]+))?(?:\+([\w-]+))?(?:~([^\s@^*&$]+))?(?:\^([^\s@*&$]+))?(?:\$([\d.,]*))?(?:\*([^\s@&]+))?(?:@([^\s&]+))?(?:&(\S+))?\s*/);
  let font="";   /* 每句字體：*字體名（encodeURIComponent，* 另編成 %2A）；放在 ^位置 之後、@樣式 之前 */
- if(r){let fr;[,lay,en,ex,fx,pos,fr,st,scene]=r;st=st||"";scene=scene||"";pos=pos||"";if(fr){try{font=decodeURIComponent(fr)}catch(e){font=fr}}txt=txt.slice(r[0].length)}
+ if(r){let fr;[,lay,en,ex,fx,pos,sz,fr,st,scene]=r;st=st||"";scene=scene||"";pos=pos||"";if(fr){try{font=decodeURIComponent(fr)}catch(e){font=fr}}txt=txt.slice(r[0].length)}
+ const szP=parseSz(sz);
  let sub="";const bi=txt.indexOf("||");if(bi>=0){sub=txt.slice(bi+2).trim();txt=txt.slice(0,bi)}
  const br=[...txt.matchAll(/\{([^}]*)\}/g)].map(x=>x[1]);
  let plain=txt.replace(/\{[^}]*\}/g,"").trim();
@@ -427,7 +435,7 @@ function parseTag(txt,s,e){
  /* hl：主文每個字是否在 {} 內，供「非關鍵字版型」做通用強調 */
  let hl=[],ib=false;for(const c of txt){if(c==="{")ib=true;else if(c==="}")ib=false;else hl.push(ib)}
  const s0=txt.replace(/[{}]/g,""),lead=[...s0].length-[...s0.trimStart()].length;hl=hl.slice(lead,lead+[...txt.replace(/[{}]/g,"").trim()].length);
- return{s,e,lay,en,ex,fx,pos,st,font,sub,br,plain,hl,raw:txt,auto:!r||(!!(font||scene)&&!lay0&&!en&&!ex&&!fx&&!pos&&!st),scene};
+ return{s,e,lay,en,ex,fx,pos,st,font,sub,br,plain,hl,raw:txt,bigR:szP[0],txtS:szP[1],auto:!r||(!!(font||scene||sz)&&!lay0&&!en&&!ex&&!fx&&!pos&&!st),scene};
 }
 /* 通用強調：非關鍵字版型中，{} 內的字改用強調色＋加粗＋發光（不改動畫、不改排版） */
 const HL_SKIP=new Set(["text-mask","particle-form"]);   /* 這兩個版型在各自的程式內處理 {} 強調字 */
@@ -500,7 +508,7 @@ function build(sb){
  scr=[];lastCt=-1;curFont=sb.font||"";const w=document.createElement("div");w.className="w";L.appendChild(w);
  const lay=LAYOUTS.includes(CONFIG.lock||sb.lay)?(CONFIG.lock||sb.lay):"lowerleft",en=sb.en||({slam:"",bounce:""}[lay]===""?"":"rise"),dur=sb.e-sb.s,vw=SWd(),vh=SHd();
  tK=Math.max(.05,Math.min(1,dur*900/((((+CONFIG.enter||0)/(+CONFIG.speed||1))+(+CONFIG.exit||0))*1000||1)));
- const ks=(+CONFIG.textScale||100)/100,big=Math.min(CONFIG.bigRatio*vh,vw*.3)*ks,small=Math.min(vh*.045,vw*.03)*ks;
+ const ks=sbKs(sb),big=Math.min(sbBigR(sb)*vh,vw*.3)*ks,small=Math.min(vh*.045,vw*.03)*ks;
  const acc="var(--a)",fw=document.createElement("div");fw.className="w";w.appendChild(fw);const PS=FULLBLEED.has(lay)?null:resolvePos(sb);let host=fw;if(PS){host=document.createElement("div");host.className="w";fw.appendChild(host)}
  const content=document.createElement("div");content.className="w";host.appendChild(content);
  let list=null;
@@ -844,13 +852,13 @@ const ring=(c,txt,n,css,R,cfg)=>{const r=document.createElement("div");r.classNa
  const t=[...txt];while(t.length<n)t.push(...[...txt,"・"]);t.length=Math.max(n,1);
  t.forEach((ch,i)=>{const a=cfg.arc?(i/(t.length-1||1)-.5)*cfg.arc:i*360/t.length,e=txtEl(`left:50%;top:50%;${css};transform:translate(-50%,-50%) rotate(${a}deg) translateY(-${R}cqh)`);e.textContent=ch;r.appendChild(e);A(e,[{opacity:0},{opacity:1}],{duration:D()*.5,delay:i*(cfg.step||40)})});return r};
 Object.assign(NL,{
- scroll(sb,c){const i=subs.indexOf(sb),ks=(+CONFIG.textScale||100)/100;for(let k=-2;k<=2;k++){const x=subs[i+k];if(!x)continue;const e=txtEl(`left:8cqw;right:8cqw;top:calc(50% + ${k*11*ks}cqh);margin-top:-1em;font-size:${Math.min((k?3.2:5)*1.5*ks*SHd()/100,SWd()*.84*.96/(1.1*Math.max(1,[...x.plain].length)))}px;letter-spacing:.1em;filter:blur(${Math.abs(k)*2}px)`);e.textContent=x.plain;c.appendChild(e);
+ scroll(sb,c){const i=subs.indexOf(sb),ks=sbKs(sb);for(let k=-2;k<=2;k++){const x=subs[i+k];if(!x)continue;const e=txtEl(`left:8cqw;right:8cqw;top:calc(50% + ${k*11*ks}cqh);margin-top:-1em;font-size:${Math.min((k?3.2:5)*1.5*ks*SHd()/100,SWd()*.84*.96/(1.1*Math.max(1,[...x.plain].length)))}px;letter-spacing:.1em;filter:blur(${Math.abs(k)*2}px)`);e.textContent=x.plain;c.appendChild(e);
   A(e,[{translate:"0 9cqh",opacity:0},{translate:"0 0",opacity:k?.8/(Math.abs(k)+.5):1}],{duration:D()*1.3})}},
  orbit(sb,c,w,big,sm,dur){const r=ring(c,sb.plain,sb.plain.length,`font-size:${sm*1.8}px;letter-spacing:0`,Math.min(30,SWd()/SHd()*34),{arc:Math.min(320,sb.plain.length*16),step:70});A(r,[{transform:"rotate(-20deg)"},{transform:"rotate(30deg)"}],{duration:dur*1000,easing:"linear"})},
  diagonal(sb,c,w,big,sm){const r=document.createElement("div");r.className="w";r.style.transform="rotate(-8deg)";c.appendChild(r);
   const a=txtEl(`left:9cqw;top:12cqh;font-size:${Math.min(big*1.8,SWd()*.4)}px;letter-spacing:0;line-height:1`);a.textContent=sb.br[0]||sb.plain.slice(0,2);r.appendChild(a);enter(a,sb.en||"rise");
   const b=txtEl(`left:6cqw;right:6cqw;top:62cqh;font-size:${sm*1.5}px`);b.textContent=sb.plain;r.appendChild(b);enter(b,"fade")},
- marquee(sb,c){const ks=(+CONFIG.textScale||100)/100,h=(sb.plain+"　").repeat(6);[[ -11,"0","-50%",""],[13.4,"-50%","0","color:transparent;-webkit-text-stroke:1.5px rgba(255,255,255,.7)"]].forEach(([off,a,b,css],i)=>{
+ marquee(sb,c){const ks=sbKs(sb),h=(sb.plain+"　").repeat(6);[[ -11,"0","-50%",""],[13.4,"-50%","0","color:transparent;-webkit-text-stroke:1.5px rgba(255,255,255,.7)"]].forEach(([off,a,b,css],i)=>{
   const e=txtEl(`left:0;top:${47+off*ks}cqh;margin-top:-.6em;font-size:${(i?14:10)*ks}cqh;white-space:nowrap;letter-spacing:.1em;${css}`);e.textContent=h+h;c.appendChild(e);A(e,[{translate:a+" 0"},{translate:b+" 0"}],{duration:12000,iterations:Infinity,easing:"linear"})});enter(c,"fade")},
  "circle-badge"(sb,c,w,big,sm,dur){const r=ring(c,sb.plain,22,`font-size:${sm*1.4}px;letter-spacing:0`,24,{step:30});A(r,[{transform:"rotate(0)"},{transform:"rotate(360deg)"}],{duration:12000,iterations:Infinity,easing:"linear"});
   const e=CE(c,`font-size:${big*1.3}px;letter-spacing:0`);e.textContent=sb.br[0]||sb.plain[0];enter(e,"zoomin")},
@@ -908,10 +916,11 @@ $("#barUndo").onclick=()=>undo();$("#barRedo").onclick=()=>redo();
 const tc=t=>{const z=(n,l=2)=>String(n).padStart(l,"0"),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return`${z(h)}:${z(m)}:${z(Math.floor(s))},${z(Math.round(s%1*1000),3)}`};
 const fTag=x=>x.font?"*"+encodeURIComponent(x.font).replace(/\*/g,"%2A"):"";
 const scTag=x=>x.scene?"&"+x.scene:"";
-const tag=x=>x.auto&&!x.en&&!x.ex&&!x.fx?(x.font||x.scene?"#"+fTag(x)+scTag(x)+" ":""):"#"+x.lay+(x.en||x.ex?"+"+(x.en||"fade"):"")+(x.ex?"+"+x.ex:"")+(x.fx?"~"+x.fx:"")+(x.pos?"^"+x.pos:"")+fTag(x)+(x.st?"@"+x.st:"")+scTag(x)+" ";
+const szTag=x=>{const a=x.bigR>0?String(+(+x.bigR).toFixed(3)):"",b=x.txtS>0?String(Math.round(x.txtS)):"";return a||b?"$"+a+(b?","+b:""):""};   /* 每句文字大小：$大字比例,縮放%；只有縮放時寫成 $,120 */
+const tag=x=>x.auto&&!x.en&&!x.ex&&!x.fx?(x.font||x.scene||szTag(x)?"#"+szTag(x)+fTag(x)+scTag(x)+" ":""):"#"+x.lay+(x.en||x.ex?"+"+(x.en||"fade"):"")+(x.ex?"+"+x.ex:"")+(x.fx?"~"+x.fx:"")+(x.pos?"^"+x.pos:"")+szTag(x)+fTag(x)+(x.st?"@"+x.st:"")+scTag(x)+" ";
 /* 依目前欄位重新解析一句的文字衍生欄位（raw／plain／br／hl／sub；auto 句同步 lay）。版型或文字改了之後 plain 會不同（BRACE_LAYOUTS 會把 {} 內文字抽走），
    這樣與「匯出 SRT 再匯入」的結果一致。改標記語法時，tag() 與 parseTag 要一起看。 */
-function reparse(x){const t=tag(x),n=parseTag((t||(/^\s*#/.test(x.raw)?"# ":""))+x.raw+(x.sub?"||"+x.sub:""),x.s,x.e);x.raw=n.raw;x.plain=n.plain;x.br=n.br;x.hl=n.hl;x.sub=n.sub;if(x.auto)x.lay=n.lay}
+function reparse(x){const t=tag(x),n=parseTag((t||(/^\s*#/.test(x.raw)?"# ":""))+x.raw+(x.sub?"||"+x.sub:""),x.s,x.e);x.raw=n.raw;x.bigR=n.bigR;x.txtS=n.txtS;x.plain=n.plain;x.br=n.br;x.hl=n.hl;x.sub=n.sub;if(x.auto)x.lay=n.lay}
 const srtText=()=>subs.map((x,i)=>`${i+1}\n${tc(x.s)} --> ${tc(x.e)}\n${tag(x)}${x.raw}${x.sub?"||"+x.sub:""}\n`).join("\n");
 function exportSRT(){dl(new Blob([srtText()],{type:"text/plain"}),"lyrics_tagged.srt")}
 /* 純文字 SRT：不含 # 標記（{} 強調括號也拿掉），副文接在第二行；給一般播放器／平台用 */
@@ -934,7 +943,7 @@ const edMk=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=
 const fmtT=t=>{const m=Math.floor(t/60),s=(t-m*60).toFixed(2);return m+":"+(s<10?"0":"")+s};
 const defLay=x=>x.br&&x.br.length?"split":"lowerleft";
 const edClean=s=>String(s).replace(/\r/g,"").replace(/\|{2,}/g,"|").replace(/\n\s*\n+/g,"\n").trim();   /* 空行會讓 SRT 斷句、|| 是副文分隔，所以先清掉 */
-const ED_COPY=["lay","en","ex","fx","st","font","scene","pos"];   /* 「外觀」＝這些欄位（不含文字與時間） */
+const ED_COPY=["lay","en","ex","fx","st","font","scene","pos","bigR","txtS"];   /* 「外觀」＝這些欄位（不含文字與時間） */
 
 /* ---------- 列表 ---------- */
 function edTags(i){const x=subs[i],a=[],pv=subs[i-1];
@@ -944,6 +953,7 @@ function edTags(i){const x=subs[i],a=[],pv=subs[i-1];
  if(x.scene){const t=x.scene.split(",").filter(z=>!/^(bfx-|none)/.test(z));a.push(["c","場景 "+(t.length?t[0].split(":")[0]+(t.length>1?"+"+(t.length-1):""):"…")])}
  if(x.pos)a.push(["p","位置 "+x.pos]);
  if(x.font)a.push(["","字 "+x.font]);
+ if(x.bigR>0||x.txtS>0)a.push(["","字級 "+[x.bigR>0?"大"+x.bigR:"",x.txtS>0?x.txtS+"%":""].filter(Boolean).join("·")]);
  if(pv&&x.s<pv.e-.001)a.push(["w","⚠ 重疊"]);
  return a}
 function edRowFill(i){const r=EDR[i];if(!r)return;const x=subs[i];
@@ -1036,14 +1046,25 @@ function edDetail(i){const d=$("#edm"),sd=d&&d.querySelector(".edside");if(!sd)r
   const r=edMk("div","edrow2");
   F("進場",sel(ENTERS,x.en,v=>E(()=>{x.en=v;if(v)x.auto=false},"en"+i),"（預設）"),r);F("退場",sel(EXITS,x.ex,v=>E(()=>{x.ex=v;if(v)x.auto=false},"ex"+i),"（預設）"),r);b.append(r);
   const fi=inp("text",x.fx,"float,shake"),setFx=v=>{E(()=>{x.fx=v;if(v)x.auto=false},"fx"+i);fi.value=v};fi.onchange=()=>setFx(fi.value.replace(/\s/g,""));
-  F("持續特效（可複選）",chipBox(FXS,()=>x.fx||"",setFx,n=>"特效 ~"+n),b);F("",fi,b)});
+  F("持續特效（可複選）",chipBox(FXS,()=>x.fx||"",setFx,n=>"特效 ~"+n),b);F("",fi,b);
+  /* 逐句隨機（適配）：勾選要重抽的內容，按下去只動這一句；場景層與持續特效會依這句的版型挑「搭得上」的（規則見 13-rand.js 的 RND_* 表） */
+  b.append(edMk("div","edhint","🎲 隨機這一句：勾選要重抽的內容；場景層與持續特效會依版型挑搭得上的。"));edRandBoxes(b);
+  b.append(btn("🎲 隨機這一句",()=>edRandomize([i],edRandOpt),"重抽勾選的項目（可復原）；再按一次再抽一次"))});
  /* 3. 樣式・字體 */
  G("sty","樣式・字體",b=>{
   const si=inp("text",x.st,"neon,outline"),setSt=v=>{if(v.split(",").filter(Boolean).length>3){note("樣式最多 3 個");si.value=x.st||"";return false}E(()=>{x.st=v;if(v)x.auto=false},"st"+i);si.value=v;return true};
   si.onchange=()=>setSt(si.value.replace(/\s/g,""));
   F("樣式 @（最多 3 個，可疊加）",chipBox([...Object.keys(ST),...Object.keys(STC)],()=>x.st||"",v=>{setSt(v)},n=>"樣式 @"+n),b);F("",si,b);
   const fs=edMk("select"),fill=()=>{const v=x.font||"";fs.innerHTML="";fs.add(new Option("（跟隨全域字體）",""));Object.keys(FONTS).forEach(k=>fs.add(new Option(k,k)));fs.value=FONTS[v]?v:""};fill();fs.onmousedown=fill;   /* 展開前重建：之後才上傳的字體也看得到 */
-  fs.onchange=()=>E(()=>{x.font=fs.value},"font"+i);F("這一句的字體",fs,b)});
+  fs.onchange=()=>E(()=>{x.font=fs.value},"font"+i);F("這一句的字體",fs,b);
+  /* 文字大小：這一句自己的「大字高度比例」與「文字整體縮放%」，取代全域值（不是相乘）；留空＝跟隨全域。寫進標記 $大字比例,縮放% */
+  const mkSz=(key,lo,hi,step,ph)=>{const e=inp("number",x[key]>0?x[key]:"",ph);Object.assign(e,{min:lo,max:hi,step});e.title=ph;
+   e.onchange=()=>{let v=parseFloat(e.value);v=v>0&&isFinite(v)?Math.max(lo,Math.min(hi,v)):0;e.value=v||"";if(v===(x[key]>0?x[key]:0))return;E(()=>{x[key]=v},"sz"+key+i);hint()};return e},
+   bi=mkSz("bigR",.03,.8,.01,"大字高度比例 .03–.8"),ti=mkSz("txtS",20,300,5,"整體縮放 20–300%"),szh=edMk("div","edhint"),
+   hint=()=>{szh.textContent="留空＝跟隨全域（目前：大字高度比例 "+CONFIG.bigRatio+"、整體縮放 "+(+CONFIG.textScale||100)+"%）。這一句填了就取代全域值，不是相乘。"};
+  const sr2=edMk("div","edrow2");F("大字高度比例（.03–.8）",bi,sr2);F("整體縮放 %（20–300）",ti,sr2);b.append(sr2,szh);hint();
+  b.append(btn("文字大小回到跟隨全域",()=>{E(()=>{x.bigR=0;x.txtS=0},"sz"+i);bi.value=ti.value=""}));
+  if(["scroll","marquee","page-flip"].includes(layOf(x)))b.append(edMk("div","edhint edwarn","此版型自行讀取全域「整體縮放」，這一句的縮放不生效（大字高度比例與其他版型照常）。"))});
  /* 4. 場景層 */
  G("scn","場景層（&）",b=>{
   const sc=inp("text",x.scene,"halftone:60,burst"),setSc=v=>{E(()=>{x.scene=v},"sc"+i);sc.value=v};sc.onchange=()=>setSc(sc.value.replace(/\s/g,""));
@@ -1065,7 +1086,7 @@ function edDetail(i){const d=$("#edm"),sd=d&&d.querySelector(".edside");if(!sd)r
  G("pack","風格包（一鍵套用到這一句）",b=>{
   b.append(edMk("div","edhint","勾選要套用的內容後，按風格包名稱：版型從該包的版型池挑（再按一次換下一個）、場景層＋節拍後製、字體。色彩、粒子、後製等全域項目請用面板「風格包・場景層・後製」整套套用。"));
   edPackOptBoxes(b);edPackBtns(b,()=>[i]);
-  b.append(btn("這句回到自動（清除所有逐句設定）",()=>{pushHist();Object.assign(x,{auto:true,en:"",ex:"",fx:"",pos:"",st:"",font:"",scene:""});reparse(x);cur=-2;edRender();posRef&&posRef()},"清除版型、進退場、特效、位置、樣式、字體、場景；文字與時間不動"))});
+  b.append(btn("這句回到自動（清除所有逐句設定）",()=>{pushHist();Object.assign(x,{auto:true,en:"",ex:"",fx:"",pos:"",st:"",font:"",scene:"",bigR:0,txtS:0});reparse(x);cur=-2;edRender();posRef&&posRef()},"清除版型、進退場、特效、位置、樣式、字體、文字大小、場景；文字與時間不動"))});
  sd.scrollTop=top}
 
 /* ---------- 工具列與批次區 ---------- */
@@ -1086,6 +1107,7 @@ function edBatchBox(){const dt=edMk("details","edbatch"),w=edMk("div","in"),b=(t
  b("把「目前這句」的位置套用到勾選",()=>{const src=subs[selIdx];if(!src)return;applyTo(y=>{y.pos=src.pos;if(y.pos)y.auto=false})});
  b("複製「目前這句」的外觀到勾選",()=>{const src=subs[selIdx];if(!src)return;edApply(y=>{if(y===src)return;ED_COPY.forEach(k=>{y[k]=src[k]});y.auto=src.auto;reparse(y)},"已把這句的外觀（版型、進退場、特效、樣式、字體、場景、位置）複製到勾選句；文字與時間不動")},"版型、進場、退場、特效、樣式、字體、場景、位置；文字與時間不動");
  w.append(edMk("span","sep"));
+ edRandBoxes(w);b("🎲 隨機勾選的句子",()=>edRandomize(selList(),edRandOpt),"每句各自重抽勾選的項目（版型／進退場／持續特效／場景層，會依版型適配）；可復原");w.append(edMk("span","sep"));
  const pk=edMk("select");pk.add(new Option("風格包…",""));[...STYLE_PACKS].forEach(n=>pk.add(new Option(n,n)));w.append(pk,thBtn(pk,"pack"));
  b("套用風格包到勾選",()=>{if(!pk.value)return note("先選一個風格包");applyPackTo(selList(),pk.value,edPackOpt)});edPackOptBoxes(w);w.append(edMk("span","sep"));
  b("清除勾選句子的位置",()=>applyTo(y=>{y.pos=""}));
@@ -1183,6 +1205,84 @@ function extra(p){secAnchor(p,"preset");
    Object.assign(CONFIG,JSON.parse(JSON.stringify(CFG_DEFAULTS)),J);css();cur=-2;save();panel()}catch(e){alert("設定檔格式錯誤："+e.message)}};
   const fl=document.createElement("label");fl.textContent="匯入設定 JSON 或渲染專案（project.json）";p.append(fl,f);
 }
+/* ===== [RAND] 逐句「隨機＋適配」：句子編輯器的 🎲（版型／進退場／持續特效／場景層）。
+   入口：edRandomize(索引陣列,選項)。單句按鈕在編輯器詳細欄「動畫」群組，批次按鈕在批次區（勾選的句子）；選項 edRandOpt 由兩處共用。
+   結果只是寫進該句的標記欄位（lay／en／ex／fx／scene），所以匯出 SRT、project.json、離線渲染完全沿用既有機制；本檔不碰渲染、RENDER 時不會被呼叫。
+   這是「編輯時的動作」，可以用 Math.random（和 12-ui-editor 的全域 randomize 一樣）；渲染結果仍是標記的純函數，不受影響。
+   「適配」＝下面 RND_* 表＋ rndFit() 規則（全是字串清單，空白分隔）。新增版型／場景／特效後請回來補表（見 CLAUDE.md「新增項目要補的表」）；
+   沒補也不會壞：場景未歸類＝當 neutral、特效未歸類＝當 calm 且不互斥、版型未列＝一般版型；selfCheck() 會列出沒歸類的場景與特效。
+   初版規則偏保守、只依名稱／層／成本／程式碼可確認的事實制定，並未逐一目視確認，請以縮圖（🖼）與實際播放驗收後再調整表。 ===== */
+const RND_SCN_TH={   /* 場景主題：neutral＝任何版型都能搭；tech／grunge＝只和 RND_LAY_TH 指定主題的版型搭 */
+ neutral:"halftone dots checker burst radial-rects flow-lines stripes hatch diag-split blocks breathing-blocks squares glow-ring rings pulse-circle color-wash gradient-fade pink-stripes diag-fill diag-structure organic-blob edge-clouds scattered-shapes diamond-shapes shadow-shapes balancing-circles web-lines cross-pattern triangle-grid pink-grid jigsaw-grid texture-bg star-trail light-spot screen-border scalloped-border planet",
+ tech:"perspective-grid glitch-bars guides dashed-lines ruler target crop-marks crosshair dimension-lines edge-ticks hud-corners hud-info hud-status data-monitors pixel-window desktop-icon pixel-bg",
+ grunge:"smear-brush paper-tear blood-splatter crime-tape"};
+const RND_LAY_TH={   /* 版型除了 neutral 之外還接受哪種場景主題 */
+ tech:"glitch hud-frame laser-scan split-flap typewriter constellation danmaku formula",
+ grunge:"ink-bleed handwrite marker collage polaroid page-flip annotate hanko scatter crayon-shatter victim-outline shatter-text noise-text"};
+const RND_SPARSE="ripple-pool particle-form constellation";   /* 自己就是滿畫面特效的版型（再加上 FULLBLEED）：只配「文字之下」的場景，不配蓋在文字上的 over 場景 */
+const RND_TEXT_CANVAS="particle-form ripple-pool";             /* 文字畫在 canvas 上：要 DOM 文字的特效（RND_FX_DOM）對它們沒有作用 */
+const RND_STRONG_LAY="slam bounce glitch flash-words zoom-tunnel danmaku shatter-text noise-text scatter falling crayon-shatter";   /* 高能量版型：才會配 RND_FX_STRONG */
+const RND_FX_STRONG="shake flicker rainbow chromatic stopmotion drum beat-jump";   /* 強烈特效（閃爍、抖動、變色、重拍彈跳）：只配高能量版型 */
+const RND_FX_DOM="gradient-flow chromatic outline-pulse track-breathe highlight-word focus-rack";   /* 只作用在 DOM 文字（找 .ch 或帶 font-family 的元素） */
+const RND_FX_GRP={cam:"breathe zoom-slow cam-pull cam-pan-l cam-pan-r cam-tilt-up pulse heartbeat drum jelly beat-jump small-circle",color:"rainbow gradient-flow chromatic shimmer outline-pulse",char:"wave track-breathe focus-rack highlight-word noise-drift",jitter:"shake flicker stopmotion",rot:"slow-rotate sway-char"};   /* 同組互斥（float 單獨一組）。cam＝對整句容器動 scale／translate 的特效：同屬性的動畫會互相覆蓋，所以一次只配一個 */
+const RND_NEED_SUB="ruby footnote";   /* 版型自己畫副文（SUB_OWN）：這句有副文（||）才會被抽到；沒有副文時 ruby 只剩小圓點、footnote 沒註腳 */
+const RND_NO_EN="slam bounce";   /* build() 不套用這些版型的 en（見 05-build.js），隨機時進場留空，不寫沒用的標記 */
+const edRandOpt={lay:true,anim:true,fx:true,scn:true,lab:false};   /* 隨機哪些內容；lab＝含實驗室版型與場景 */
+
+const rndSet=s=>new Set(String(s).split(/\s+/).filter(Boolean));
+const rndPick=(a,rng)=>a[Math.floor((rng||Math.random)()*a.length)];
+/* 某個版型的適配條件（純函數，可單獨測試）：accept＝接受的場景主題、sparse＝只配 under、strong＝可配強烈特效、textCanvas＝文字在 canvas */
+function rndFit(lay){const acc=new Set(["neutral"]);Object.keys(RND_LAY_TH).forEach(t=>{if(rndSet(RND_LAY_TH[t]).has(lay))acc.add(t)});
+ return{accept:acc,sparse:rndSet(RND_SPARSE).has(lay)||FULLBLEED.has(lay),strong:rndSet(RND_STRONG_LAY).has(lay),textCanvas:rndSet(RND_TEXT_CANVAS).has(lay),noEn:rndSet(RND_NO_EN).has(lay)}}
+const rndSceneTh=n=>Object.keys(RND_SCN_TH).find(t=>rndSet(RND_SCN_TH[t]).has(n))||"neutral";
+/* 版型：排除實驗室（除非 o.lab）、排除這句目前的版型與前一句的版型（至少有別的可選時） */
+function rndLayout(x,prevLay,o,rng){const ns=rndSet(RND_NEED_SUB),p=LAYOUTS.filter(l=>(o.lab||!LAB_LAYOUTS.has(l))&&!(ns.has(l)&&!x.sub)),q=p.filter(l=>l!==x.lay&&l!==prevLay);return rndPick(q.length?q:p,rng)}
+/* 場景層：1～2 層（不超過 CONFIG.sceneMax）；第一層取 under，第二層優先取 over（不是 sparse 版型時），否則取不同群組的 under；成本總和不超過 CONFIG.sceneBudget；同群組不重複。
+   回傳新的場景字串（保留這句原有的 bfx-* 節拍後製標記），沒有可選的就回傳 null（呼叫端不動這句的場景）。 */
+function rndScene(x,lay,o,rng){const F=rndFit(lay),mx=Math.max(1,Math.round(+CONFIG.sceneMax||3)),bud=Math.max(1,+CONFIG.sceneBudget||6);
+ const ok=n=>{const S=SCENES[n];return S&&(o.lab||!S.lab)&&F.accept.has(rndSceneTh(n))&&!(F.sparse&&S.layer==="over")};
+ const pickL=[],used=new Set();let cost=0;const take=n=>{const S=SCENES[n];pickL.push(n);used.add(S.grp);cost+=SCENE_COST[S.cost]||1};
+ const fits=(n)=>!used.has(SCENES[n].grp)&&cost+(SCENE_COST[SCENES[n].cost]||1)<=bud;
+ const under=SCENE_NAMES.filter(n=>ok(n)&&SCENES[n].layer==="under"),over=SCENE_NAMES.filter(n=>ok(n)&&SCENES[n].layer==="over");
+ const first=[...under,...over].filter(fits);if(!first.length)return null;
+ const u1=under.filter(fits);take(rndPick(u1.length?u1:over.filter(fits),rng));   /* 第一層：優先 under（不蓋文字） */
+ if(Math.min(mx,2)>1&&(rng||Math.random)()<.5){const o2=SCENES[pickL[0]].layer==="over"?[]:over.filter(fits),c=o2.length?o2:under.filter(fits);if(c.length)take(rndPick(c,rng))}   /* 第二層：優先 over，否則不同群組的 under */
+ const keep=String(x.scene||"").split(",").filter(t=>/^bfx-/.test(t));return[...pickL,...keep].join(",")}
+/* 持續特效：1～2 個（單句上限 3，見 build()）；強烈特效只給高能量版型；要 DOM 文字的特效不給文字在 canvas 的版型；同組互斥 */
+function rndFx(lay,o,rng){const F=rndFit(lay),strong=rndSet(RND_FX_STRONG),dom=rndSet(RND_FX_DOM),grp={};Object.keys(RND_FX_GRP).forEach(g=>rndSet(RND_FX_GRP[g]).forEach(f=>grp[f]=g));
+ let c=FXS.filter(f=>(F.strong||!strong.has(f))&&!(F.textCanvas&&dom.has(f)));const out=[],used=new Set();
+ const n=(rng||Math.random)()<.6?1:2;
+ for(let k=0;k<n&&c.length;k++){const f=rndPick(c,rng);out.push(f);used.add(grp[f]||f);c=c.filter(z=>!used.has(grp[z]||z)&&z!==f)}
+ return out.join(",")}
+/* 對一句做隨機。prev＝前一句（避免連續同版型）。回傳「有變動的項目」說明（給提示用）。 */
+function rndSentence(x,prev,o,rng){const ch=[];
+ if(o.lay){x.lay=rndLayout(x,prev&&prev.lay,o,rng);x.auto=false;ch.push("版型")}
+ const lay=layOf(x),F=rndFit(lay);
+ if(o.anim){x.en=F.noEn?"":rndPick(ENTERS,rng);x.ex=rndPick(EXITS,rng);x.auto=false;ch.push("進退場")}
+ if(o.fx){x.fx=rndFx(lay,o,rng);x.auto=false;ch.push("特效")}
+ if(o.scn){const s=rndScene(x,lay,o,rng);if(s!==null){x.scene=s;ch.push("場景")}}
+ reparse(x);return ch}
+/* 編輯器入口：list＝句子索引陣列；整批只做一次 pushHist，一次復原就回到按之前 */
+function edRandomize(list,o,rng){o=o||edRandOpt;
+ if(!list.length)return note("先在編輯器勾選要隨機的句子");
+ if(!o.lay&&!o.anim&&!o.fx&&!o.scn)return note("至少勾一項要隨機的內容（版型／進退場／持續特效／場景層）");
+ pushHist();list.forEach(i=>{const x=subs[i];if(x)rndSentence(x,subs[i-1],o,rng)});
+ cur=-2;edRender();posRef&&posRef();
+ note("已隨機 "+list.length+" 句"+(CONFIG.lock?"（注意：目前鎖定版型，畫面版型不會變）":"")+(o.scn&&CONFIG.sceneAll?"（隨機場景會取代全域底層「"+CONFIG.sceneAll+"」）":"")+"；可復原。匯出帶標記的 SRT 可存檔")}
+function edRandBoxes(parent){const w=edMk("div","edbtns");
+ [["lay","版型"],["anim","進退場"],["fx","持續特效"],["scn","場景層"],["lab","含實驗室"]].forEach(([k,t])=>{const l=edMk("label"),c=edMk("input");c.type="checkbox";c.checked=!!edRandOpt[k];c.onchange=()=>{edRandOpt[k]=c.checked};
+  l.title=k==="lab"?"預設不含實驗室版型與場景（尚在試驗、未寫進正式規格書）":k==="scn"?"隨機的場景層會取代這句原本的場景（bfx-* 節拍後製保留）；留空的句子才跟隨全域底層":k==="fx"?"依版型挑選：強烈特效（抖動／閃爍／變色）只配高能量版型":"";
+  l.append(c,t);w.append(l)});parent.append(w)}
+/* selfCheck 用：表裡有打錯的名稱＝錯誤；沒歸類的場景／特效只提示（不算錯） */
+function rndCheck(){const out=[],L=new Set(LAYOUTS),S=new Set(SCENE_NAMES),F=new Set(FXS),info=[];
+ const chk=(tab,set,lab)=>Object.keys(tab).forEach(k=>rndSet(tab[k]).forEach(n=>set.has(n)||out.push("隨機適配表 "+lab+"."+k+" 有未登記的名稱："+n)));
+ chk(RND_SCN_TH,S,"RND_SCN_TH");chk(RND_LAY_TH,L,"RND_LAY_TH");chk(RND_FX_GRP,F,"RND_FX_GRP");
+ [["RND_SPARSE",RND_SPARSE,L],["RND_TEXT_CANVAS",RND_TEXT_CANVAS,L],["RND_STRONG_LAY",RND_STRONG_LAY,L],["RND_NO_EN",RND_NO_EN,L],["RND_NEED_SUB",RND_NEED_SUB,L],["RND_FX_STRONG",RND_FX_STRONG,F],["RND_FX_DOM",RND_FX_DOM,F]].forEach(([k,s,set])=>rndSet(s).forEach(n=>set.has(n)||out.push("隨機適配表 "+k+" 有未登記的名稱："+n)));
+ const seen={};Object.keys(RND_SCN_TH).forEach(t=>rndSet(RND_SCN_TH[t]).forEach(n=>{seen[n]&&out.push("場景同時列在兩個主題："+n);seen[n]=1}));
+ const noS=SCENE_NAMES.filter(n=>!seen[n]),g=new Set();Object.keys(RND_FX_GRP).forEach(k=>rndSet(RND_FX_GRP[k]).forEach(n=>g.add(n)));rndSet(RND_FX_STRONG).forEach(n=>g.add(n));rndSet(RND_FX_DOM).forEach(n=>g.add(n));g.add("float");
+ const noF=FXS.filter(n=>!g.has(n));
+ noS.length&&info.push("這些場景沒歸類（隨機時當 neutral）："+noS.join(" "));noF.length&&info.push("這些特效沒歸類（隨機時當 calm、不互斥）："+noF.join(" "));
+ info.length&&console.info("[selfCheck] 隨機適配表："+info.join("；"));return out}
 /* ===== [AMBIENT] Canvas 氛圍層（粒子/光暈/噪點/暗角）/ 音訊低頻偵測 / 效能自動降級；另含 applyScene、extra3()（錄製・比例・粒子・色彩・轉場・疊加層勾選面板）、PRESETS 補登 ===== */
 let ac=null,an=null,fb=null,lo=1,hi=4,bass=0,bAvg=0,lastHit=0,audioHit=false,abeat=0,flashT=0,ps=[],fpsN=0,fpsT=0;
 function initAudio(){ // audio 必須同時 connect 到 destination，錄製時才有聲音
@@ -1822,7 +1922,7 @@ Object.assign(NL,{
    if(i===0){const t=document.createElement("div");t.style.cssText=`position:absolute;left:50%;top:-${fs*.3}px;width:${fs*1.6}px;height:${fs*.55}px;translate:-50% 0;rotate:-4deg;background:rgba(255,235,160,.6)`;card.appendChild(t)}
    row.appendChild(card);A(card,[{translate:`${(i%2?1:-1)*(90+r()*20)}cqw ${(r()-.5)*30}cqh`,scale:1.4,opacity:0},{translate:"0 0",scale:1,opacity:1}],{duration:D()*1.1,delay:i*320/CONFIG.speed,easing:"cubic-bezier(.2,.8,.2,1)"})});
   if(sb.en)enter(row,sb.en,list)},
- "page-flip"(sb,c,w,big,sm,dur,list){const i=subs.indexOf(sb),prev=i>0?subs[i-1].plain:"",vw=SWd(),vh=SHd(),ks=(+CONFIG.textScale||100)/100,pw=Math.min(vw*.4*ks,vw*.48,vh*.78*ks),ph=Math.min(vh*.56*ks,pw*.8,vh*.92);
+ "page-flip"(sb,c,w,big,sm,dur,list){const i=subs.indexOf(sb),prev=i>0?subs[i-1].plain:"",vw=SWd(),vh=SHd(),ks=sbKs(sb),pw=Math.min(vw*.4*ks,vw*.48,vh*.78*ks),ph=Math.min(vh*.56*ks,pw*.8,vh*.92);
   const st=document.createElement("div");st.style.cssText=`position:absolute;inset:0;perspective:${vw*1.5}px`;c.appendChild(st);
   const pg=(txt,css)=>{const p=txtEl(`top:${-ph/2}px;width:${pw}px;height:${ph}px;background:${PAPER};color:${INK};display:flex;align-items:center;justify-content:center;font-size:${Math.min(ph*.3,pw*.8/Math.max([...txt].length,3))}px;letter-spacing:.12em;box-shadow:0 1.5cqh 4cqh rgba(0,0,0,.45);${css}`);p.style.left="50%";p.style.top="50%";p.style.marginTop=-ph/2+"px";p.textContent=txt;return p};
   const left=pg("","margin-left:"+(-pw)+"px;background:linear-gradient(90deg,#e6e0d0,#d9d2bf)");st.appendChild(left);
@@ -2758,6 +2858,7 @@ function selfCheck(){
  {const ids=new Set();quickActions().forEach(a=>{ids.has(a.id)&&out.push("快捷表 id 重複："+a.id);ids.add(a.id);a.g===null||QK_GROUPS.includes(a.g)||out.push("快捷表群組未登記："+a.id+"／"+a.g);typeof a.run==="function"||out.push("快捷表缺 run："+a.id)});
   ["#fs","#fm","#demo","#rec","#ed","#rnd","#unlock","#tg","#play","#qkb","#qk","#cfgImport"].forEach(q=>$(q)||out.push("缺少元素："+q));
   QK_SECS.forEach(id=>$('#panel [data-sec="'+id+'"]')||out.push("面板缺少區段錨點："+id))}
+ out.push(...rndCheck());
  {const m=thMissing();m.length&&console.info("[selfCheck] 這些項目沒有縮圖（不影響功能；node test/make-thumbs.mjs 重拍）："+m.join(" "))}
  out.length?console.warn("[selfCheck] 發現 "+out.length+" 項：\n"+out.join("\n")):console.info("[selfCheck] 登記一致");return out}
 if(/[?&]check=1(&|$)/.test(location.search))window.addEventListener("load",selfCheck);
