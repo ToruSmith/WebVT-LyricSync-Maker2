@@ -1,9 +1,9 @@
-# 動態歌詞字幕工具：功能手冊與 SRT 標記指南
+# 動態歌詞字幕工具：功能手冊與 SRT 標記指南（全新版）
 
-> 給 AI 助手（Gemini）閱讀的規格書。目的：讀完後，能根據使用者提供的歌詞 SRT 與用途（例如 MAD 上字幕），為每一句選擇合適的版型、動畫與特效，輸出可直接匯入本工具的「帶標記 SRT」，並建議全域設定。
-> 本文只列出**實際存在**的名稱（已對照目前的 `index.html` 核對）。凡不在清單內的名稱一律不要使用（工具遇到未知版型會退回 `lowerleft`，未知進退場／特效可能無效）。
-> 目前共 **53 種版型**、21 種進場、12 種退場、19 種持續特效、15 種逐字樣式。
-> **先讀第 0 節（30 秒速讀）**，需要查名稱與細節再看第 3–8 節。
+> 這份手冊給兩種讀者：**使用者**（想知道每個名稱長什麼樣、怎麼寫）與 **AI 助手**（讀完後，能根據歌詞 SRT 與用途為每一句選擇版型、動畫與特效，輸出可直接匯入本工具的「帶標記 SRT」）。
+> 本文只列出**實際存在**的名稱，已逐項對照目前的 `index.html`（`node test/spec-sync.mjs` 會檢查）。不在清單內的名稱一律不要使用：未知版型會退回 `lowerleft`，未知進退場／特效可能無效。
+> 目前共 **60 種版型**（另有 22 種實驗室版型，見 3.1）、30 種場景層（另有 28 種實驗室場景）、47 種進場、36 種退場、28 種持續特效、21 種逐字樣式、19 個風格包。
+> **先讀第 0 節（30 秒速讀）**；要查名稱與細節看第 3–8 節；風格包與進階功能在第 8、13 節。
 
 ---
 
@@ -20,7 +20,7 @@
 - **每句必寫**：`#版型+進場+退場`（退場不能省，所以進場也一定要寫；沒想法就用 `fade`）。
 - **依句子加**：`~特效`、`^位置`、`@樣式`、`{關鍵字}`、`||副文`。
 - **輸入已有標記時**：已寫好的段落保留，只補缺的段落；使用者明說「全部重做」才覆蓋。歌詞原文、`{}`、`(註解)`、`||副文` 一律保留。
-- **預設不使用**：`*字體`（交給全域設定）、`&場景`（見第 13 節）、`^alt:`（SRT 不支援）。
+- **預設不使用**：`*字體`（交給全域設定）、`&場景`（見 7.6 與第 13 節）、`^alt:`（SRT 不支援）。
 
 **三步驟**
 
@@ -28,17 +28,18 @@
 2. 逐句看字數、時長、所在段落，用下表選型；高潮與段落轉折才升級。
 3. 對照第 12 節自查，再依第 11 節輸出。
 
-**快速選型表**（名稱皆為第 3–5 節實際存在者）
+**快速選型表**（名稱皆為第 3–6 節實際存在者）
 
 | 情境 | 優先版型 | 進場／退場建議 |
 | --- | --- | --- |
 | 日常句、安全預設（約 70–80% 的句子） | `center`、`lowerleft`、`subtitle-box` | `rise` 或 `fade`／`fade` |
 | 短促有力（≤6 字） | `slam`、`bounce`、`flash-words` | `zoomin`／`blur-out` |
-| 抒情慢歌 | `pv-lyric`、`blurfocus`、`ink-bleed`、`mirror-reflect`、`handwrite` | `fade`／`fade` |
+| 抒情慢歌 | `pv-lyric`、`blurfocus`、`ink-bleed`、`mirror-reflect`、`handwrite` | `blur-in`／`fade` |
 | 句內有關鍵詞（加 `{}`） | `keyword`、`marker`、`annotate`、`poster`、`pv-lyric`；兩字強調用 `split` | `fade`／`fade` |
 | 科技、賽博、故障 | `typewriter`、`glitch`、`constellation`、`hud-frame`（滿版） | `scramble`／`glitch-out` |
-| 跟唱、逐字 | `karaoke`、`typewriter`，或搭配 `~highlight-word` | `fade`／`fade` |
+| 跟唱、逐字 | `karaoke`、`typewriter`，或搭配 `~highlight-word` | `type`／`fade` |
 | 高潮、段落轉折（≤20–30% 的句子） | `text-mask`、`longshadow`、`poster`、`zoom-tunnel`（滿版） | `zoomin`／`shatter` |
+| 影片上的高級字幕（遮影片最少） | `center`、`lowerleft`、`subtitle-box`；想要設計感再用 3.1 的實驗室版型 | `blur-in`／`fade`，加 `@shadow-soft` |
 
 **硬限制速記**：句長 <1.5 秒不用慢動畫版型（`particle-form`、`constellation`、`scramble`）；滿版版型不加 `^`；`scroll`／`page-flip`／`cylinder` 不連用、不放首尾句；`~` 每句至多 1 個、`@` 至多 3 個。
 
@@ -62,13 +63,17 @@
 
 ## 1. 工具是什麼
 
-單檔網頁（`index.html`）＋離線渲染（`node render/run.mjs`）。把 SRT 歌詞轉成「動態文字」畫面：每一句有版型（排版與動畫風格）、進場、退場、持續特效、位置、字體、樣式、副文。時間軸完全由 SRT 的時間碼決定。
+單檔網頁（`index.html`）＋離線渲染（`node render/run.mjs`）。把 SRT 歌詞轉成「動態文字」畫面：每一句有版型（排版與動畫風格）、進場、退場、持續特效、位置、字體、樣式、場景層、副文。時間軸完全由 SRT 的時間碼決定。
+
+使用流程：① 載入 SRT（可附影片或音樂）→ ② 在網頁預覽，用句子編輯器逐句調整版型與進退場，或套用風格包／預設組合 → ③ 匯出：直接錄製，或用離線渲染產生成品。
 
 輸出（離線渲染）：
 - `preview.mp4`：背景＋文字（可合成音樂）。
 - `text_alpha.mov`（`--alpha`）：只有文字的透明層，**給剪輯軟體疊在影片上，MAD 最常用**。
 - `--layers`：同時輸出透明文字層 `text_alpha.mov` 與氛圍層 `ambient.mp4`（背景、粒子、暗角等，無文字）。
 - `--chroma`：純色（預設 `#00ff00`）背景加文字，給不吃透明檔的剪輯軟體用色鍵摳掉。
+
+所有動畫都是「時間的純函數」：同一份專案每次渲染逐格結果完全相同（不使用亂數；需要「隨機感」的地方用固定種子或固定排列）。
 
 ---
 
@@ -85,7 +90,7 @@
 文字行完整格式（**順序固定，每一段皆可省略**）：
 
 ```
-#版型+進場+退場~持續特效^位置*字體@樣式1,樣式2 主文||副文
+#版型+進場+退場~持續特效^位置*字體@樣式1,樣式2&場景1:強度,場景2 主文||副文
 ```
 
 | 段落 | 符號 | 說明 | 範例 |
@@ -95,19 +100,20 @@
 | 退場 | 第二個 `+` | 文字消失的動畫；只想指定退場時，進場要補上 `fade` | `#center+fade+blur-out` |
 | 持續特效 | `~` | 句子停留期間持續的效果（只能一個），見第 5 節 | `~float` |
 | 位置 | `^` | 九宮格定位，見第 7 節 | `^bc`、`^tl:5:-2` |
-| 字體 | `*` | **這一句**的字體（整句，含強調字），見第 7.5 節；**一般情況不要寫**，字體交給全域設定 | `*%E6%AF%9B%E7%AD%86` |
+| 字體 | `*` | **這一句**的字體（整句，含強調字），見 7.5；**一般情況不要寫**，字體交給全域設定 | `*%E6%AF%9B%E7%AD%86` |
 | 樣式 | `@` | 逐字樣式，可用逗號疊加，**最多 3 個**，見第 6 節 | `@neon,chromatic` |
+| 場景 | `&` | 這句的背景／裝飾場景層，逗號分隔，見 7.6 | `&halftone:60,crop-marks` |
 | 主文 | — | 歌詞本文。`{關鍵字}` 用大括號標出要強調的字 | `我只想{擁抱}你` |
-| 副文 | `\|\|` | 主文下方的極小裝飾行（拼音、英文、日期） | `\|\|SYNC COMPLETE` |
+| 副文 | `||` | 主文下方的極小裝飾行（拼音、英文、日期）；部分實驗室版型（見 3.1）把它當注音或註腳 | `||SYNC COMPLETE` |
 
 重要規則：
 1. **整段標記中間不能有空白**（空白代表標記結束、主文開始）。
 2. 標記與主文之間用**一個空白**分隔。
-3. 沒有 `#` 標記的句子會自動選版型（有 `{}` 用 `split`，否則 `lowerleft`）。
-4. 一個 SRT 區塊只放**一行**文字（標記＋主文＋副文）。
+3. 沒有 `#` 標記的句子會自動選版型（有 `{}` 用 `split`，否則 `lowerleft`）；開啟「自動變化版型」時改由風格包的版型池輪流取。
+4. 一個 SRT 區塊只放**一行**文字（標記＋主文＋副文）；表格類版型的分欄用全形直線 `｜`（見 3.1），不要在句內換行。
 5. 不要改動時間碼與歌詞原文；只在句首加標記（與必要時加 `||副文`）。
 6. `{}` 可用在任何版型：會處理 `{}` 的版型（第 3 節標註「**吃 `{}`**」）把它當關鍵字做特別排版；其他版型則把 `{}` 內的字改成強調色、加粗、發光，**歌詞不會少字**。
-7. `pv-lyric`、`pv-vertical` 另外支援 `(註解)`（或 `（註解）`）：關鍵字旁的小註解，見第 3 節。
+7. `pv-lyric`、`pv-vertical` 另外支援 `(註解)`（或 `（註解）`）：關鍵字旁的小註解。
 
 完整範例：
 
@@ -115,14 +121,6 @@
 12
 00:00:31,000 --> 00:00:33,700
 #center+zoomin+blur-out~shimmer^bc@outline,chromatic 我只想{擁抱}你||I JUST WANT TO HOLD YOU
-```
-
-仿 PV 歌詞範例：
-
-```
-13
-00:00:34,000 --> 00:00:37,000
-#pv-lyric+fade+fade^bl 看天台上{流星}(路過)
 ```
 
 ---
@@ -139,28 +137,28 @@
 | `center` | 置中，最適合搭配樣式與進場動畫，**最安全、通用的選擇** |
 | `bounce` | 置中，逐字從下方彈起，適合節奏明快的句子 |
 | `slam` | 大字由 3 倍大「砸」到定位（約 0.26 秒），短促有力，適合短句重點 |
-| `neon` | 置中，字帶霓虹光暈（效果同 `@neon`，但是版型內建） |
-| `karaoke` | 置中，逐字依句子時長由暗變亮，適合跟唱（與 `@karaoke` 同概念） |
+| `neon` | 霓虹 |
+| `karaoke` | 逐字變亮 |
 | `typewriter` | 打字機：逐字出現，後面跟著閃爍游標，字比較小 |
 | `vertical` | 直排，靠右，旁邊一條細直線；長句會自動縮小 |
 | `blurfocus` | 由模糊且字距很寬的狀態慢慢對焦 |
-| `wipe` | 一道白色亮線由左掃到右，順勢揭露文字 |
-| `glitch` | 紅藍雙層殘影錯位閃動後合一，訊號故障風 |
+| `wipe` | 由左向右擦出 |
+| `glitch` | 訊號閃爍 |
 | `stack` | 長句拆成最多 3 行堆疊，行與行交替靠左、靠右 |
 | `outline-big` | 前 3 個字放大成空心背景字，整句以小字疊在前面 |
 | `subtitle-box` | 底部半透明黑底框字幕，逐字變亮 |
 | `poster` | **吃 `{}`**：海報式大字（取第一個 `{}`，沒有就用整句）＋細線＋小字 |
 | `flash-words` | 以空白／標點分詞，一個詞一個詞快速閃現，例如 `快 跑 不 要 停下來`；沒有空白時每 2 字一組 |
 | `keyword` | **吃 `{}`**：`{}` 關鍵字放大成強調色，其餘小字排在旁邊；沒寫 `{}` 時取前 2 字 |
-| `trail` | 字重疊多層、左右來回飄動的拖影 |
+| `trail` | 拖影 |
 | `text-mask` | 粗體大字，字內填入流動的漸層（文字當遮罩） |
-| `longshadow` | 粗體大字帶長影子 |
+| `longshadow` | 長影 |
 | `bubble` | 白底對話泡泡，彈性出現 |
 | `blinds` | 文字被切成 24 條細條，上下交錯滑入（百葉窗） |
 | `hanko` | **吃 `{}`**：日式直排加印章方塊 |
 | `collage` | 拼貼風：每個字像剪貼的貼紙，隨機底色與字體（同一句固定） |
 | `handwrite` | 手寫：逐字出現並描繪底線；預設用手寫字體，若你指定了字體則尊重你的選擇 |
-| `marker` | **吃 `{}`**：螢光筆劃過 `{}` 的字；沒寫 `{}` 時整句都畫 |
+| `marker` | 螢光筆：字下半加半透明色帶，不蓋字 |
 | `scroll` | 捲動歌詞：同時顯示前後各兩句，目前句最大，其他句模糊淡出（需要上下文，第一句與最後一句會少一邊） |
 | `orbit` | 文字沿圓弧排列並緩慢旋轉 |
 | `diagonal` | **吃 `{}`**：斜 8 度，上方大字（第一個 `{}`，沒有取前 2 字）加下方整句 |
@@ -185,7 +183,18 @@
 | `iris-frame` | 光圈框（偶數句圓、奇數句矩形） |
 | `annotate` | **吃 `{}`**：手繪圈選、底線、星號標記 `{關鍵字}`（三種標記輪流） |
 
-### 仿 PV 歌詞（最新，兩個版型）
+### 字卡與疊層類
+| 名稱 | 說明 |
+|---|---|
+| `scatter` | 散落字：每字在格內隨機偏移、旋轉、縮放，由四方飛入 |
+| `strip` | 字條：強調色長條上的反白字，左右交錯滑入 |
+| `cards` | 字卡：每字（>8 字時每 2 字）一張白卡，落下排成列 |
+| `glow-cards` | 發光字卡：暗底＋強調色發光邊框 |
+| `layered` | 疊層字：主文後方三層強調色描邊殘影，向右下展開 |
+| `falling` | 字雨：背景持續落下的淡字＋主文逐字落下彈跳 |
+| `formula` | 公式覆蓋：主文後方漂浮的等寬公式碎片（種子產生） |
+
+### 仿 PV 歌詞（兩個版型）
 | 名稱 | 說明 |
 |---|---|
 | `pv-lyric` | **吃 `{}`**：橫排、靠左（預設落在畫面左側、約 54% 高度）。一般字是細黑體小字，`{}` 內的字變成**毛筆大字**（約 1.9 倍大，發光、色差收斂、帶淡墨暈影）。`(註解)` 會出現在關鍵字右下角，前面帶 `‹‹‹`。**沒寫 `{}` 時，自動把句尾 2 個字當關鍵字。** |
@@ -194,13 +203,56 @@
 使用要點：
 - 語法：`#pv-lyric 看天台上{流星}(路過)`；`{}` 可寫多個，`()` 註解最多一個，可省略。
 - 動畫時長跟隨全域「進場秒數」、顏色用強調色（`accent`）、位置用「文字位置」錨點，因此**建議搭配預設組合「仿PV歌詞」**。
-- 毛筆大字的字體：預設是毛筆字體堆疊（找不到就退到楷體、明體）；單句要換用 `#pv-lyric*字體名`，全域要換用 `emFont`（見第 8 節）。
+- 毛筆大字的字體：預設是毛筆字體堆疊；單句要換用 `#pv-lyric*字體名`，全域要換用 `emFont`（見第 8 節）。
 - 適合抒情、日系、PV 風格的歌；整首歌**維持同一種**（`pv-lyric` 為主，`pv-vertical` 在段落轉折時偶爾穿插），不要和 `poster`、`slam` 等強烈風格混用。
 - 句子很長時字會自動縮小，但直排版仍建議每句不要太長（約 12 字內較好看）。
 - 屬於一般版型，**不是**滿版，可以搭配 `^位置`。
 
+### 3.1 實驗室版型
+`staggered-text` `noise-text` `victim-outline` `cute-outline` `vertical-sub` `hero-text` `shatter-text` `crayon-shatter` `margin` `baseline` `full-track` `line-focus` `scale-steps` `headline-lead` `footnote` `quote` `tilt-vertical` `v-ruler` `list-table` `ruby` `big-sandwich` `cross`
+
+這些版型實驗性質較高：預設**不寫進 AI 規格書的選型表**，使用者在版型挑選窗可以直接選用。共通特性：只用文字加細線／小標記，不畫底板，字級有上限，不遮影片；除特別註明外都吃整句、不吃 `{}`。
+
+| 名稱 | 說明 |
+|---|---|
+| `staggered-text` | 奇偶字上下錯位，從相反方向滑入 |
+| `noise-text` | 主文加兩層色差殘影，每 80ms 換一次抖動位置 |
+| `victim-outline` | 空心粗描邊字，後方錯位的強調色描邊像粉筆輪廓，輕微抖動 |
+| `cute-outline` | 圓潤白色厚描邊貼紙字＋彩色字心，逐字彈跳、交替傾斜 |
+| `vertical-sub` | 主文橫排偏左，右側一條直排淡色回聲字＋細線 |
+| `hero-text` | 粗體巨字＋六層強調色擠出立體陰影，重重砸入 |
+| `shatter-text` | 4 片碎片拼合 |
+| `crayon-shatter` | 同上，字心強調色、粗糙描邊與微傾斜 |
+| `margin` | 文字靠角落（左下／右上／右下／左中依句子編號輪替），旁邊拉出一條髮絲線，線尾收在小方點；線先拉出，文字再淡入並向內收 |
+| `baseline` | 2～3 行字，每行下一條橫跨畫面的髮絲基線；{} 關鍵字下再加一條強調色粗線（沒有 {} 就不畫）。基線依行由左拉出，文字跟著淡入，粗線最後拉出 |
+| `full-track` | 每個字平均撐開到整個畫面寬（直式畫面改為高度），左右（上下）留 6～8；超過 12 字改兩行（直式兩欄）各自撐開；字從中心向兩側散開，線再拉出 |
+| `line-focus` | 顯示整句，{} 內是「這一鏡的片段」，其餘降到 .45 透明度；片段以底線／圓點／框線標出（依句子編號輪替）；整句先淡入，再把標記拉出。沒有 {} 就整句正常顯示、不畫標記 |
+| `scale-steps` | 一句拆成 2～7 段（依逗號／空白切，切不出來就平均切），字級依比例逐段放大（或縮小），基線對齊；由小到大依序淡入，底下一條髮絲線 |
+| `headline-lead` | 左下一組「大標題＋短強調線＋小導語」。標題＝{} 內的字；沒有 {} 就取前半句；導語＝其餘 |
+| `footnote` | 正文在下三分之一，句尾加 ※；最下方細線＋小字註腳（註腳＝副文 ||；沒有副文時，若正文分多行就拿最後一行當註腳） |
+| `quote` | 文字置中，左上與右下各一個大引號（強調色、半透明；字級最大約文字的 2.2 倍，不遮影片） |
+| `tilt-vertical` | 文字轉 90 度橫躺，沿畫面右緣由上往下讀，旁邊一條細線；字小、佔寬很窄 |
+| `v-ruler` | 左緣一條垂直刻度尺（每 5 格一長刻度），一個強調色小標記停在文字的高度；文字在尺右側，左對齊 |
+| `list-table` | 像目錄或表格，每行一條細分隔線；用換行分行，行內用 ｜ 分成「項目｜內容」兩欄；單行長句自動拆成 2～4 行 |
+| `ruby` | 每個字上方一行小注音。注音取自副文（||），平均分給每個字；沒有副文就在每個字上方放一個強調色小圓點（傍点） |
+| `big-sandwich` | 關鍵字放大置中，前後文字縮小夾在兩側（直式畫面改為上下夾）；關鍵字＝{} 內第一段，沒有就取最長字詞或正中間的字；大字上限約畫面高度 26% |
+| `cross` | 關鍵字在中央，前文在它左邊橫排＋上方直排、後文在右邊橫排＋下方直排（直排是淡淡的回聲，只取最近 6 字）；字都小，不遮影片 |
+
+使用提示：
+- **想要「遮影片最少的高級字幕」**，先試 `margin`、`baseline`、`line-focus`、`scale-steps`、`headline-lead`、`footnote`、`tilt-vertical`、`v-ruler`：都貼在下方或邊緣。
+- `headline-lead`、`big-sandwich`、`cross`、`baseline`、`line-focus` 吃 `{}`；`ruby`、`footnote` 用 `||副文`（`ruby` 的注音、`footnote` 的註腳）。
+- `list-table`：用 `｜` 把一行分成「項目｜內容」；整句沒有 `｜` 時自動拆成 2–4 行。
+- `ruby` 的注音平均分給每個字，要精準對位時請改用每字一組的短句。
+
 ### 滿版版型（會忽略 `^位置`）
-`hud-frame`（遊戲介面風）、`laser-scan`、`iris-frame`、`marquee`（跑馬燈，兩排橫向捲動，一排實心一排空心）、`danmaku`（彈幕，三行由右向左飄過）、`border-run`（邊框跑動）、`zoom-tunnel`（穿越隧道）。這些本身就是整個畫面的效果，**不要替它們加 `^位置`**。
+`hud-frame`、`marquee`、`danmaku`、`border-run`、`zoom-tunnel`，以及 `laser-scan`、`iris-frame`（見較新的版型）。這些本身就是整個畫面的效果，**不要替它們加 `^位置`**。
+| 名稱 | 說明 |
+|---|---|
+| `hud-frame` | 滿版：遊戲介面風 |
+| `marquee` | 滿版：跑馬燈，兩排橫向捲動，一排實心一排空心 |
+| `danmaku` | 滿版：彈幕，三行由右向左飄過 |
+| `border-run` | 滿版：邊框跑動 |
+| `zoom-tunnel` | 滿版：多層殘影由小放大衝向鏡頭，穿越隧道感 |
 
 ### 會看前後句的版型
 `scroll`、`page-flip`、`cylinder` 會參考相鄰句。不要連續使用，也不要放在第一句或最後一句（`scroll` 例外：只是少一邊）。
@@ -209,32 +261,198 @@
 
 ## 4. 進場與退場
 
-**進場（第一個 `+`）**：`fade` `rise` `drop` `zoomin` `zoomout` `spin` `flip` `stagger` `mask-up` `elastic` `swing` `ripple` `scramble` `split-reveal` `iris` `blur-stagger` `track-in` `skew-in` `wipe` `clock-wipe` `neon-on`
+### 4.1 進場（第一個 `+`）
 
-**退場（第二個 `+`）**：`fade` `sink` `zoomout-fade` `blur-out` `slide-out` `dissolve` `shatter` `glitch-out` `vacuum` `sweep-cover` `wipe-out` `clock-out`
+**原有**
+| 名稱 | 說明 |
+|---|---|
+| `fade` | 柔和淡入 |
+| `rise` | 由下方升起並淡入 |
+| `drop` | 由上方落下，微彈 |
+| `zoomin` | 由小放大 |
+| `zoomout` | 由大縮小（從近處落定） |
+| `spin` | 3D 轉向正面（Y 軸轉 90°） |
+| `flip` | 逐字 3D 翻起（沒有逐字資料時整句） |
+| `stagger` | 逐字依序淡入 |
+| `mask-up` | 由下向上遮罩揭露 |
+| `elastic` | 彈性放大再回彈 |
+| `swing` | 左右搖擺定位 |
+| `ripple` | 逐字依序波浪浮起 |
+| `scramble` | 亂碼逐字還原（科技、故障；短句不適合） |
+| `split-reveal` | 中線向上下展開 |
+| `blur-stagger` | 逐字由模糊變清楚（沒有逐字資料的版型退回整句淡入） |
+| `track-in` | 字距由寬收攏 |
+| `skew-in` | 斜切滑入（直排文字改從上方進入） |
+| `wipe` | 由左向右擦出 |
+| `clock-wipe` | 時鐘式順時針擦出（不支援圓錐遮罩的瀏覽器退為斜向擦出） |
+| `neon-on` | 霓虹燈閃爍點亮 |
+| `iris` | 圓形光圈由小開大 |
 
-用字提示（依名稱字面意義）：`fade` 柔和；`rise`／`drop` 由下／上進入；`zoomin`／`zoomout` 縮放；`elastic` 彈性；`scramble` 亂碼還原（適合科技、故障）；`stagger` 逐字錯開；`iris` 圓形光圈由小開大；`dissolve`／`shatter`／`glitch-out` 退場時溶解／碎裂／故障；`blur-stagger` 逐字由模糊變清楚（沒有逐字資料的版型退回整句淡入）；`track-in` 字距由寬收攏；`skew-in` 斜切滑入（直排文字改從上方進入）；`wipe`／`wipe-out` 由左向右擦出／擦掉；`clock-wipe`／`clock-out` 時鐘式順時針擦出／擦掉；`neon-on` 霓虹燈閃爍點亮；`vacuum` 向畫面中心縮小吸走；`sweep-cover` 一條強調色細線由左掃過、把字蓋掉。
+**新增（第二批）**：整句型與逐字型。逐字型（標 ◆）需要版型提供逐字元素，沒有時退回整句淡入；`center`、`bounce`、`stack` 等主要版型都有。
+| 名稱 | 說明 |
+|---|---|
+| `slide-l` | 由左側滑入 |
+| `slide-r` | 由右側滑入 |
+| `whip` | 快速甩入（帶模糊，微過衝） |
+| `pop` | 彈出（微過衝） |
+| `stretch-in` | 橫向伸展開來 |
+| `big-jump` | 由下大跳躍落定 |
+| `squash-land` | 落下壓扁再回彈 |
+| `wobble-land` | 落下後搖晃定位 |
+| `stamp-in` | 像蓋章一樣由大壓下 |
+| `blur-in` | 整句由模糊變清楚 |
+| `open-h` | 由中央向左右展開 |
+| `unfold` | 由上緣向下折開（3D） |
+| `roll-in` | 滾動進入（轉一圈） |
+| `blink-in` | 點滅幾下後亮起 |
+| `overexpose` | 過曝白光漸收成正常 |
+| `blinds-in` | 百葉窗（8 條橫帶）展開 |
+| `wipe-diag` | 斜向擦出 |
+| `fan-open` | 逐字像摺扇依序打開 ◆ |
+| `domino-in` | 逐字像骨牌依序立起 ◆ |
+| `bubble-in` | 逐字像氣泡浮出 ◆ |
+| `dot-grow` | 逐字由一個小點長成字 ◆ |
+| `magnet` | 逐字由左右兩側被吸到定位 ◆ |
+| `spiral-in` | 逐字沿螺旋軌跡聚攏 ◆ |
+| `drop-stagger` | 逐字依序落下並微彈 ◆ |
+| `type` | 打字機：逐字瞬間出現 ◆ |
+| `random-order` | 逐字以固定的打亂順序淡入（同一句每次相同） ◆ |
 
-注意：`pv-lyric`／`pv-vertical` 有自己的進場動畫（模糊對焦、毛筆字由大縮小），一般不需要再指定進場。
+逐字型（◆）完整清單：`stagger` `ripple` `flip` `scramble` `blur-stagger` `fan-open` `domino-in` `bubble-in` `dot-grow` `magnet` `spiral-in` `drop-stagger` `type` `random-order`。
+
+注意：`pv-lyric`／`pv-vertical` 有自己的進場動畫（模糊對焦、毛筆字由大縮小），一般不需要再指定進場。進場總長由全域 `enter`（秒）決定，逐字型的總長會隨字數拉長但單字動畫長度不變。
+
+### 4.2 退場（第二個 `+`）
+
+退場必須在句子結束前完成：長度由全域 `exit`（秒）決定，句子太短時兩者自動等比縮短。
+
+**原有**
+| 名稱 | 說明 |
+|---|---|
+| `fade` | 柔和淡出 |
+| `sink` | 向下沉並淡出 |
+| `zoomout-fade` | 放大並淡出 |
+| `blur-out` | 模糊並淡出 |
+| `slide-out` | 向左滑出 |
+| `dissolve` | 逐字溶解（帶模糊） |
+| `shatter` | 逐字碎裂飛散 |
+| `glitch-out` | 訊號故障錯位後消失 |
+| `vacuum` | 向畫面中心縮小吸走 |
+| `sweep-cover` | 一條強調色細線由左掃過、把字蓋掉 |
+| `wipe-out` | 由左向右擦掉 |
+| `clock-out` | 時鐘式順時針擦掉 |
+
+**新增（第二批）**
+| 名稱 | 說明 |
+|---|---|
+| `slide-r-out` | 向右滑出 |
+| `slide-up-out` | 向上移出 |
+| `slide-down-out` | 向下移出 |
+| `tip-over` | 像牌子一樣向後倒下（3D） |
+| `flip-out` | 3D 轉開消失 |
+| `stretch-out` | 橫向收窄成一條線 |
+| `squash-out` | 縱向壓扁消失 |
+| `pop-out` | 先脹大再彈沒 |
+| `fly-through` | 衝向鏡頭放大並模糊 |
+| `close-h` | 由左右向中央閉合 |
+| `close-v` | 由上下向中線閉合 |
+| `wipe-r-out` | 由右向左擦掉 |
+| `wipe-up-out` | 向上捲掉 |
+| `wipe-down-out` | 向下捲掉 |
+| `blinds-out` | 百葉窗閉合 |
+| `flicker-out` | 閃爍幾下後熄滅 |
+| `roll-out` | 滾動離場（轉一圈） |
+| `twist-out` | 扭轉斜切縮小消失 |
+| `track-out` | 字距向外撐開並淡出 |
+| `blur-out-stagger` | 逐字依序模糊消失 ◆ |
+| `gravity` | 逐字重力落下（各自旋轉） ◆ |
+| `leaf-fall` | 逐字像落葉飄落 ◆ |
+| `domino-out` | 逐字像骨牌依序倒下 ◆ |
+| `wave-out` | 逐字依序起伏後崩落 ◆ |
+
+逐字退場（◆，另含原有的 `dissolve`、`shatter`）需要逐字元素；沒有逐字元素的版型會退回整句淡出。其餘新增退場都是整句動作。
 
 ---
 
 ## 5. 持續特效（`~`，每句至多一個）
 
-`float`（漂浮）`shake`（抖動）`flicker`（閃爍）`rainbow`（彩虹色）`wave`（波動）`shimmer`（流光掃過）`gradient-flow`（漸層流動）`chromatic`（色差抖動，隨 BPM）`outline-pulse`（輪廓光隨拍脈動）`highlight-word`（逐字依序亮起）`stopmotion`（定格動畫感）`breathe`（呼吸：整句微微放大縮小）`track-breathe`（字距輕微呼吸）`zoom-slow`（整句在句子時間內慢慢推近）`focus-rack`（逐字依序輕微失焦再對焦）`cam-pull`（鏡頭拉遠：整句 1.06→1）`cam-pan-l`（鏡頭左移）`cam-pan-r`（鏡頭右移）`cam-tilt-up`（鏡頭上仰；三種平移量皆不到畫面寬度的 3%）
+句子停留期間持續動作。`@`（樣式）是靜態外觀，`~` 是動態。所有特效都用獨立的 `scale`／`translate`／`rotate` 屬性，不會和進場動畫打架；位移都很小（不超過畫面 3%），不會把字推離安全區。
+
+**原有**
+| 名稱 | 說明 |
+|---|---|
+| `float` | 漂浮 |
+| `shake` | 抖動 |
+| `flicker` | 閃爍 |
+| `rainbow` | 彩虹色循環 |
+| `wave` | 逐字波動 |
+| `shimmer` | 流光掃過 |
+| `gradient-flow` | 漸層流動 |
+| `chromatic` | 色差抖動（隨 BPM） |
+| `outline-pulse` | 輪廓光隨拍脈動 |
+| `highlight-word` | 逐字依序亮起（時間分配給整句） |
+| `cam-pull` | 鏡頭拉遠（整句 1.06→1） |
+
+**第一批新增（呼吸與鏡頭）**
+| 名稱 | 說明 |
+|---|---|
+| `cam-pan-l` | 鏡頭左移（<3% 畫面寬） |
+| `cam-pan-r` | 鏡頭右移 |
+| `cam-tilt-up` | 鏡頭上仰 |
+| `breathe` | 整句微微呼吸（放大縮小） |
+| `track-breathe` | 字距輕微呼吸 |
+| `zoom-slow` | 整句在句子時間內慢慢推近 |
+| `focus-rack` | 逐字依序輕微失焦再對焦 |
+| `stopmotion` | 定格動畫感（每 0.4 秒循環的小幅抖動與傾斜） |
+
+**第二批新增（節拍與律動）**：標「隨拍」者以全域 `bpm` 為節奏。
+| 名稱 | 說明 |
+|---|---|
+| `pulse` | 隨拍脈動（縮放） |
+| `heartbeat` | 心跳式雙拍脈動 |
+| `beat-jump` | 隨拍輕輕跳起 |
+| `drum` | 太鼓：重拍時突然放大再收 |
+| `slow-rotate` | 極緩慢左右傾斜（±1.2°） |
+| `sway-char` | 逐字左右搖擺（相位錯開） |
+| `small-circle` | 整句沿小圓軌跡移動（半徑<1% 畫面高） |
+| `jelly` | 果凍式橫縮縱伸交替 |
+| `noise-drift` | 逐字沿固定的雜訊軌跡漂移（非亂數） |
 
 ---
 
 ## 6. 樣式（`@`，可逗號疊加，單句最多 3 個）
 
-`neon` 霓虹、`glow-soft` 柔光、`outline` 空心、`chromatic` 色差、`gradient` 漸層、`longshadow` 長影、`trail` 拖影、`stamp` 蓋章、`glitch` 訊號閃爍、`karaoke` 逐字變亮、`double-line` 二重縁（粗外框＋細內線）、`emphasis-dot` 傍點（字上加圓點，直式在右側）、`gloss-sweep` 光澤掃過（逐字亮帶掃一次）、`shadow-stack` 多重影（三層水平漸淡）、`split-tone` 上下二色。
+| 名稱 | 說明 |
+|---|---|
+| `neon` | 霓虹 |
+| `glow-soft` | 柔光 |
+| `chromatic` | 色差 |
+| `longshadow` | 長影 |
+| `trail` | 拖影 |
+| `outline` | 空心 |
+| `stamp` | 蓋章（單行置中最合適） |
+| `double-line` | 二重縁：粗外框＋細內線 |
+| `emphasis-dot` | 傍點：字上加圓點（直式在右側） |
+| `shadow-stack` | 多重影：三層水平漸淡 |
+| `split-tone` | 上下二色 |
+| `underline` | 底線（強調色） |
+| `strike` | 刪除線（強調色） |
+| `marker` | 螢光筆：字下半加半透明色帶，不蓋字 |
+| `shadow-soft` | 柔和黑影（提高可讀性） |
+| `shadow-offset` | 偏移硬影 |
+| `tracking-wide` | 字距加寬 0.14em |
+| `gradient` | 漸層 |
+| `karaoke` | 逐字變亮 |
+| `gloss-sweep` | 光澤掃過：逐字亮帶掃一次 |
+| `glitch` | 訊號閃爍 |
 
 限制：
 - `karaoke` 與 `gradient` 同用時以 `karaoke` 為準。
 - `stamp` 最適合單行置中的版型（如 `center`）。
 - `chromatic`、`glitch`（含 `#glitch` 版型）的殘影顏色，預設是粉紅／青、紅／藍，使用者可在全域設定自訂（`ghostOn`、`ghostA`、`ghostB`）。
 - 水波折射等效果需要 WebGL2；不可用時改簡化版，不影響使用。`ripple-pool` 折射版只支援 `neon`、`glow-soft`、`outline`、`chromatic`、`longshadow`、`gradient`。
-- **綠幕輸出（`--chroma`）會移除所有發光與陰影類樣式**（`neon`、`glow-soft`、`longshadow`、`trail`、`chromatic` 等；`pv-*` 的發光與暈影也是），需要綠幕時請少依賴它們。
+- **綠幕輸出（`--chroma`）會移除所有發光與陰影類樣式**（`neon`、`glow-soft`、`longshadow`、`trail`、`chromatic`、`shadow-soft` 等；`pv-*` 的發光與暈影也是），需要綠幕時請少依賴它們。
+- 疊在影片上要提高可讀性：用 `shadow-soft`，或在全域開 `textShadow`。
 
 ---
 
@@ -267,12 +485,61 @@
 | 楷體 | `%E6%A5%B7%E9%AB%94` |
 | 等寬 | `%E7%AD%89%E5%AF%AC` |
 | 英文展示 | `%E8%8B%B1%E6%96%87%E5%B1%95%E7%A4%BA` |
-| 毛筆 | `%E6%AF%9B%E7%AD%86` |
 | 手寫 | `%E6%89%8B%E5%AF%AB` |
+| 毛筆 | `%E6%AF%9B%E7%AD%86` |
 
 - 使用者自己上傳的字體，名稱是檔名去掉副檔名；你不知道使用者有哪些自訂字體，**不要猜**。找不到字體時，離線端會退回該句原本的字體。
 - 字體優先順序：這句的 `*字體`（整句，含強調字）＞ 全域 `emFont`（只管 `{}` 強調字）＞ 版型預設（`pv-*` 的大字預設是毛筆）＞ 全域 `font`。
 - **建議做法**：整首歌的字體用全域 `font` 決定；想讓所有 `{}` 強調字統一換成毛筆等字體，用 `emFont`；只有極少數特殊句子才用單句 `*`。
+
+### 7.6 場景層（`&`）
+
+場景層是畫在文字**下方**（氛圍）或**上方**（裝飾）的 Canvas 圖案，與版型獨立組合。每句最多 `sceneMax`（預設 3）層；同一「群組」互斥，後寫的取代先寫的；`none` 表示這句明確不要場景（也不套全域底層）。
+
+- 語法：`&名稱[:強度[:速度[:節拍連動[:X偏移%[:Y偏移%]]]]]`，逗號分隔。強度 0–100、速度 0–4 倍、節拍連動 0–100、偏移 −100–100（畫面 %）。例：`#center&halftone:60:1.5,crop-marks`。
+- 沒有自己的 `&` 時使用全域 `sceneAll`（同語法，逗號分隔）。
+- 成本：每個場景標有成本（輕／中／重）。同一句成本總和超過 `sceneBudget`（預設 6）時，這句所有場景以精簡版繪製。
+- **細線裝飾（遮影片最少）**：`crop-marks`、`crosshair`、`dimension-lines`、`edge-ticks`、`guides`、`ruler`、`dashed-lines`、`target`。
+- 綠幕（`--chroma`）、透明（`--alpha`）與氛圍層輸出由畫布規則自動處理。
+
+| 名稱 | 層 | 預設強度 | 說明 |
+|---|---|---|---|
+| `halftone` | 文字下 | 60 | 半色調網點：斜向漸層＋緩慢波動，隨拍脹縮 |
+| `dots` | 文字下 | 50 | 點陣網：等大圓點緩慢漂移 |
+| `checker` | 文字下 | 40 | 棋盤格 |
+| `burst` | 文字下 | 50 | 放射線 |
+| `radial-rects` | 文字下 | 50 | 放射長方塊 |
+| `perspective-grid` | 文字下 | 55 | 透視格線（地平線以下，向前捲動；線色向地平線漸隱） |
+| `flow-lines` | 文字下 | 50 | 流動曲線 |
+| `stripes` | 文字下 | 50 | 平行四邊形條紋（向右慢移） |
+| `hatch` | 文字下 | 50 | 斜線填紋 |
+| `diag-split` | 文字下 | 50 | 斜切分割：一側染強調色 |
+| `blocks` | 文字下 | 45 | 背景色塊（種子位置，慢漂） |
+| `breathing-blocks` | 文字下 | 45 | 呼吸方塊格 |
+| `squares` | 文字下 | 50 | 置中套疊方框 |
+| `glow-ring` | 文字下 | 60 | 發光圓環 |
+| `rings` | 文字下 | 55 | 同心圓擴散 |
+| `pulse-circle` | 文字下 | 50 | 隨拍脈動圓 |
+| `glitch-bars` | 文字上 | 50 | 故障橫條：每 1/10 秒換一組（種子隨時間格） |
+| `guides` | 文字上 | 50 | 構圖參考：三分線＋黃金螺旋 |
+| `dashed-lines` | 文字上 | 50 | 虛線參考線（虛線緩慢流動） |
+| `ruler` | 文字上 | 50 | 尺規刻度（上緣、左緣）＋移動指標 |
+| `target` | 文字上 | 50 | 瞄準框：圓環＋缺口十字＋旋轉四角 |
+| `color-wash` | 文字上 | 30 | 整面染色（強調色） |
+| `gradient-fade` | 文字上 | 50 | 底部漸層遮罩（強調色向上淡出） |
+| `pink-stripes` | 文字下 | 50 | 粉紅條紋：ghostA／ghostB 交替的斜條，向左慢移 |
+| `diag-fill` | 文字下 | 50 | 斜向填色：一道斜切色帶，色帶邊界隨拍推移，漸層向外淡出 |
+| `diag-structure` | 文字下 | 45 | 斜向結構線：粗細交錯的平行斜線＋反向細線，構成菱格骨架 |
+| `crop-marks` | 文字上 | 50 | トンボ：四角的裁切標記（L 形，外側各一條短線），輕微隨拍 |
+| `crosshair` | 文字上 | 50 | 照準線：貫穿畫面的細十字＋中央小圓，圓緩慢呼吸；中央留白（不穿過文字中心） |
+| `dimension-lines` | 文字上 | 50 | 寸法線：畫面上緣與左緣各一條帶箭頭的尺寸線，線上有小短刻（像製圖標註），不寫數字 |
+| `edge-ticks` | 文字上 | 45 | 端の目盛り：畫面四邊中央各一小段短刻度（像相機取景器），隨時間有一個亮點沿著下緣緩慢移動 |
+
+實驗室場景（不列入上表，仍可在場景挑選窗選用）：`organic-blob` `edge-clouds` `scattered-shapes` `diamond-shapes` `shadow-shapes` `balancing-circles` `web-lines` `cross-pattern` `triangle-grid` `pink-grid` `jigsaw-grid` `texture-bg` `pixel-bg` `star-trail` `light-spot` `screen-border` `scalloped-border` `hud-corners` `hud-info` `hud-status` `data-monitors` `pixel-window` `desktop-icon` `smear-brush` `paper-tear` `blood-splatter` `crime-tape` `planet`。
+
+### 7.7 節拍後製
+
+整體畫面隨拍的後製（不是場景，不佔層數）：全域 `beatShake`（震動 %）、`beatZoom`（縮放 %）、`beatTilt`（傾斜度）、`beatHue`（色相度）。單句可在 `&` 裡覆寫：`&bfx-shake:3`、`&bfx-zoom:3`、`&bfx-tilt:2`、`&bfx-hue:20`，或 `&bfx-off`（這句關閉）。
 
 ---
 
@@ -284,10 +551,11 @@
 |---|---|
 | `bpm` | 節拍速度，影響脈動、色差、跳動等（預設 120） |
 | `beatSrc` | 節拍來源：`bpm`（固定 BPM）／`audio`（音訊低頻偵測，離線渲染需有音樂） |
-| `font` | 字體：`明體` `黑體` `圓體` `楷體` `等寬` `英文展示` `毛筆` `手寫`（或使用者上傳的字體名） |
-| `emFont` | **強調字字體**：所有 `{}` 強調字用的字體。預設 `"（版型預設）"`＝不介入。可填上述字體名。不支援 `particle-form`、`ripple-pool` |
+| `font` | 字體：`明體` `黑體` `圓體` `楷體` `等寬` `英文展示` `手寫` `毛筆`（或使用者上傳的字體名） |
+| `emFont` | **強調字字體**：所有 `{}` 強調字用的字體。預設 `"（版型預設）"`＝不介入。不支援 `particle-form`、`ripple-pool` |
 | `weight`、`spacing` | 字重（100–900）、字距（em，可為負） |
 | `color`、`accent` | 文字色、強調色（`#rrggbb`） |
+| `autoAccent` | 載入影片後，自動從畫面取主色當強調色 |
 | `speed`、`enter`、`exit` | 全域動畫速度、進場秒數、退場秒數 |
 | `textScale` | 文字整體縮放 %（20–300） |
 | `bigRatio` | 大字高度比例（0.03–0.8） |
@@ -303,30 +571,64 @@
 | `posAnchor`、`posX`、`posY`、`posSafe` | 全域文字位置（`tl…br`，空字串＝版型原位）、微調 %、安全邊界 % |
 | `bokeh`、`leak`、`lightning`、`scratch`、`crt`、`vhs`、`invBar`、`kb` | 疊加特效開關（散景、漏光、閃電、刮痕、CRT、VHS、反白條、緩慢推近） |
 | `beatRot` | 隨拍旋轉（度，0–3） |
+| `beatShake`、`beatZoom`、`beatTilt`、`beatHue` | 節拍後製，見 7.7 |
+| `sceneAll` | 全域底層場景（`&` 語法的逗號字串），句子沒有自己的 `&` 時使用 |
+| `sceneMax` | 每句場景層上限（1–5，預設 3） |
+| `sceneBudget` | 每句場景成本預算（預設 6） |
+| `layoutPool` | 「自動變化版型」的候選池（逗號分隔版型名；空＝全部版型） |
 | `waterRefract` | `ripple-pool` 水波折射開關（需要 WebGL2） |
 | `aspect` | 畫面比例：`fill`／`16:9`／`9:16` |
 | `lock` | 鎖定所有句子使用同一版型（如 `center`） |
 
-內建預設組合（面板可一鍵套用）：`動畫PV`、`霓虹夜`、`簡約明體`、`強烈節奏`、`遊戲PV`、`復古VHS`、`櫻花日系`、`賽博龐克`、`極簡海報`、`仿PV歌詞`、`電影字幕（底部置中）`、`街頭拼貼`。
+### 8.1 預設組合
+
+面板可一鍵套用：`動畫PV`、`霓虹夜`、`簡約明體`、`強烈節奏`、`遊戲PV`、`復古VHS`、`櫻花日系`、`賽博龐克`、`極簡海報`、`仿PV歌詞`、`電影字幕（底部置中）`、`街頭拼貼`。
 
 `仿PV歌詞` 的內容：黑體、強調色 `#a9c8ff`、`speed` 0.85、`enter` 0.8、`exit` 0.5、`weight` 300、`spacing` 0.1、`dim` 35、無粒子、`grain` 0.03、`vignette` 0.35、`trans: crossfade`、無節拍跳動與閃白。使用 `pv-lyric`／`pv-vertical` 時，建議 config 以此為底再微調。
+
+### 8.2 風格包
+
+風格包＝調色盤＋字體＋全域底層場景（`sceneAll`）＋建議版型池（`layoutPool`）＋節拍後製＋氛圍參數，並開啟「自動變化版型」：沒有自己 `#` 標記的句子會依序從版型池輪流取版型。**使用風格包時，不要為了每句不同而替每句另寫版型。** 清除風格包會還原它動過的所有欄位。
+
+| 風格包 | 字體 | 強調色 | 版型池 | 底層場景 | 氣質 |
+|---|---|---|---|---|---|
+| `藍色衝擊` | 英文展示 | `#1e6bff` | `slam` `bounce` `hero-text` `poster` `glow-cards` | `burst` `glitch-bars` | 藍白高對比、爆發式放射線、閃白轉場、強節拍 |
+| `斬擊` | 英文展示 | `#ff2a2a` | `slam` `diagonal` `wipe` `split-screen` `hero-text` | `diag-split` `diag-structure` | 斜切分割與斜向結構線、震動與傾斜 |
+| `藍色構成` | 黑體 | `#3a7bff` | `poster` `split` `lowerleft` `strip` `cards` | `blocks` `squares` `guides` | 構成主義：色塊、方框、構圖線 |
+| `城市文字雨` | 等寬 | `#3dffb0` | `falling` `formula` `typewriter` `scatter` `marquee` | `flow-lines` `hud-corners` | 文字雨、公式碎片、科技夜景 |
+| `夜色` | 圓體 | `#9aa7ff` | `center` `blurfocus` `lowerleft` `pv-lyric` | `gradient-fade` `glow-ring` | 柔和漸層與光環，抒情 |
+| `波普` | 英文展示 | `#ff2fa0` | `cute-outline` `cards` `layered` `victim-outline` `bounce` | `halftone` `pink-stripes` | 粉紅網點、可愛描邊、強節拍縮放 |
+| `青墨` | 楷體 | `#4fb3a9` | `vertical` `pv-vertical` `handwrite` `ink-bleed` `hanko` | `texture-bg` `organic-blob` | 紙質紋理＋直排毛筆，和風 |
+| `電腦` | 等寬 | `#38ff7a` | `typewriter` `hud-frame` `split-flap` `laser-scan` `formula` | `pixel-bg` `hud-info` `pixel-window` | 像素背景與復古作業系統視窗 |
+| `戰場` | 英文展示 | `#ff7a1a` | `slam` `hero-text` `shatter-text` `glitch` `poster` | `hatch` `crime-tape` `blood-splatter` | 警戒膠帶、噴濺、重擊字與強震動 |
+| `幾何` | 黑體 | `#ffcf33` | `strip` `cards` `poster` `center` `split` | `checker` `triangle-grid` `rings` | 棋盤、三角格、同心圓 |
+| `全息` | 圓體 | `#6ff3ff` | `constellation` `hud-frame` `laser-scan` `mirror-reflect` `center` | `perspective-grid` `glow-ring` `hud-corners` | 青紫全息：透視格線、光環、色相漂移 |
+| `賽博監控` | 等寬 | `#ff3b3b` | `hud-frame` `typewriter` `laser-scan` `split-flap` | `hud-corners` `hud-info` `hud-status` | 綠字黑底、HUD 資訊與狀態列、CRT／VHS |
+| `情緒電影` | 明體 | `#d9a066` | `lowerleft` `subtitle-box` `center` `blurfocus` | `gradient-fade` `color-wash` | 暖色明體、暗角與顆粒、緩慢推近 |
+| `剪影極簡` | 明體 | `#ffffff` | `center` `lowerleft` `outline-big` `pv-lyric` | `screen-border` | 純黑底、極細明體、極簡邊框 |
+| `歇斯底里之夜` | 英文展示 | `#ff1744` | `noise-text` `glitch` `shatter-text` `crayon-shatter` `flash-words` | `glitch-bars` `burst` `smear-brush` | 紅青色差、故障橫條、VHS 與強烈抖動 |
+| `戒尺` | 明體 | `#c8a24a` | `poster` `subtitle-box` `annotate` `strip` `lowerleft` | `ruler` `dashed-lines` `target` | 金棕色、尺規刻度與瞄準框、海報式排版 |
+| `金夜` | 明體 | `#D4AF37` | `margin` `baseline` `line-focus` | `dashed-lines` `gradient-fade` | 金色明體、虛線與漸層；版型池為細線版型 margin／baseline／line-focus |
+| `深海` | 圓體 | `#1FD2E6` | `full-track` `margin` | `flow-lines` `gradient-fade` | 青藍圓體、流線與漸層；版型池 full-track／margin |
+| `單色座標` | 等寬 | `#FFFFFF` | `scale-steps` `baseline` | `guides` | 白色等寬、構圖線；版型池 scale-steps／baseline |
 
 ---
 
 ## 9. 設計準則（給 AI 的選擇建議）
 
 1. **先判讀意境**：依整首歌的情緒（抒情、熱血、陰鬱、復古、科技、搞笑）決定整體「色彩＋字體＋基底版型」，再逐句微調。
-2. **大多數句子用安全選擇**：`center`、`lowerleft`，搭配簡單進場（`fade`、`rise`）與退場（`fade`）。**花俏版型留給高潮、關鍵詞、段落轉折**，約佔全部句子的 20–30%。
-3. **看句長與時長**：句子很短（< 1.5 秒）別用慢動畫（`scramble`、`particle-form`、`constellation` 需要時間）；用 `slam`、`center+zoomin`、`flash-words`。
-4. **看字數**：長句避免 `vertical`、`hanko`、`pv-vertical`、`split-flap`、`orbit`、`diagonal` 這類對字數敏感的版型。
-5. **節奏對齊**：快歌用 `bounce`、`slam`、`flash-words`、`~shake`、`trans: flash`；慢歌用 `blurfocus`、`ink-bleed`、`mirror-reflect`、`~float`。
-6. **用 `{}` 抓關鍵詞**：一句 1–2 個。`split`、`keyword`、`marker`、`annotate`、`poster`、`diagonal`、`circle-badge`、`hanko`、`pv-lyric`、`pv-vertical` 會把它排成特別的關鍵字版面；其他版型也能用，效果是改成強調色＋加粗＋發光（較含蓄）。`split` 只顯示兩個 `{}` 詞，**整句歌詞放進 `split` 前先確認這是想要的效果**。
+2. **大多數句子用安全選擇**：`center`、`lowerleft`，搭配簡單進場（`fade`、`rise`、`blur-in`）與退場（`fade`）。**花俏版型留給高潮、關鍵詞、段落轉折**，約佔全部句子的 20–30%。
+3. **看句長與時長**：句子很短（< 1.5 秒）別用慢動畫（`scramble`、`particle-form`、`constellation` 需要時間）；用 `slam`、`center+zoomin`、`flash-words`；逐字進場（◆）在短句也要避開。
+4. **看字數**：長句避免 `vertical`、`hanko`、`pv-vertical`、`split-flap`、`orbit`、`diagonal`、`cross`、`big-sandwich` 這類對字數敏感的版型。
+5. **節奏對齊**：快歌用 `bounce`、`slam`、`flash-words`、`~shake`、`~pulse`、`~beat-jump`、`trans: flash`；慢歌用 `blurfocus`、`ink-bleed`、`mirror-reflect`、`~float`、`~breathe`、`~slow-rotate`。
+6. **用 `{}` 抓關鍵詞**：一句 1–2 個。`split`、`keyword`、`marker`、`annotate`、`poster`、`diagonal`、`circle-badge`、`hanko`、`pv-lyric`、`pv-vertical`、`headline-lead`、`big-sandwich`、`cross`、`baseline`、`line-focus` 會把它排成特別的關鍵字版面；其他版型也能用，效果是改成強調色＋加粗＋發光（較含蓄）。`split` 只顯示兩個 `{}` 詞，**整句歌詞放進 `split` 前先確認這是想要的效果**。
 7. **相鄰句要有變化，但不要過度**：連續三句以上完全不同的版型會雜亂；同一段落（主歌／副歌）維持同一視覺語言，副歌再升級。
-8. **可讀性優先**：長影、霓虹、色差疊在複雜影片上可能難讀；MAD 用途建議 `textShadow: true` 並降低花俏樣式比例。
+8. **可讀性優先**：長影、霓虹、色差疊在複雜影片上可能難讀；MAD 用途建議 `textShadow: true` 或 `@shadow-soft`，並降低花俏樣式比例。
 9. **滿版版型**要節制（每首最多幾次），且不要加 `^`。
 10. **`page-flip`、`cylinder`** 會顯示前後句，不要連續使用，也不要放在第一句或最後一句。
 11. **仿 PV 風格**：整首用 `pv-lyric`（`pv-vertical` 偶爾穿插），每句用 `{}` 標 1 個最有畫面感的詞，必要時加 `(註解)`；config 套用 `仿PV歌詞` 的數值，`trans` 用 `crossfade`，不要再疊 `@neon`、`@chromatic` 等樣式（毛筆大字本身已有發光）。
 12. **字體只在必要時才指定**：用全域 `font` 與 `emFont` 控制整體；不要為了「每句不同」而到處寫 `*`。
+13. **裝飾要「細」**：影片上需要設計感時，優先用細線類場景（`crop-marks`、`dimension-lines`、`edge-ticks`）與細線版型，不要用整面染色或大塊圖形（`color-wash`、`blocks`、`diag-split` 會明顯遮影片）。
 
 ---
 
@@ -337,6 +639,7 @@
 - 配合畫面剪輯節奏：每句的 SRT 時間碼就是出現時間，**不要改時間碼**；若句子與畫面切點不合，請在報告中提出建議而不是自行改動。
 - 角色／作品的情緒（熱血、悲壯、日常、搞笑、賽博）決定字體與特效強度；`textShadow` 建議開。
 - 需要在剪輯軟體摳色時用 `--chroma`，此時避免依賴發光陰影類樣式（包含 `pv-*` 的發光）。
+- 想要「高級感」：少而精。底部一條 `lowerleft` 或 `margin`＋`blur-in`／`fade` 進退場，加上 `~breathe` 或 `~cam-pull`，比滿版特效耐看。
 
 ---
 
@@ -352,14 +655,16 @@
 
 **句數很多時**（約 60 句以上）：可分段輸出，每段結尾標明「接續第 N 句」，**整首的版型基調與全域設定前後保持一致**，不要因分段而改風格。
 
-不確定名稱是否存在時，**使用第 3–6 節已列出的名稱**，不要自創。
+不確定名稱是否存在時，**使用第 3–7 節已列出的名稱**，不要自創。
+
+---
 
 ## 12. 常見錯誤（請避免）
 
 - 標記中間加空白：`#center + rise` ✗ → `#center+rise` ✓
-- 順序顛倒：`@neon#center` ✗；固定順序為 `#版型+進場+退場~特效^位置*字體@樣式`
+- 順序顛倒：`@neon#center` ✗；固定順序為 `#版型+進場+退場~特效^位置*字體@樣式&場景`
 - `*字體` 放在 `^位置` 前面、或字體名沒有 URL 編碼（`*毛筆` ✗ → `*%E6%AF%9B%E7%AD%86` ✓）
-- 同一句超過 3 個樣式、超過 1 個 `~` 特效
+- 同一句超過 3 個樣式、超過 1 個 `~` 特效、超過 `sceneMax` 個場景
 - 對滿版版型加 `^位置`
 - 輸出 `^alt:bl|br` 這類編輯器專用寫法（SRT 不支援）
 - 使用不存在的名稱（例如 `#fade`、`+bounce`、`~glow`、`#pv`）
@@ -368,13 +673,12 @@
 - 在 `pv-lyric`／`pv-vertical` 的歌詞裡把 `(…)` 當一般歌詞使用：括號內的字會被當成註解抽出來，不會出現在主文
 - 只寫 `#版型`，漏掉進場與退場（完整標記要寫齊 `#版型+進場+退場`）
 - 輸入句已有標記卻整句重寫，導致使用者手調的段落被覆蓋
+- 逐字進場（◆）配沒有逐字資料的版型：會退回整句淡入，看不到預期效果
 
 ---
 
-## 13. 進階功能（選用，預設不使用）
+## 13. 進階與授權
 
-以下功能工具已支援，但本手冊尚未收錄完整名稱表與語法順序。**除非使用者明確要求，否則不要輸出**；要求時也只使用下列已確認的內容，不要自創名稱。
-
-- **場景層 `&`**：寫法範例 `#center&halftone:60:1.5,burst 歌詞`；參數順序 `名稱:強度:速度:節拍連動:X偏移:Y偏移`。已確認存在的場景名稱：`halftone`、`burst`；其他以工具編輯器「＋場景」挑選窗為準。`&` 與 `~`、`^`、`@` 同時出現時的先後順序尚未確認，混用前請先請使用者提供範例。
-- **節拍後製**：全域欄位 `beatShake`、`beatZoom`、`beatTilt`、`beatHue`；單句覆寫 `&bfx-shake:3`、`&bfx-off`。
-- **風格包**：面板一鍵套用（19 個，新增 `金夜`、`深海`、`單色座標`），內容為調色盤＋字體＋全域底層場景（`sceneAll`）＋版型池（`layoutPool`）＋節拍後製，並開啟「自動變化版型」；沒有自己 `#` 標記的句子會依序從版型池輪流取版型。**使用風格包時，不要為了每句不同而替每句另寫版型。**
+- **場景層、節拍後製、風格包**：見 7.6、7.7、8.2。**預設不輸出 `&`**，除非使用者明確要求，或使用風格包而全域已有 `sceneAll`。
+- **實驗室版型**（3.1）與**實驗室場景**（7.6 末）：預設不替使用者挑選，除非要求或選用風格包的版型池包含它們。
+- **第三方來源**：部分版型、進退場、持續特效、樣式與風格包的設計概念與數值，改寫自 [JIZURA](https://github.com/852wa/JIZURA)（作者 hakoniwa，MIT 授權）；只讀其設計與數值，以 DOM／CSS／Web Animations 重寫，沒有搬動其 Canvas 程式碼。授權全文見本倉庫根目錄 `LICENSE`。

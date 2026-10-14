@@ -34,7 +34,8 @@ function applyStyles(c,sb,dur){
  if(st.includes("karaoke")&&st.includes("gradient"))note("karaoke 與 gradient 同時使用會搶同一個顏色，以 karaoke 為準");
  st.sort((a,b)=>(a==="karaoke")-(b==="karaoke"));
  st.forEach(k=>{if(ST[k])tEls(c).forEach(e=>ST[k](e));else STC[k](c,sb,dur)})}
+const SUB_OWN=new Set();   /* 自己負責畫副文（||）的版型（ruby／footnote），addSub 不再重複畫 */
 function addSub(sb,c,small,left){
- if(!sb.sub)return;
+ if(!sb.sub||SUB_OWN.has(sb.lay))return;
  const e=txtEl(`${left?"left:6cqw;bottom:6.5cqh;":"left:0;right:0;bottom:6cqh;text-align:center;padding-left:.55em;"}font-size:${small*.62}px;letter-spacing:.55em;font-weight:300;white-space:pre-wrap`);
  delete e.dataset.t;e.textContent=sb.sub;c.appendChild(e);A(e,[{opacity:0},{opacity:.6}],{duration:D()*1.4,delay:D()*.6})}

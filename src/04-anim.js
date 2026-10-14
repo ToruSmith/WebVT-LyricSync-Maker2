@@ -4,8 +4,11 @@ let tK=1;   /* 短句縮放係數：句長放不下「進場＋退場」時等�
 const D=()=>CONFIG.enter*1000/CONFIG.speed*tK;
 function chars(txt,parent,css){return[...txt].map(c=>{const s=document.createElement("span");s.className="ch";s.textContent=c;if(css)s.style.cssText=css;parent.appendChild(s);return s})}
 function txtEl(css){const d=document.createElement("div");d.style.cssText=`position:absolute;font-family:${FONTS[curFont||CONFIG.font]||curFont||CONFIG.font};font-weight:${CONFIG.weight};letter-spacing:${CONFIG.spacing}em;color:var(--c);${css}`;d.dataset.t="1";return d}
+/* ENTER_X：擴充進場表（src/23-motion-k.js 填入）。函式 (el,list,d)；list 為逐字元素（可能為空），自行決定逐字或整句 */
+const ENTER_X={};
 function enter(el,kind,list){
  const d=D();
+ if(ENTER_X[kind]){ENTER_X[kind](el,list,d);return}
  /* 階段 2（JIZURA 移植）新增進場：blur-stagger／skew-in／clock-wipe 需要 list／el／CLOCK_OK，所以在表之前單獨處理；wipe／track-in／neon-on 在下面的表 k 內 */
  if(kind==="blur-stagger"&&list){list.forEach((c,i)=>A(c,[{opacity:0,filter:"blur(12px)",transform:"translateY(1cqh)"},{opacity:1,filter:"none",transform:"none"}],{duration:d,delay:i*60/CONFIG.speed}));return}   /* 無 list 時不在表內，退回整句淡入 */
  if(kind==="skew-in"){const v=/vertical/.test(getComputedStyle(el).writingMode||"");A(el,[{opacity:0,transform:v?"translateY(-6cqh) skewY(-20deg)":"translateX(-6cqw) skewX(-20deg)"},{opacity:1,transform:"none"}],{duration:d});return}   /* 直式文字改從上方進入 */
