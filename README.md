@@ -274,8 +274,9 @@
 
 本倉庫實際收錄的驗證（需先 `npm install` 與 `npx playwright install chromium`；`baseline.html` 是凍結基準，不要改）：
 
-    npm run check                           # 建置＋全部回歸檢查（見 package.json 的 scripts.check）
+    npm run check                           # 建置＋lint＋全部回歸檢查（見 package.json 的 scripts.check）
     npm run build:check                     # 只檢查 index.html 是否與 src/ 同步（CI 也跑這個）
+    npm run lint                            # 全域作用域 lint：重複宣告、未定義名稱、頂層先用後宣告（不需瀏覽器；CI 也跑這個）
     node test/ui-parity.mjs                 # UI 功能對等：舊的面板項目、快捷項目、頂欄項目一個不少
     node test/spec-sync.mjs                 # 功能手冊與程式的清單同步
     node test/scene.mjs                     # 場景層
@@ -284,6 +285,8 @@
     node verify-kit/regress-all.mjs baseline.html index.html 16:9   # 與凍結基準逐像素回歸
     node render/run.mjs --selftest --seconds 12   # 同一專案渲染兩次，逐格比對，必須完全相同
     node test/make-thumbs.mjs               # 重拍「縮圖預覽」的精靈圖 thumbs/sheet.webp（不屬於 check；見下方「縮圖預覽」）
+
+**CI（GitHub Actions，`.github/workflows/check-build.yml`）**：每次 push／PR 跑三道檢查——`build-in-sync`（只需 Node）、`lint`（只需 Node）、`regression`（裝 Chromium 與 CJK 字體後跑 `npm run check`）。依賴版本由 `package-lock.json` 鎖定（CI 用 `npm ci`），逐像素回歸對瀏覽器版本敏感，升級 Playwright 時請一併更新鎖定檔並重跑 `npm run check`。
 
 以下是早期版本使用過的腳本，**本倉庫目前未收錄**（保留名稱供查找；需要時請補檔，或以上面的項目取代）：
 `test/baseline.mjs`、`combos.mjs`、`allsheet.mjs`、`position.mjs`、`project-export.mjs`、`post.mjs`、`chroma.mjs`、`coverage.mjs`、`regress.mjs`、`phases.mjs`、`layers.mjs`、`audio-check.mjs`。

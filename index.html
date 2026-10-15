@@ -3149,7 +3149,9 @@ if(RENDER){
  let rt=[],inRT=false,vnow=0;const _an=Element.prototype.animate;
  Element.prototype.animate=function(k,o){const a=_an.call(this,k,o);if(inRT){a.pause();a.currentTime=0;rt.push({a,t0:vnow})}return a};
  const wrap=f=>function(...x){inRT=true;try{return f.apply(this,x)}finally{inRT=false}};
+ /* eslint-disable-next-line no-func-assign -- 離線渲染刻意覆蓋：包住 onBeat／transition，讓它們內建立的動畫改由時間驅動 */
  onBeat=wrap(onBeat);transition=wrap(transition);
+ /* eslint-disable-next-line no-func-assign -- 離線渲染刻意覆蓋：總長度改由 project 決定 */
  let __dur=0,__aud=null;endT=()=>__dur>0?__dur:(subs.length?subs[subs.length-1].e+1:0);
  const __im=document.createElement("img");__im.id="mimg";m.after(__im);
  window.__loadProject=async p=>{

@@ -7,13 +7,14 @@
 1. **只改 `src/`，不要編輯 `index.html`。** `index.html` 是 `node build.mjs` 把 `src/*.js`（依檔名排序）、`src/style.css`、`src/index.template.html` 原樣串接出來的產物。改完一定要 `node build.mjs`，並把 `index.html` 與 `src/` 一起提交（CI 會檢查兩者同步）。
 2. **不要整份讀 `index.html`（240KB）與 `baseline.html`（176KB，凍結的回歸基準，不要改）。** 找程式碼用 `grep -n "===== \[" src/*.js` 找區段，只讀需要的檔案。
 3. **先讀 `src/00-header.js`**：裡面有檔案地圖（哪個區段在哪個檔）、新增版型／工具／面板區段／設定鍵／風格包的步驟。
-4. 所有 `src/*.js` 共用同一個全域作用域，沒有 import。後面的檔案可用前面檔案的宣告；前面檔案要用後面的東西，只能在「執行時」才碰到（函式內），不能在頂層。檔名前綴有重複（15、16、23），順序以完整檔名排序為準。
+4. 所有 `src/*.js` 共用同一個全域作用域，沒有 import。後面的檔案可用前面檔案的宣告；前面檔案要用後面的東西，只能在「執行時」才碰到（函式內），不能在頂層。檔名前綴有重複（15、16、23），順序以完整檔名排序為準。`node test/lint.mjs` 會檢查這件事：重複宣告（後面的檔案默默覆蓋前面的函式）、未定義名稱、頂層先用後宣告。真的需要覆蓋既有函式時（如 `27-render-api.js` 的包裝），在該行上一行加 `/* eslint-disable-next-line 規則名 -- 理由 */`。
 
 ## 常用指令
 
     node build.mjs            # src/ → index.html
     npm run build:check       # 檢查 index.html 是否與 src/ 同步
-    npm run check             # 建置＋全部回歸（需 npm install、npx playwright install chromium；沒有瀏覽器就跑不了）
+    npm run lint              # 全域作用域 lint（只需 npm install，不需瀏覽器）；結果已對映回 src/ 的檔名與行號
+    npm run check             # 建置＋lint＋全部回歸（需 npm install、npx playwright install chromium；沒有瀏覽器就跑不了）。CI 的 regression job 跑的就是這個
     node test/spec-sync.mjs   # 功能手冊與程式的清單同步（新增版型／場景／風格包後，手冊要補，否則失敗）
     # 網址加 ?check=1，F12 主控台跑 selfCheck()（版型／場景／快捷表登記是否一致）
 

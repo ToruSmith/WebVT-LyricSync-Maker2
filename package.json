@@ -1,18 +1,24 @@
 {
- "name": "work",
+ "name": "webvt-lyricsync-maker2",
  "version": "1.0.0",
  "description": "動態歌詞字幕工具：網頁版即時預覽與錄製，離線渲染（Playwright＋ffmpeg）",
- "main": "index.js",
  "scripts": {
   "build": "node build.mjs",
   "build:check": "node build.mjs --check",
-  "check": "node build.mjs && node verify-kit/regress-all.mjs baseline.html index.html 16:9 && node verify-kit/regress-all.mjs baseline.html index.html 9:16 && node test/ui-parity.mjs && node test/spec-sync.mjs && node test/scene.mjs && node test/beatfx-layouts.mjs && node test/beatfx-layouts.mjs 9:16 && node test/styles.mjs && node test/styles.mjs 9:16 && node test/sentence-opts.mjs && node test/sentence-opts.mjs 9:16"
+  "lint": "node test/lint.mjs",
+  "check": "node build.mjs && node test/lint.mjs && node verify-kit/regress-all.mjs baseline.html index.html 16:9 && node verify-kit/regress-all.mjs baseline.html index.html 9:16 && node test/ui-parity.mjs && node test/spec-sync.mjs && node test/scene.mjs && node test/beatfx-layouts.mjs && node test/beatfx-layouts.mjs 9:16 && node test/styles.mjs && node test/styles.mjs 9:16 && node test/sentence-opts.mjs && node test/sentence-opts.mjs 9:16"
  },
- "keywords": [],
- "author": "",
  "license": "MIT",
  "dependencies": {
   "playwright": "^1.64.0"
  },
- "type": "module"
+ "type": "module",
+ "private": true,
+ "engines": {
+  "node": "^20.19.0 || ^22.13.0 || >=24"
+ },
+ "devDependencies": {
+  "eslint": "^10.12.0",
+  "globals": "^17.13.0"
+ }
 }
