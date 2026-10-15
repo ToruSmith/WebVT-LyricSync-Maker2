@@ -1223,8 +1223,8 @@ const RND_SPARSE="ripple-pool particle-form constellation";   /* 自己就是滿
 const RND_TEXT_CANVAS="particle-form ripple-pool";             /* 文字畫在 canvas 上：要 DOM 文字的特效（RND_FX_DOM）對它們沒有作用 */
 const RND_STRONG_LAY="slam bounce glitch flash-words zoom-tunnel danmaku shatter-text noise-text scatter falling crayon-shatter";   /* 高能量版型：才會配 RND_FX_STRONG */
 const RND_FX_STRONG="shake flicker rainbow chromatic stopmotion drum beat-jump";   /* 強烈特效（閃爍、抖動、變色、重拍彈跳）：只配高能量版型 */
-const RND_FX_DOM="gradient-flow chromatic outline-pulse track-breathe highlight-word focus-rack";   /* 只作用在 DOM 文字（找 .ch 或帶 font-family 的元素） */
-const RND_FX_GRP={cam:"breathe zoom-slow cam-pull cam-pan-l cam-pan-r cam-tilt-up pulse heartbeat drum jelly beat-jump small-circle",color:"rainbow gradient-flow chromatic shimmer outline-pulse",char:"wave track-breathe focus-rack highlight-word noise-drift",jitter:"shake flicker stopmotion",rot:"slow-rotate sway-char"};   /* 同組互斥（float 單獨一組）。cam＝對整句容器動 scale／translate 的特效：同屬性的動畫會互相覆蓋，所以一次只配一個 */
+const RND_FX_DOM="gradient-flow chromatic outline-pulse track-breathe highlight-word focus-rack dangle wind-gust";   /* 只作用在 DOM 文字（找 .ch 或帶 font-family 的元素） */
+const RND_FX_GRP={cam:"breathe zoom-slow cam-pull cam-pan-l cam-pan-r cam-tilt-up pulse heartbeat drum jelly beat-jump small-circle stretch-beat tilt-down dolly-in step-zoom",color:"rainbow gradient-flow chromatic shimmer outline-pulse shadow-sway",char:"wave track-breathe focus-rack highlight-word noise-drift",jitter:"shake flicker stopmotion",rot:"slow-rotate sway-char dangle wind-gust"};   /* 同組互斥（float 單獨一組）。cam＝對整句容器動 scale／translate 的特效：同屬性的動畫會互相覆蓋，所以一次只配一個 */
 const RND_NEED_SUB="ruby footnote";   /* 版型自己畫副文（SUB_OWN）：這句有副文（||）才會被抽到；沒有副文時 ruby 只剩小圓點、footnote 沒註腳 */
 const RND_NO_EN="slam bounce";   /* build() 不套用這些版型的 en（見 05-build.js），隨機時進場留空，不寫沒用的標記 */
 const edRandOpt={lay:true,anim:true,fx:true,scn:true,lab:false};   /* 隨機哪些內容；lab＝含實驗室版型與場景 */
@@ -2391,6 +2391,133 @@ registerLayout("cross",(sb,c,w,big,sm,dur,list)=>{   /* 十字組（JIZURA tyCro
  const e=txtEl(`position:relative;grid-row:2;grid-column:2;font-size:${_jpx(zk)};line-height:1.1;white-space:pre;color:var(--a);-webkit-text-fill-color:var(--a)`);e.textContent="";g.appendChild(e);list.push(...chars(key,e));
  cell(hq,2,3,"justify-self:start;white-space:pre-wrap;text-align:left;max-width:26cqw",.85);cell(vq,3,2,"writing-mode:vertical-rl;white-space:pre;align-self:start",.5);
  _kIn(e,list,sb,0,0)},{brace:1});
+/* ===== [LAY-L] 版型 L（JIZURA 移植・第四批，「實驗室」）：frame-box corners drop-cap split-cut erode-repeat justify-stack。
+   部分部品改寫自 JIZURA（原作者 hakoniwa；備份於 ToruSmith/JIZURA）。JIZURA is Copyright (c) 2026 hakoniwa, released under the MIT License（授權全文見本倉庫根目錄 LICENSE 的「Third-party notices」）。
+   只讀其設計與數值後用 DOM＋細線重寫，沒有搬 Canvas 程式碼。
+   對應：frame-box＝frameBox（額縁）／corners＝corners（対角配置）／drop-cap＝dropCap（大きな頭文字）／split-cut＝tySplitType（断ち割り）／erode-repeat＝tyErode（削り反復）／justify-stack＝tyJustify（幅揃え）。
+   皆為時間純函數（A() 暫停動畫；不用 Math.random、不累積狀態；變化一律由句子編號 _jIdx 輪替）；只用文字加細線，不畫底板、不加不透明底色；
+   非主文的線與點標 data-nm；不做 JIZURA 自帶的羅馬字、No. 編號、時間碼。不吃 {}。 ===== */
+["frame-box","corners","drop-cap","split-cut","erode-repeat","justify-stack"].forEach(n=>LAB_LAYOUTS.add(n));
+/* 進場：有指定進場就交給 enter()，並整體延後 d0；否則用預設淡入上移 */
+function _lEn(sb,el,list,d0,kf){
+ if(sb.en){const n0=anims.length;enter(el,sb.en,list);_jLate(n0,d0)}
+ else A(el,kf||[{opacity:0,transform:"translateY(1.2cqh)"},{opacity:1,transform:"none"}],{duration:D(),delay:d0})}
+/* 文字寬度（em）：用 canvas 量（含字距），量不到退回估計值 */
+let _lCtx=null;
+function _lW(t,fam,ls){
+ try{_lCtx=_lCtx||document.createElement("canvas").getContext("2d");_lCtx.font=`${CONFIG.weight} 100px ${fam}`;
+  const w=_lCtx.measureText(t).width/100;if(w>0)return w+[...t].length*ls}catch(e){}
+ return _jCw(t)+[...t].length*ls}
+const _lFam=()=>FONTS[curFont||CONFIG.font]||curFont||CONFIG.font;
+
+/* ---- frame-box 額縁：字被一個細線框圈住；框式依句子編號輪替 full／double／corners；四邊依序拉出 ---- */
+registerLayout("frame-box",(sb,c,w,big,sm,dur,list)=>{
+ const vw=SWd(),vh=SHd(),port=vw<vh,arr=[...sb.plain],n=Math.max(1,_jN(sb.plain)),sty=["full","double","corners"][_jIdx(sb)%3];
+ const f=_jFit(n,vw*(port?.7:.6),Math.min(vh*.19,big*.8),port?5:3,1.1),z=capSize(f.z,.19),lines=_jBrk(arr,f.per);if(!lines.length)return;
+ const box=document.createElement("div");box.style.cssText=`position:absolute;left:50%;top:50%;translate:-50% -50%;padding:${_jpx(z*.7)} ${_jpx(z*.8)};font-size:${_jpx(z)}`;c.appendChild(box);
+ const e=txtEl("position:relative;text-align:center;line-height:1.2;letter-spacing:.04em");box.appendChild(e);
+ lines.forEach(([a,b])=>{const d=document.createElement("div");d.style.whiteSpace="pre";e.appendChild(d);list.push(...chars(arr.slice(a,b).join(""),d))});
+ const T=_jT(0),L=D()*.85,lw="max(2px,.04em)";
+ const edge=(css,ax,dl,col)=>{const h=hair(box,css,T+dl,ax,L*.5);h.style.background=col||"var(--c)";return h};
+ if(sty==="corners"){const arm=_jpx(z*.9);
+  [["top:0;left:0","left top","X"],["top:0;left:0","left top","Y"],["top:0;right:0","right top","X"],["top:0;right:0","right top","Y"],
+   ["bottom:0;left:0","left bottom","X"],["bottom:0;left:0","left bottom","Y"],["bottom:0;right:0","right bottom","X"],["bottom:0;right:0","right bottom","Y"]].forEach(([p,o,ax],i)=>{
+   const h=hair(box,`${p};transform-origin:${o};${ax==="X"?`width:${arm};height:${lw}`:`height:${arm};width:${lw}`}`,T+(i>>1)*_jT(60),ax,L*.5);h.style.background="var(--a)"})}
+ else{
+  edge(`top:0;left:0;right:0;height:${lw};transform-origin:left`,"X",0);
+  edge(`top:0;right:0;bottom:0;width:${lw};height:auto;transform-origin:top`,"Y",_jT(120));
+  edge(`bottom:0;left:0;right:0;height:${lw};transform-origin:right`,"X",_jT(240));
+  edge(`top:0;left:0;bottom:0;width:${lw};height:auto;transform-origin:bottom`,"Y",_jT(360));
+  if(sty==="double"){const g=_jpx(z*.16);
+   edge(`top:${g};left:${g};right:${g};height:1px;transform-origin:left;opacity:.55`,"X",_jT(200),"var(--a)");
+   edge(`bottom:${g};left:${g};right:${g};height:1px;transform-origin:right;opacity:.55`,"X",_jT(320),"var(--a)");
+   edge(`top:${g};bottom:${g};left:${g};width:1px;height:auto;transform-origin:bottom;opacity:.55`,"Y",_jT(440),"var(--a)");
+   edge(`top:${g};bottom:${g};right:${g};width:1px;height:auto;transform-origin:top;opacity:.55`,"Y",_jT(280),"var(--a)")}}
+ _lEn(sb,e,list,_jT(260))});
+
+/* ---- corners 対角配置：句子切成兩段，前段在一角、後段在對角；底下一條細線拐彎連過去，線尾收在強調色小點 ---- */
+registerLayout("corners",(sb,c,w,big,sm,dur,list)=>{
+ const vw=SWd(),vh=SHd(),port=vw<vh,txt=sb.plain.trim(),G=[...txt].filter(x=>!/\s/.test(x));if(G.length<2)return;
+ let A0,B0;const sp=txt.split(/[,，、;；\s]+/).filter(Boolean);
+ if(sp.length>=2){const k=Math.ceil(sp.length/2),lat=/\s/.test(txt)&&G.filter(ch=>/[\x21-\x7e]/.test(ch)).length>G.length*.6;A0=sp.slice(0,k).join(lat?" ":"");B0=sp.slice(k).join(lat?" ":"")}
+ else{const a=[...txt],k=Math.ceil(a.length/2);A0=a.slice(0,k).join("").trim();B0=a.slice(k).join("").trim()}
+ if(!A0||!B0)return;
+ const anti=_jIdx(sb)%2===1,maxPer=port?5:9,ar=[...A0],br=[...B0],la=_jBrk(ar,maxPer),lb=_jBrk(br,maxPer);if(!la.length||!lb.length)return;
+ const bw=vw*(port?.84:.58),mx=Math.max(...la.map(([a,b])=>b-a),...lb.map(([a,b])=>b-a));
+ const z=capSize(Math.min(bw/(mx*1.1),vh*(port?.24:.3)/(Math.max(la.length,lb.length)*1.1),big*.7),.22);
+ const mk=(arr,ls,right,css)=>{const e=txtEl(`${css};font-size:${_jpx(z)};line-height:1.1;letter-spacing:.02em;text-align:${right?"right":"left"}`);c.appendChild(e);
+  ls.forEach(([a,b])=>{const d=document.createElement("div");d.style.whiteSpace="pre";e.appendChild(d);list.push(...chars(arr.slice(a,b).join(""),d))});return e};
+ const ea=mk(ar,la,anti,`${anti?"right":"left"}:7.5cqw;top:13cqh`),eb=mk(br,lb,!anti,`${anti?"left":"right"}:7.5cqw;bottom:13cqh`);
+ const hA=la.length*z*1.1,yLine=`calc(13cqh + ${_jpx(hA+z*.16)})`,xe=anti?"left:7.5cqw":"right:7.5cqw";
+ hair(c,`left:7.5cqw;right:7.5cqw;top:${yLine};transform-origin:${anti?"right":"left"};opacity:.6`,_jT(150),"X",D()*.8);
+ const v=hair(c,`${anti?"left":"right"}:7.5cqw;top:${yLine};bottom:calc(13cqh + ${_jpx(lb.length*z*1.1+z*.16)});height:auto;width:1px;transform-origin:top;opacity:.6`,_jT(150)+D()*.5,"Y",D()*.5);
+ tick(c,`${anti?"left":"right"}:calc(7.5cqw - .25em);bottom:calc(13cqh + ${_jpx(lb.length*z*1.1+z*.16)} - .25em);font-size:${_jpx(z*.5)}`,_jT(150)+D()*.95,D()*.3);
+ const d1=_jT(120);_lEn(sb,ea,list.filter(x=>ea.contains(x)),0,[{opacity:0,transform:`translateX(${anti?2:-2}cqw)`},{opacity:1,transform:"none"}]);
+ _lEn(sb,eb,list.filter(x=>eb.contains(x)),d1+D()*.3,[{opacity:0,transform:`translateX(${anti?-2:2}cqw)`},{opacity:1,transform:"none"}])});
+
+/* ---- drop-cap 大きな頭文字：第一個字放大成 2～3 行高，其餘字繞在右邊；首字式依句子編號輪替 fill／accent／outline ---- */
+registerLayout("drop-cap",(sb,c,w,big,sm,dur,list)=>{
+ const vw=SWd(),vh=SHd(),port=vw<vh,arr=[...sb.plain.trim()],cap=arr[0],rest=arr.slice(1),nR=rest.filter(x=>!/\s/.test(x)).length;if(!cap||nR<2)return;
+ const cl=nR<=10?2:3,per=Math.ceil(nR/cl),lines=_jBrk(rest,per),Lr=lines.length,lead=1.3,kc=((cl-1)*lead+1)/.86,gap=.5,style=["fill","accent","outline"][_jIdx(sb)%3];
+ let z=Math.min(vw*(port?.84:.66)/(per*1.06+kc*1.04+gap),vh*.62/((Math.max(Lr,cl)-1)*lead+1),big*.7);z=Math.min(z,vh*.28/kc);z=capSize(z,.16);
+ const row=document.createElement("div");row.style.cssText=`position:absolute;left:50%;top:50%;translate:-50% -50%;display:flex;align-items:flex-start;gap:${_jpx(z*gap)};font-size:${_jpx(z)}`;c.appendChild(row);
+ const ce=txtEl(`position:relative;flex:none;font-size:${kc.toFixed(3)}em;line-height:.86;letter-spacing:0;${style==="accent"?"color:var(--a);":""}${style==="outline"?"color:transparent;-webkit-text-stroke:max(2px,.025em) var(--c);":""}`);row.appendChild(ce);
+ const cc=chars(cap,ce);
+ const re=txtEl(`position:relative;flex:0 1 auto;line-height:${lead};letter-spacing:.04em;padding-top:.05em`);row.appendChild(re);
+ const rl=[];lines.forEach(([a,b])=>{const d=document.createElement("div");d.style.whiteSpace="pre";re.appendChild(d);rl.push(...chars(rest.slice(a,b).join(""),d))});
+ list.push(...cc,...rl);
+ const rule=hair(row,`position:relative;order:0;flex:none;width:1px;height:auto;align-self:stretch;margin:0 ${_jpx(-z*gap*.5)};transform-origin:top;opacity:.5`,_jT(200),"Y",D()*.7);
+ row.insertBefore(rule,re);
+ _lEn(sb,ce,cc,0,[{opacity:0,transform:"scale(1.25)",filter:"blur(6px)"},{opacity:1,transform:"none",filter:"blur(0)"}]);
+ _lEn(sb,re,rl,_jT(220))});
+
+/* ---- split-cut 断ち割り：每行字從中線切成上下兩半，上半往右、下半往左錯開；切線是一條強調色細線由左拉到右 ---- */
+registerLayout("split-cut",(sb,c,w,big,sm,dur,list)=>{
+ const vw=SWd(),vh=SHd(),port=vw<vh,arr=[...sb.plain.trim()],n=Math.max(1,_jN(sb.plain));
+ const f=_jFit(n,vw*(port?.8:.76),Math.min(vh*.3,big*.9),port?4:3,1.06),z=capSize(f.z,.3),lines=_jBrk(arr,f.per);if(!lines.length)return;
+ const L=lines.length,lead=1.16,idx=_jIdx(sb),off=(.08+.07*((idx*7)%3)/2)*(idx%2?-1:1),cutY=[.02,-.06,.08][idx%3];
+ const wrap=document.createElement("div");wrap.style.cssText=`position:absolute;left:0;right:0;top:50%;translate:0 -50%;font-size:${_jpx(z)}`;c.appendChild(wrap);
+ const cutPct=(50+cutY/lead*100).toFixed(2);
+ lines.forEach(([a,b],li)=>{
+  const t=arr.slice(a,b).join(""),row=document.createElement("div");row.style.cssText=`position:relative;height:${lead}em;line-height:${lead}em;text-align:center;white-space:pre`;wrap.appendChild(row);
+  const mkh=(top)=>{const h=txtEl(`inset:0;text-align:center;line-height:${lead}em;letter-spacing:.03em;white-space:pre;clip-path:inset(${top?`0 0 ${(100-cutPct).toFixed(2)}% 0`:`${cutPct}% 0 0 0`})`);h.textContent=t;row.appendChild(h);return h};
+  const top=mkh(true),bot=mkh(false),X=off.toFixed(3),d0=_jT(li*90);
+  A(top,[{opacity:0,transform:"translateX(0)"},{opacity:1,transform:`translateX(${X}em)`}],{duration:D(),delay:d0,easing:"cubic-bezier(.16,1,.3,1)"});
+  A(bot,[{opacity:0,transform:"translateX(0)"},{opacity:1,transform:`translateX(${-X}em)`}],{duration:D(),delay:d0,easing:"cubic-bezier(.16,1,.3,1)"});
+  const ln=hair(row,`left:4cqw;right:4cqw;top:${cutPct}%;background:var(--a);opacity:.9;transform-origin:left`,_jT(160+li*80),"X",D()*.7);ln.style.height="max(1.5px,.02em)"});
+ if(sb.en){/* 兩半各自演進場太雜：有指定進場時只套在整塊上 */const n0=anims.length;enter(wrap,sb.en,[]);_jLate(n0,0)}});
+
+/* ---- erode-repeat 削り反復：同一句重複 2～5 行，每行多出（或少掉）一段；主行用本字顏色與進場，其餘行淡階；左對齊在整句的寬度上 ---- */
+registerLayout("erode-repeat",(sb,c,w,big,sm,dur,list)=>{
+ const vw=SWd(),vh=SHd(),arr=[...sb.plain.trim()],S=arr.filter(x=>!/\s/.test(x)).length;if(S<2)return;
+ const R=Math.min(5,Math.max(2,S)),lens=[];for(let r=0;r<R;r++){const l=Math.max(1,Math.round(arr.length*(r+1)/R));if(!lens.includes(l))lens.push(l)}
+ const erode=_jIdx(sb)%3===2;if(erode)lens.reverse();
+ const rows=lens.map(l=>arr.slice(0,l).join("").trim()).filter(Boolean),Rn=rows.length,mainR=erode?0:Rn-1,leadK=1.34;if(!Rn)return;
+ const fam=_lFam(),fw=_lW(arr.join(""),fam,.04);
+ const z=capSize(Math.min(vw*.74/fw,vh*.8/(Rn*leadK),big*.7),.16);
+ const col=document.createElement("div");col.style.cssText=`position:absolute;left:50%;top:50%;translate:-50% -50%;display:flex;flex-direction:column;align-items:flex-start;font-size:${_jpx(z)};line-height:${leadK}`;c.appendChild(col);
+ rows.forEach((t,r)=>{
+  const e=txtEl(`position:relative;white-space:pre;letter-spacing:.04em`);col.appendChild(e);
+  if(r===mainR){const ch=chars(t,e);list.push(...ch);_lEn(sb,e,ch,_jT(r*110))}
+  else{e.textContent=t;e.dataset.nm=1;const dist=Math.abs(r-mainR)/Math.max(1,Rn-1);e.style.color="var(--c)";
+   A(e,[{opacity:0},{opacity:.75-.45*dist}],{duration:D()*.5,delay:_jT(r*110)})}})});
+
+/* ---- justify-stack 幅揃え：2～4 行，每行各自調字級撐到同一寬度（行首行尾切齊）；行間可加細線；字級不超過畫面高度 .2 ---- */
+registerLayout("justify-stack",(sb,c,w,big,sm,dur,list)=>{
+ const vw=SWd(),vh=SHd(),port=vw<vh,txt=sb.plain.trim(),G=[...txt].filter(x=>!/\s/.test(x)),n=G.length;if(n<3)return;
+ const lat=/\s/.test(txt)&&G.filter(ch=>/[\x21-\x7e]/.test(ch)).length>n*.6;let Ln=n<=5?2:n<=10?3:4,units=lat?txt.split(/\s+/).filter(Boolean):G;Ln=Math.min(Ln,units.length);if(Ln<2)return;
+ const lines=[],per=Math.ceil(units.length/Ln);for(let i=0;i<units.length;i+=per)lines.push(units.slice(i,i+per).join(lat?" ":""));
+ for(let i=1;i<lines.length;i++){while(lines[i]&&_jPunct.test([...lines[i]][0])){const ch=[...lines[i]][0];lines[i-1]+=ch;lines[i]=lines[i].slice(ch.length)}}
+ const ls=lines.filter(Boolean);if(ls.length<2)return;
+ const Wb=port?vw*.84:Math.min(vw*.62,vh*1.15),fam=_lFam(),tr=.01,gapK=.1,rules=_jIdx(sb)%3!==1;
+ let sz=ls.map(l=>Math.min(Wb/_lW(l,fam,tr),vh*.36,big*.9));
+ const tot=sz.reduce((a,s)=>a+s*(1+gapK),0)-sz[sz.length-1]*gapK,k=Math.min(1,vh*.84/tot);sz=sz.map(s=>capSize(s*k,.2));
+ const col=document.createElement("div");col.style.cssText=`position:absolute;left:50%;top:50%;translate:-50% -50%;width:${_jpx(Wb)};display:flex;flex-direction:column;align-items:center;gap:${_jpx(Math.min(...sz)*gapK)}`;c.appendChild(col);
+ ls.forEach((t,i)=>{
+  const e=txtEl(`position:relative;white-space:pre;font-size:${_jpx(sz[i])};line-height:1.05;letter-spacing:${tr}em;text-align:center`);col.appendChild(e);
+  const ch=chars(t,e);list.push(...ch);
+  _lEn(sb,e,ch,_jT(i*100),[{opacity:0,transform:`translateX(${i%2?4:-4}cqw)`,clipPath:"inset(0 0 0 0)"},{opacity:1,transform:"none",clipPath:"inset(0 0 0 0)"}]);
+  if(rules&&i<ls.length-1)hair(col,`position:relative;width:100%;opacity:.45;transform-origin:${i%2?"right":"left"}`,_jT(i*100+160),"X",D()*.6)})});
 /* ===== [MOTION-K] 第二批（JIZURA 移植）：進場／退場（含逐字退場）／保持／文字樣式。只往表裡加，不改既有項目。
    來源對照（JIZURA key）見各項目後面的注釋；部分部品改寫自 JIZURA（原作者 hakoniwa，MIT，備份於 ToruSmith/JIZURA；授權全文見根目錄 LICENSE）：只讀動作設計與數值，用 WAAPI 關鍵影格重寫。
    全部是時間純函數（A() 暫停動畫；逐字的「隨機」用索引雜湊或種子亂數 sr()，不用 Math.random）。
@@ -2484,6 +2611,76 @@ Object.assign(ST,{
  "shadow-soft":e=>addSh(e,"0 .06em .3em rgba(0,0,0,.65)"),   /* ぼかし影 */
  "shadow-offset":e=>addSh(e,".07em .07em 0 rgba(0,0,0,.7)"),   /* ずらし影 */
  "tracking-wide":e=>{e.style.letterSpacing=`calc(${e.style.letterSpacing||"0em"} + .14em)`}});   /* 字間広め */
+}
+/* ===== [MOTION-L] 第四批（JIZURA 移植）：進場 6／退場 6／保持 4／鏡頭 3（做成持續特效）／文字樣式 5。只往表裡加，不改既有項目。
+   部分部品改寫自 JIZURA（原作者 hakoniwa，MIT，備份於 ToruSmith/JIZURA；授權全文見根目錄 LICENSE）：只讀動作設計與數值，用 DOM／CSS／Web Animations 重寫，沒有搬 Canvas 程式碼。
+   全部是時間純函數（A() 暫停動畫；逐字的「隨機」用索引雜湊，不用 Math.random）。登記方式同 23-motion-k.js（ENTER_X／EXTRA_EX／EXIT_C／FXH／ST）。
+   有「近似」的項目在注釋標 ≈：Maker2 只有整句時間（沒有逐字時間碼）、元素是 DOM，做不到的部分改用近似做法。 ===== */
+{
+const spL=()=>CONFIG.speed,btL=()=>60000/CONFIG.bpm;
+const hh=(a,b)=>{const x=Math.sin(a*12.9898+b*78.233)*43758.5453;return x-Math.floor(x)};   /* 索引雜湊 0..1（純函數） */
+const ecL=(n,pc,fb,gap)=>{ENTER_X[n]=(el,l,d)=>{if(l&&l.length)l.forEach((c,i)=>A(c,pc(i,l.length),{duration:d,delay:i*gap/spL()}));else A(el,fb,{duration:d})}};
+/* ---- 進場 ---- */
+ecL("bleed-in",(i,n)=>[{opacity:0,transform:"scale(.5)",filter:"blur(8px)"},{opacity:1,transform:"scale(1.04)",filter:"blur(1px)",offset:.7},{opacity:1,transform:"none",filter:"blur(0)"}],[{opacity:0,transform:"scale(.8)",filter:"blur(12px)"},{opacity:1,transform:"none",filter:"blur(0)"}],55);   /* にじみ（逐字由糊變清；整句退路＝糊→清） */
+ENTER_X["cursor-sweep"]=(el,l,d)=>{   /* カーソル掃引：一條強調色細棒由左掃到右，字被掃到就出現 */
+ if(!el.style.position)el.style.position="relative";
+ const bar=document.createElement("div");bar.dataset.nm=1;bar.style.cssText="position:absolute;top:-.05em;bottom:-.05em;left:0;width:.09em;background:var(--a);box-shadow:0 0 .2em var(--a);pointer-events:none";el.appendChild(bar);
+ A(bar,[{left:"-2%",opacity:1},{left:"100%",opacity:1,offset:.85},{left:"102%",opacity:0}],{duration:d,easing:"cubic-bezier(.3,.6,.4,1)"});
+ if(l&&l.length)l.forEach((c,i)=>A(c,[{opacity:0,transform:"translateX(-.3em) scale(.7)"},{opacity:1,transform:"none"}],{duration:d*.3,delay:d*.8*i/l.length/1+0,easing:"cubic-bezier(.2,.9,.3,1)"}));
+ else A(el,[{clipPath:"inset(0 100% 0 0)"},{clipPath:"inset(0)"}],{duration:d*.85,easing:"cubic-bezier(.3,.6,.4,1)"})};
+ENTER_X["track-expand"]=(el,l,d)=>{   /* 字間拡張：字距從緊縮撐開到原本的字距，同時淡入 ≈（以元素本身的 letter-spacing 為終點） */
+ const e0=parseFloat(el.style.letterSpacing),end=isNaN(e0)?(+CONFIG.spacing||0):e0;
+ A(el,[{opacity:0,letterSpacing:`${(end-.5).toFixed(3)}em`},{opacity:1,letterSpacing:`${end}em`}],{duration:d*1.2,easing:"cubic-bezier(.16,1,.3,1)"})};
+ecL("alt-zoom",(i,n)=>i%2===0?[{opacity:0,transform:"scale(2.4)",filter:"blur(8px)"},{opacity:1,transform:"none",filter:"blur(0)"}]:[{opacity:0,transform:"scale(.02)"},{opacity:1,transform:"scale(1.12)",offset:.65},{opacity:1,transform:"none"}],[{opacity:0,transform:"scale(1.8)"},{opacity:1,transform:"none"}],45);   /* 交互ズーム（偶數字從鏡頭前撲來，奇數字從遠處長出） */
+ENTER_X["stop-motion"]=(el,l,d)=>{   /* コマ撮り：逐字停格跳向定位，每格姿勢略不同（索引雜湊，不是亂數） */
+ const K=5;
+ if(l&&l.length)l.forEach((c,i)=>{const kf=[];
+  for(let k=0;k<K-1;k++){const f=1-Math.pow(k/(K-1),3),ang=hh(i,81)*6.2832,Dd=.7+.5*hh(i,83),r=(a)=>(hh(i*7+k,a)-.5)*2;
+   kf.push({opacity:k===0?0:1,transform:`translate(${(Math.cos(ang)*Dd*f+r(84)*.05).toFixed(3)}em,${(Math.sin(ang)*Dd*f+r(85)*.05).toFixed(3)}em) rotate(${(r(86)*22*f).toFixed(1)}deg) scale(${(1+r(88)*.14*f).toFixed(3)})`,offset:k/K,easing:"steps(1,end)"})}
+  kf.push({opacity:1,transform:"none",offset:1});
+  A(c,kf,{duration:d,delay:i*60/spL()})});
+ else A(el,[{opacity:0},{opacity:1}],{duration:d,easing:"steps(4,end)"})};
+ENTER_X["checker-in"]=(el,l,d)=>{   /* 市松：棋盤格分兩階段浮現（先一半格子，再細格補滿） ≈ */
+ const ck=(s,o)=>`repeating-conic-gradient(#000 0 25%,transparent 0 50%) ${o} / ${s} ${s}`,kf=[],m=v=>({maskImage:v,WebkitMaskImage:v}),S="steps(1,end)";
+ const H="linear-gradient(transparent,transparent)";
+ [[H,0],[ck(".36em","0 0"),.22],[`${ck(".36em","0 0")},${ck(".18em",".09em .09em")}`,.5],["linear-gradient(#000,#000)",.78]].forEach(([v,o])=>kf.push({opacity:1,...m(v),offset:o,easing:S}));
+ kf.push({opacity:1,...m("linear-gradient(#000,#000)"),offset:1});
+ A(el,kf,{duration:d})};
+ENTERS.push("bleed-in","cursor-sweep","track-expand","alt-zoom","stop-motion","checker-in");
+/* ---- 退場：整句版（EXTRA_EX）＋逐字版（EXIT_C；build 有 .ch 才用）---- */
+Object.assign(EXTRA_EX,{
+ "backspace-out":[{clipPath:"inset(0)",easing:"steps(9,end)"},{clipPath:"inset(0 100% 0 0)"}],   /* バックスペース：整句版＝由右往左一格一格削掉 */
+ "echo-out":[{opacity:1,transform:"none",filter:"none"},{opacity:.75,transform:"scale(1.15)",filter:"drop-shadow(0 0 .12em var(--a))",offset:.4},{opacity:0,transform:"scale(1.5)",filter:"blur(.1em)"}],   /* 残響 ≈（放大擴散＋光暈漸隱，沒有真的輪廓環） */
+ "diag-wipe-out":[{clipPath:"polygon(-30% 0,200% 0,200% 100%,-60% 100%)"},{clipPath:"polygon(130% 0,200% 0,200% 100%,100% 100%)"}],   /* 斜めワイプ退場 */
+ "spin-out":[{opacity:1,transform:"none"},{opacity:0,transform:"rotate(200deg) scale(.05)"}],   /* 回って消える（整句版） */
+ "slash-out":[{opacity:1,transform:"none"},{opacity:1,transform:"scaleX(1.02)",offset:.25},{opacity:0,transform:"translateY(14cqh) rotate(6deg)"}],   /* 一刀両断（整句版＝抖一下後掉落） ≈ */
+ "strike-out":[{opacity:1,transform:"none"},{opacity:1,transform:"none",offset:.5},{opacity:0,transform:"scaleY(.05)"}]});   /* 線で消す（整句版沒有線，只留壓扁淡出；有逐字元素時才畫線） */
+const swL=(i,n)=>i/Math.max(1,n-1);
+Object.assign(EXIT_C,{
+ "backspace-out":(c,i,n)=>({kf:[{opacity:1},{opacity:0}],dur:.12,at:(n-1-i)/Math.max(1,n)*.85,ease:"steps(1,end)"}),   /* 由句尾一字一字刪掉 */
+ "spin-out":(c,i,n)=>({kf:[{opacity:1,transform:"none"},{opacity:0,transform:`rotate(${(i%2?1:-1)*(i%3?250:200)}deg) scale(.01)`}],dur:.5,at:swL(i,n)*.5}),
+ "slash-out":(c,i,n)=>{const L=i<n/2;return{kf:[{opacity:1,transform:"none"},{opacity:0,transform:L?"translate(-5cqw,16cqh) rotate(-10deg)":"translate(5cqw,22cqh) rotate(10deg)"}],dur:.55,at:.12+(L?0:.04),ease:"cubic-bezier(.5,0,1,.6)"}},   /* 左半往左下、右半往右下掉開 ≈ */
+ "strike-out":(c,i,n)=>{c.style.backgroundImage="linear-gradient(var(--a),var(--a))";c.style.backgroundRepeat="no-repeat";c.style.backgroundPosition="0 56%";   /* 線畫在每個字自己的背景上，用同一段動畫的 backgroundSize 拉出 */
+  return{kf:[{opacity:1,transform:"none",backgroundSize:"0% .07em"},{opacity:1,transform:"none",backgroundSize:"100% .07em",offset:.45},{opacity:1,transform:"none",backgroundSize:"100% .07em",offset:.6},{opacity:0,transform:"scaleY(.05)",backgroundSize:"100% .07em"}],dur:.6,at:swL(i,n)*.4}}});
+EXITS.push("backspace-out","echo-out","diag-wipe-out","spin-out","slash-out","strike-out");
+/* ---- 保持與鏡頭（持續特效）：獨立屬性 scale／translate／rotate／filter，不和進場的 transform 打架；鏡頭三項只動字幕容器 fw，不動 #stage ---- */
+Object.assign(FXH,{
+ "shadow-sway"(fw){const a=[];for(let k=0;k<=8;k++){const t=k/8*Math.PI*2,ang=Math.PI/3+Math.PI/4*Math.sin(t),L=.8+.3*Math.sin(t*1.7+1);a.push({filter:`drop-shadow(${(Math.cos(ang)*L).toFixed(3)}cqh ${(Math.sin(ang)*L).toFixed(3)}cqh 0 color-mix(in srgb,var(--a) 45%,rgba(0,0,0,.7)))`,offset:k/8})}A(fw,a,{duration:5500,iterations:Infinity,easing:"linear"})},   /* 影が揺れる：影的方向與長度慢慢擺動 */
+ "stretch-beat"(fw){A(fw,[{scale:"1.12 .955"},{scale:"1 1",offset:.4},{scale:"1 1"}],{duration:btL(),iterations:Infinity,easing:"cubic-bezier(.1,.8,.3,1)"})},   /* 横伸び拍：每拍橫向撐開再彈回 */
+ dangle(fw){const l=cl(fw);(l.length?l:[fw]).forEach((c,i)=>{c.style.transformOrigin="50% 0";A(c,[{rotate:"-6deg"},{rotate:"6deg"}],{duration:1500+(i*37)%500,iterations:Infinity,direction:"alternate",easing:"ease-in-out",delay:-i*130})})},   /* ぶら下がり：每字像吊著一樣從上緣擺動 */
+ "wind-gust"(fw){const l=cl(fw);(l.length?l:[fw]).forEach((c,i,a)=>A(c,[{translate:"0 0",rotate:"0deg",offset:0},{translate:".12em 0",rotate:"3deg",offset:.1},{translate:"-.03em 0",rotate:"-1deg",offset:.22},{translate:"0 0",rotate:"0deg",offset:.36},{translate:"0 0",rotate:"0deg",offset:1}],{duration:2200,iterations:Infinity,easing:"ease-out",delay:i*40}))},   /* 突風：每隔約 2.2 秒一陣風，字由左而右依序被吹歪再彈回 */
+ "tilt-down"(fw,dur){A(fw,[{translate:"0 3cqh",scale:1.035},{translate:"0 0",scale:1}],{duration:Math.max(400,dur*1000*.45),easing:"cubic-bezier(.2,.8,.2,1)"})},   /* ティルトダウン：鏡頭往下搖，字從下方升入定位 */
+ "dolly-in"(fw,dur){A(fw,[{scale:1,translate:"0 0"},{scale:1.12,translate:"0 -.8cqh"}],{duration:Math.max(600,dur*1000),easing:"cubic-bezier(.5,0,.9,.6)"})},   /* ドリー：整句期間慢慢推近 */
+ "step-zoom"(fw,dur){const ms=Math.max(600,dur*1000),T=[.3,.58,.8].slice(0,2+(ms>2500?1:0)),kf=[{scale:1,offset:0}];let s=1;T.forEach(t=>{kf.push({scale:s,offset:t});s+=.04;kf.push({scale:s,offset:Math.min(.99,t+70/ms)})});kf.push({scale:s,offset:1});A(fw,kf,{duration:ms,easing:"linear"})}});   /* 段階ズーム：2～3 次快速小推（每次 +4%） */
+FXS.push("shadow-sway","stretch-beat","dangle","wind-gust","tilt-down","dolly-in","step-zoom");
+/* ---- 文字樣式（@）---- */
+Object.assign(ST,{
+ "grad-v":e=>{_lv(e).forEach(x=>{x.style.backgroundImage="linear-gradient(180deg,var(--c) 15%,var(--a) 95%)";x.style.webkitBackgroundClip=x.style.backgroundClip="text";x.style.color="transparent";x.style.webkitTextFillColor="transparent"})},   /* 縦グラデ（上本色→下強調色） */
+ "extrude-3d":e=>addSh(e,Array.from({length:12},(_,i)=>`${((i+1)*.012).toFixed(3)}em ${((i+1)*.012).toFixed(3)}em 0 color-mix(in srgb,var(--a) 70%,#000)`).join(",")),   /* 立体（短而實的 3D 厚度，比 longshadow 短） */
+ "echo-diag":e=>addSh(e,".04em -.04em 0 color-mix(in srgb,var(--a) 70%,transparent),.08em -.08em 0 color-mix(in srgb,var(--a) 45%,transparent),.12em -.12em 0 color-mix(in srgb,var(--a) 22%,transparent)"),   /* 輪郭の残響 ≈（斜向殘影，不是空心輪廓） */
+ condensed:e=>{e.style.scale=".8 1.05"},   /* 長体 */
+ extended:e=>{e.style.scale="1.08 .86"},   /* 平体（寬度上限 1.08，避免超出畫面） */
+ "step-baseline":e=>{_lv(e).forEach((x,i)=>{x.style.translate=`0 ${(i%2?1:-1)*.09}em`})}});   /* 段違い：奇偶字上下交錯 */
 }
 /* ===== [STYLES] 風格包（pv-tool 16 個模板的自行詮釋，淨室、未對照其畫面）＋場景層挑選器＋面板「風格・場景層・後製」區段＋自動取主色。
    風格包＝一個 PRESETS 項目（舊預設不動）：調色盤＋字體＋全域底層場景 sceneAll＋建議版型池 layoutPool＋節拍後製＋氛圍參數；套用後 CONFIG.auto 開啟，
@@ -2899,7 +3096,7 @@ if(RENDER){
 window.__ready=document.fonts.ready.then(()=>true);
 }else requestAnimationFrame(t=>{lastP=t;loop(t)});
 /* ===== [THUMBS-IDX] 縮圖精靈圖索引（由 test/make-thumbs.mjs 產生，請勿手改；邏輯在 28-thumbs.js）===== */
-var TH_DATA={w:128,h:72,cols:12,v:"3fcde4ad",idx:"lay:split,lay:lowerleft,lay:bounce,lay:slam,lay:neon,lay:karaoke,lay:typewriter,lay:vertical,lay:blurfocus,lay:wipe,lay:glitch,lay:stack,lay:outline-big,lay:subtitle-box,lay:poster,lay:scroll,lay:orbit,lay:diagonal,lay:marquee,lay:circle-badge,lay:zoom-tunnel,lay:split-screen,lay:flash-words,lay:keyword,lay:trail,lay:text-mask,lay:danmaku,lay:longshadow,lay:bubble,lay:border-run,lay:blinds,lay:hanko,lay:collage,lay:handwrite,lay:marker,lay:center,lay:ripple-pool,lay:constellation,lay:particle-form,lay:hud-frame,lay:parallax-depth,lay:polaroid,lay:page-flip,lay:ink-bleed,lay:laser-scan,lay:split-flap,lay:wave-path,lay:mirror-reflect,lay:cylinder,lay:iris-frame,lay:annotate,lay:pv-lyric,lay:pv-vertical,lay:scatter,lay:strip,lay:cards,lay:glow-cards,lay:layered,lay:falling,lay:formula,lay:staggered-text,lay:noise-text,lay:victim-outline,lay:cute-outline,lay:vertical-sub,lay:hero-text,lay:shatter-text,lay:crayon-shatter,lay:margin,lay:baseline,lay:full-track,lay:line-focus,lay:scale-steps,lay:headline-lead,lay:footnote,lay:quote,lay:tilt-vertical,lay:v-ruler,lay:list-table,lay:ruby,lay:big-sandwich,lay:cross,scene:halftone,scene:dots,scene:checker,scene:burst,scene:radial-rects,scene:perspective-grid,scene:flow-lines,scene:stripes,scene:hatch,scene:diag-split,scene:blocks,scene:breathing-blocks,scene:squares,scene:glow-ring,scene:rings,scene:pulse-circle,scene:glitch-bars,scene:guides,scene:dashed-lines,scene:ruler,scene:target,scene:color-wash,scene:gradient-fade,scene:pink-stripes,scene:diag-fill,scene:diag-structure,scene:organic-blob,scene:edge-clouds,scene:scattered-shapes,scene:diamond-shapes,scene:shadow-shapes,scene:balancing-circles,scene:web-lines,scene:cross-pattern,scene:triangle-grid,scene:pink-grid,scene:jigsaw-grid,scene:texture-bg,scene:pixel-bg,scene:star-trail,scene:light-spot,scene:screen-border,scene:scalloped-border,scene:hud-corners,scene:hud-info,scene:hud-status,scene:data-monitors,scene:pixel-window,scene:desktop-icon,scene:smear-brush,scene:paper-tear,scene:blood-splatter,scene:crime-tape,scene:planet,scene:crop-marks,scene:crosshair,scene:dimension-lines,scene:edge-ticks,pack:藍色衝擊,pack:斬擊,pack:藍色構成,pack:城市文字雨,pack:夜色,pack:波普,pack:青墨,pack:電腦,pack:戰場,pack:幾何,pack:全息,pack:賽博監控,pack:情緒電影,pack:剪影極簡,pack:歇斯底里之夜,pack:戒尺,pack:金夜,pack:深海,pack:單色座標,preset:動畫PV,preset:霓虹夜,preset:簡約明體,preset:強烈節奏,preset:遊戲PV,preset:復古VHS,preset:櫻花日系,preset:賽博龐克,preset:極簡海報,preset:仿PV歌詞,preset:電影字幕（底部置中）,preset:街頭拼貼"};
+var TH_DATA={w:128,h:72,cols:12,v:"4539eeb1",idx:"lay:split,lay:lowerleft,lay:bounce,lay:slam,lay:neon,lay:karaoke,lay:typewriter,lay:vertical,lay:blurfocus,lay:wipe,lay:glitch,lay:stack,lay:outline-big,lay:subtitle-box,lay:poster,lay:scroll,lay:orbit,lay:diagonal,lay:marquee,lay:circle-badge,lay:zoom-tunnel,lay:split-screen,lay:flash-words,lay:keyword,lay:trail,lay:text-mask,lay:danmaku,lay:longshadow,lay:bubble,lay:border-run,lay:blinds,lay:hanko,lay:collage,lay:handwrite,lay:marker,lay:center,lay:ripple-pool,lay:constellation,lay:particle-form,lay:hud-frame,lay:parallax-depth,lay:polaroid,lay:page-flip,lay:ink-bleed,lay:laser-scan,lay:split-flap,lay:wave-path,lay:mirror-reflect,lay:cylinder,lay:iris-frame,lay:annotate,lay:pv-lyric,lay:pv-vertical,lay:scatter,lay:strip,lay:cards,lay:glow-cards,lay:layered,lay:falling,lay:formula,lay:staggered-text,lay:noise-text,lay:victim-outline,lay:cute-outline,lay:vertical-sub,lay:hero-text,lay:shatter-text,lay:crayon-shatter,lay:margin,lay:baseline,lay:full-track,lay:line-focus,lay:scale-steps,lay:headline-lead,lay:footnote,lay:quote,lay:tilt-vertical,lay:v-ruler,lay:list-table,lay:ruby,lay:big-sandwich,lay:cross,lay:frame-box,lay:corners,lay:drop-cap,lay:split-cut,lay:erode-repeat,lay:justify-stack,scene:halftone,scene:dots,scene:checker,scene:burst,scene:radial-rects,scene:perspective-grid,scene:flow-lines,scene:stripes,scene:hatch,scene:diag-split,scene:blocks,scene:breathing-blocks,scene:squares,scene:glow-ring,scene:rings,scene:pulse-circle,scene:glitch-bars,scene:guides,scene:dashed-lines,scene:ruler,scene:target,scene:color-wash,scene:gradient-fade,scene:pink-stripes,scene:diag-fill,scene:diag-structure,scene:organic-blob,scene:edge-clouds,scene:scattered-shapes,scene:diamond-shapes,scene:shadow-shapes,scene:balancing-circles,scene:web-lines,scene:cross-pattern,scene:triangle-grid,scene:pink-grid,scene:jigsaw-grid,scene:texture-bg,scene:pixel-bg,scene:star-trail,scene:light-spot,scene:screen-border,scene:scalloped-border,scene:hud-corners,scene:hud-info,scene:hud-status,scene:data-monitors,scene:pixel-window,scene:desktop-icon,scene:smear-brush,scene:paper-tear,scene:blood-splatter,scene:crime-tape,scene:planet,scene:crop-marks,scene:crosshair,scene:dimension-lines,scene:edge-ticks,pack:藍色衝擊,pack:斬擊,pack:藍色構成,pack:城市文字雨,pack:夜色,pack:波普,pack:青墨,pack:電腦,pack:戰場,pack:幾何,pack:全息,pack:賽博監控,pack:情緒電影,pack:剪影極簡,pack:歇斯底里之夜,pack:戒尺,pack:金夜,pack:深海,pack:單色座標,preset:動畫PV,preset:霓虹夜,preset:簡約明體,preset:強烈節奏,preset:遊戲PV,preset:復古VHS,preset:櫻花日系,preset:賽博龐克,preset:極簡海報,preset:仿PV歌詞,preset:電影字幕（底部置中）,preset:街頭拼貼"};
 /* ===== [THUMBS] 縮圖預覽：版型／場景層／風格包／預設組合 的「懸停預覽」與「縮圖挑選窗」。純 UI 輔助，不碰 CONFIG／subs／畫面渲染，離線渲染（RENDER）完全不啟用。
    資料：thumbs/sheet.webp（單張精靈圖，首次需要時才載入；檔案不在就自動略過、功能照常）＋ 28-thumbs-idx.js（TH_DATA：名稱→格子位置，兩者都由 node test/make-thumbs.mjs 產生，勿手改）。
    用法（其他檔案只需這兩種，不依賴載入順序）：
