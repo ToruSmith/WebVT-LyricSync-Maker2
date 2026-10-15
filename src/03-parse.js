@@ -1,11 +1,41 @@
 /* ===== [PARSE] SRT 與標記解析：parseSRT / parseTag；版型・進場・退場・特效名稱清單（LAYOUTS/ENTERS/EXITS/FXS，後面各區段會 push 補登）；{} 通用強調 hlText / applyHL ===== */
-function parseSRT(s){
- s=s.replace(/^\uFEFF/,"").replace(/\r/g,"");
- return s.split(/\n\s*\n/).map(b=>{
+/* \u6642\u9593\u5B57\u4E32 \u2192 \u79D2\uFF1A\u63A5\u53D7 HH:MM:SS,mmm\uFF0FHH:MM:SS.mmm\uFF0FMM:SS.mmm\uFF1B\u7D50\u675F\u6642\u9593\u5F8C\u9762\u53EF\u5E36 WebVTT \u7684 cue \u8A2D\u5B9A\uFF08\u53EA\u53D6\u7B2C\u4E00\u6BB5\uFF09\uFF1B\u683C\u5F0F\u4E0D\u5C0D\u56DE\u50B3 NaN */
+const SRT_T=x=>{const m=String(x).trim().split(/\s+/)[0].replace(",",".").match(/^(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$/);return m?(+(m[1]||0))*3600+ +m[2]*60+ +m[3]:NaN};
+/* parseSRT(s[,info])\uFF1A\u6642\u9593\u7570\u5E38\uFF08\u8B80\u4E0D\u51FA\u4F86\u3001\u6216\u7D50\u675F\u6642\u9593\u4E0D\u665A\u65BC\u958B\u59CB\uFF09\u7684\u53E5\u5B50\u76F4\u63A5\u7565\u904E\uFF1Binfo \u82E5\u6709\u7D66\uFF0C\u6703\u5BEB\u5165 info.bad\uFF1D\u7565\u904E\u5E7E\u53E5\u3002
+   \u6709\u6548\u7684 SRT \u7D50\u679C\u8207\u820A\u7248\u5B8C\u5168\u76F8\u540C\uFF08\u96E2\u7DDA\u6E32\u67D3\u8207\u532F\u5165\u5C08\u6848\u4E5F\u8D70\u9019\u88E1\uFF09\u3002\u6392\u5E8F\u8207\u683C\u5F0F\u5224\u65B7\u5728 parseSubs\uFF08\u53EA\u7528\u65BC\u4F7F\u7528\u8005\u8F09\u5165\u6A94\u6848\uFF09\u3002 */
+function parseSRT(s,info){
+ s=s.replace(/^\uFEFF/,"").replace(/\r/g,"");const vtt=/^WEBVTT/.test(s);let bad=0;
+ const out=s.split(/\n\s*\n/).map(b=>{
   const l=b.trim().split("\n"),i=l.findIndex(x=>x.includes("-->"));if(i<0)return null;
-  const [a,z]=l[i].split("-->").map(x=>{const p=x.trim().replace(",",".").split(":");return +p[0]*3600+ +p[1]*60+ +p[2]});
-  return parseTag(l.slice(i+1).join("\n"),a,z);
+  const [a,z]=l[i].split("-->").map(x=>SRT_T(x));
+  if(!(a>=0&&z>a)){bad++;return null}
+  let body=l.slice(i+1).join("\n");if(vtt)body=body.replace(/<\/?[a-zA-Z][^>]*>/g,"");   /* WebVTT\uFF1A\u53BB\u6389 <v \u4EBA\u540D>\u3001<c>\u3001<i> \u7B49\u6A19\u7C64 */
+  return parseTag(body,a,z);
  }).filter(Boolean);
+ if(info)info.bad=bad;return out;
+}
+/* LRC \u2192 \u53E5\u5B50\uFF1A[mm:ss.xx]\u6B4C\u8A5E\uFF1B\u4E00\u884C\u53EF\u6709\u591A\u500B\u6642\u9593\uFF1B[offset:\u6BEB\u79D2] \u5957\u7528\u4F4D\u79FB\uFF1B<mm:ss.xx> \u9010\u5B57\u6A19\u8A18\u53BB\u6389\uFF1B
+   \u7A7A\u6B4C\u8A5E\u7684\u6642\u9593\u9EDE\u53EA\u7576\u4F5C\u300C\u4E0A\u4E00\u53E5\u5230\u6B64\u7D50\u675F\u300D\uFF1B\u6C92\u6709\u7D50\u5C3E\u6A19\u8A18\u6642\uFF0C\u53E5\u5B50\u986F\u793A\u5230\u4E0B\u4E00\u53E5\u958B\u59CB\uFF0C\u4F46\u6700\u9577 10 \u79D2\uFF08\u6700\u5F8C\u4E00\u53E5 4 \u79D2\uFF09\uFF1B
+   \u540C\u4E00\u6642\u9593\u9EDE\u7684\u5169\u884C\uFF08\u539F\u6587\uFF0B\u7FFB\u8B6F\uFF09\u5408\u6210\u300C\u539F\u6587||\u7FFB\u8B6F\u300D\uFF0C\u7FFB\u8B6F\u6703\u6210\u70BA\u526F\u6587\u3002 */
+function parseLRC(s,info){
+ s=s.replace(/^\uFEFF/,"").replace(/\r/g,"");let off=0;const E=[];
+ for(const ln of s.split("\n")){
+  const om=ln.match(/^\s*\[offset:\s*([+-]?\d+)\s*\]/i);if(om){off=+om[1]/1000;continue}
+  const m=ln.match(/^((?:\s*\[\d+:\d+(?:[.:]\d+)?\])+)(.*)$/);if(!m)continue;
+  const text=m[2].replace(/<\d+:\d+(?:[.:]\d+)?>/g,"").trim();
+  for(const t of m[1].matchAll(/\[(\d+):(\d+(?:[.:]\d+)?)\]/g))E.push({t:+t[1]*60+parseFloat(t[2].replace(":",".")),text});
+ }
+ E.forEach(x=>x.t=Math.max(0,x.t-off));E.sort((a,b)=>a.t-b.t);   /* \u7A69\u5B9A\u6392\u5E8F\uFF1A\u540C\u4E00\u6642\u9593\u4FDD\u6301\u6A94\u6848\u5167\u9806\u5E8F */
+ const M=[];for(const x of E){const p=M[M.length-1];if(p&&p.t===x.t&&p.text&&x.text&&!p.text.includes("||"))p.text+="||"+x.text;else M.push({t:x.t,text:x.text})}
+ const out=[];M.forEach((x,i)=>{if(!x.text)return;const nx=M.slice(i+1).find(y=>y.t>x.t);out.push(parseTag(x.text,x.t,nx?Math.min(nx.t,x.t+10):x.t+4))});
+ if(info)info.bad=0;return out;
+}
+/* \u4F7F\u7528\u8005\u8F09\u5165\u5B57\u5E55\u6A94\u7684\u5165\u53E3\uFF1A\u4F9D\u526F\u6A94\u540D\uFF0F\u5167\u5BB9\u5224\u65B7 LRC\u3001WebVTT\u3001SRT\uFF0C\u89E3\u6790\u5F8C\u4F9D\u958B\u59CB\u6642\u9593\u6392\u5E8F\uFF08\u7A69\u5B9A\uFF09\u3002
+   info \u6703\u5F97\u5230 fmt\uFF08\u683C\u5F0F\u540D\u7A31\uFF09\u3001bad\uFF08\u7565\u904E\u5E7E\u53E5\uFF09\u3001sorted\uFF08\u539F\u672C\u9806\u5E8F\u662F\u5426\u88AB\u8ABF\u6574\uFF09\u3002 */
+function parseSubs(s,name,info){
+ info=info||{};const lrc=/\.lrc$/i.test(name||"")||(!/-->/.test(s)&&/^\s*\[\d+:\d+/m.test(s));
+ info.fmt=lrc?"LRC":/^\uFEFF?\s*WEBVTT/.test(s)?"WebVTT":"SRT";
+ const a=lrc?parseLRC(s,info):parseSRT(s,info),o=a.slice();a.sort((x,y)=>x.s-y.s);info.sorted=a.some((x,i)=>x!==o[i]);return a;
 }
 const LAYOUTS=["split","lowerleft","bounce","slam","neon","karaoke","typewriter","vertical","blurfocus","wipe","glitch","stack","outline-big","subtitle-box","poster"];
 const ENTERS=["fade","rise","drop","zoomin","zoomout","spin","flip","stagger","mask-up","elastic","swing","ripple"],EXITS=["fade","sink","zoomout-fade","blur-out","slide-out"],FXS=["float","shake","flicker","rainbow"];
