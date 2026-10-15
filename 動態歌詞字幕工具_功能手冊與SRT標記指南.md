@@ -210,7 +210,7 @@
 - 屬於一般版型，**不是**滿版，可以搭配 `^位置`。
 
 ### 3.1 實驗室版型
-`staggered-text` `noise-text` `victim-outline` `cute-outline` `vertical-sub` `hero-text` `shatter-text` `crayon-shatter` `margin` `baseline` `full-track` `line-focus` `scale-steps` `headline-lead` `footnote` `quote` `tilt-vertical` `v-ruler` `list-table` `ruby` `big-sandwich` `cross`
+`staggered-text` `noise-text` `victim-outline` `cute-outline` `vertical-sub` `hero-text` `shatter-text` `crayon-shatter` `margin` `baseline` `full-track` `line-focus` `scale-steps` `headline-lead` `footnote` `quote` `tilt-vertical` `v-ruler` `list-table` `ruby` `big-sandwich` `cross` `frame-box` `corners` `drop-cap` `split-cut` `erode-repeat` `justify-stack`
 
 這些版型實驗性質較高：預設**不寫進 AI 規格書的選型表**，使用者在版型挑選窗可以直接選用。共通特性：只用文字加細線／小標記，不畫底板，字級有上限，不遮影片；除特別註明外都吃整句、不吃 `{}`。
 
@@ -238,6 +238,12 @@
 | `ruby` | 每個字上方一行小注音。注音取自副文（||），平均分給每個字；沒有副文就在每個字上方放一個強調色小圓點（傍点） |
 | `big-sandwich` | 關鍵字放大置中，前後文字縮小夾在兩側（直式畫面改為上下夾）；關鍵字＝{} 內第一段，沒有就取最長字詞或正中間的字；大字上限約畫面高度 26% |
 | `cross` | 關鍵字在中央，前文在它左邊橫排＋上方直排、後文在右邊橫排＋下方直排（直排是淡淡的回聲，只取最近 6 字）；字都小，不遮影片 |
+| `frame-box` | 額縁：字被細線框圈住；框式依句子編號輪替（整框／雙線／四角） |
+| `corners` | 対角配置：句子切成兩段放在對角，一條細線拐彎連過去 |
+| `drop-cap` | 大きな頭文字：第一個字放大成 2～3 行高，其餘繞在右邊（至少 3 字） |
+| `split-cut` | 断ち割り：每行字從中線切成上下兩半左右錯開，中間一條強調色細線 |
+| `erode-repeat` | 削り反復：同一句重複 2～5 行，每行多（或少）一段，主行高亮 |
+| `justify-stack` | 幅揃え：2～4 行，每行字級調到同寬（字級仍受高度上限限制，至少 3 字） |
 
 使用提示：
 - **想要「遮影片最少的高級字幕」**，先試 `margin`、`baseline`、`line-focus`、`scale-steps`、`headline-lead`、`footnote`、`tilt-vertical`、`v-ruler`：都貼在下方或邊緣。
@@ -318,6 +324,12 @@
 | `drop-stagger` | 逐字依序落下並微彈 ◆ |
 | `type` | 打字機：逐字瞬間出現 ◆ |
 | `random-order` | 逐字以固定的打亂順序淡入（同一句每次相同） ◆ |
+| `bleed-in` | にじみ：逐字由糊變清並微微彈大 ◆ |
+| `cursor-sweep` | カーソル掃引：強調色細棒由左掃到右，字被掃到就出現 ◆ |
+| `track-expand` | 字間拡張：字距由緊縮撐開到正常並淡入 |
+| `alt-zoom` | 交互ズーム：偶數字從鏡頭前撲來、奇數字從遠處長出 ◆ |
+| `stop-motion` | コマ撮り：逐字停格跳向定位，每格姿勢不同 ◆ |
+| `checker-in` | 市松（近似）：棋盤格分兩階段浮現 |
 
 逐字型（◆）完整清單：`stagger` `ripple` `flip` `scramble` `blur-stagger` `fan-open` `domino-in` `bubble-in` `dot-grow` `magnet` `spiral-in` `drop-stagger` `type` `random-order`。
 
@@ -370,6 +382,12 @@
 | `leaf-fall` | 逐字像落葉飄落 ◆ |
 | `domino-out` | 逐字像骨牌依序倒下 ◆ |
 | `wave-out` | 逐字依序起伏後崩落 ◆ |
+| `backspace-out` | バックスペース：由句尾一字一字刪掉 ◆（整句版由右往左削去） |
+| `echo-out` | 残響（近似）：放大擴散並帶光暈漸隱 |
+| `diag-wipe-out` | 斜めワイプ退場：一條斜線掃過把字擦掉 |
+| `spin-out` | 回って消える：逐字旋轉縮小消失 ◆ |
+| `slash-out` | 一刀両断（近似）：字分成左右兩半掉開 ◆ |
+| `strike-out` | 線で消す：每字先被畫一條強調色線，再壓扁消失 ◆ |
 
 逐字退場（◆，另含原有的 `dissolve`、`shatter`）需要逐字元素；沒有逐字元素的版型會退回整句淡出。其餘新增退場都是整句動作。
 
@@ -418,6 +436,13 @@
 | `small-circle` | 整句沿小圓軌跡移動（半徑<1% 畫面高） |
 | `jelly` | 果凍式橫縮縱伸交替 |
 | `noise-drift` | 逐字沿固定的雜訊軌跡漂移（非亂數） |
+| `shadow-sway` | 影が揺れる：字的影子方向與長度慢慢擺動 |
+| `stretch-beat` | 横伸び拍：每拍橫向撐開再彈回 |
+| `dangle` | ぶら下がり：每字像吊著，從上緣左右擺動 |
+| `wind-gust` | 突風：約每 2.2 秒一陣風，字由左而右被吹歪再彈回 |
+| `tilt-down` | ティルトダウン（鏡頭）：字從下方升入定位，只動一次 |
+| `dolly-in` | ドリー（鏡頭）：整句期間慢慢推近，只動一次 |
+| `step-zoom` | 段階ズーム（鏡頭）：2～3 次快速小推（每次 +4%），只動一次 |
 
 ---
 
@@ -442,6 +467,12 @@
 | `shadow-soft` | 柔和黑影（提高可讀性） |
 | `shadow-offset` | 偏移硬影 |
 | `tracking-wide` | 字距加寬 0.14em |
+| `grad-v` | 縦グラデ：上本色、下強調色 |
+| `extrude-3d` | 立体：短而實的 3D 厚度（比 `longshadow` 短） |
+| `echo-diag` | 輪郭の残響（近似）：右上方向的淡出殘影 |
+| `condensed` | 長体：字形橫向壓窄 |
+| `extended` | 平体：字形橫向拉寬（上限 1.08） |
+| `step-baseline` | 段違い：奇偶字上下交錯 |
 | `gradient` | 漸層 |
 | `karaoke` | 逐字變亮 |
 | `gloss-sweep` | 光澤掃過：逐字亮帶掃一次 |
