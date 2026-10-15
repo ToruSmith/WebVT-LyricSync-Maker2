@@ -162,3 +162,9 @@ body.rec #exwiz,html.rendering #exwiz{display:none!important}
 body.rec #thtip,html.rendering #thtip,body.rec .thpop,html.rendering .thpop{display:none!important}
 /* pv-vertical（src/23-lay-g.js）：直排容器。writing-mode 用 class 而不是 inline style，避免 18-style.js 的 isV() 誤判 */
 .pvv{writing-mode:vertical-rl}
+
+/* 鍵盤焦點：搜尋框與編輯器列表原本把 outline 關掉，補上可見的焦點框（只在鍵盤操作時出現） */
+#qks:focus-visible{outline:2px solid var(--a);outline-offset:-1px}
+.edlist:focus-visible{outline:2px solid var(--a);outline-offset:-2px}
+/* 面板最上方：現在這一句實際生效的設定（唯讀，見 09-ui-panel.js 的 curInfo） */
+#curinfo{margin:0 0 6px;padding:6px 8px;border:1px solid #2a3252;border-radius:6px;background:rgba(122,168,255,.08);font-size:11px;line-height:1.6;color:#cfe0ff;word-break:break-all}

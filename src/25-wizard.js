@@ -3,9 +3,9 @@
    精靈只負責「選擇與說明」，實際動作都呼叫既有函式：#rec（錄製）、exportProjectUI、exportSRT、exportSRTPlain、exportConfig。 ===== */
 if(!RENDER){
  /* --- 浮出選單：position:fixed，不被 #bar 的橫向捲動裁掉 --- */
- const closeMenus=()=>document.querySelectorAll(".menu.on").forEach(m=>m.classList.remove("on"));
+ const closeMenus=()=>{document.querySelectorAll(".menu.on").forEach(m=>m.classList.remove("on"));document.querySelectorAll("#bar .mb").forEach(b=>b.setAttribute("aria-expanded","false"))};
  document.querySelectorAll("#bar .mb").forEach(b=>b.onclick=e=>{e.stopPropagation();const m=$("#"+b.dataset.menu),on=!m.classList.contains("on");closeMenus();
-  if(on){m.classList.add("on");const r=b.getBoundingClientRect();m.style.top=(r.bottom+2)+"px";m.style.left=Math.max(4,Math.min(r.left,innerWidth-m.offsetWidth-4))+"px"}});
+  if(on){m.classList.add("on");b.setAttribute("aria-expanded","true");const r=b.getBoundingClientRect();m.style.top=(r.bottom+2)+"px";m.style.left=Math.max(4,Math.min(r.left,innerWidth-m.offsetWidth-4))+"px"}});
  document.addEventListener("pointerdown",e=>{if(!e.target.closest(".menu,.mb"))closeMenus()});
  document.querySelectorAll(".menu").forEach(m=>m.addEventListener("click",()=>setTimeout(closeMenus,0)));   /* 下一個 tick 才關：讓檔案選擇器（label→input）先被觸發 */
  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenus()});
@@ -65,10 +65,11 @@ function wzRender(){const box=$("#exwiz");if(!box)return;const L=box.querySelect
  const ul=mk("ul");o.notes.forEach(n=>ul.append(mk("li","",n)));R.append(ul);
  if(!hasMedia&&(k==="rec"||k==="mp4"||k==="layers"||k==="chroma"))R.append(mk("div","edhint edwarn",k==="rec"?"目前沒有載入音樂／影片：錄出來是靜音。":"目前沒有載入音樂／影片：指令不含 --audio，成品是靜音。有音樂請放進 input/ 並在指令加上 --audio input/檔名。"));
  R.append(mk("div","edhint","想看全部細節：README「離線渲染」「綠幕輸出」「分層輸出」。"))}
-function openExportWizard(){let box=$("#exwiz");if(!box){box=document.createElement("div");box.id="exwiz";
+let wzOpener=null;   /* 開啟精靈前的焦點元素，關閉時還回去（鍵盤使用者才不會掉到頁面最前面） */
+function openExportWizard(){let box=$("#exwiz");if(!box){box=document.createElement("div");box.id="exwiz";box.setAttribute("role","dialog");box.setAttribute("aria-modal","true");box.setAttribute("aria-label","匯出精靈");
   box.innerHTML='<div class="xb"><div class="xh"><span>⬆ 匯出：你要拿去做什麼？</span><button type="button" id="exwx">關閉 ✕</button></div><div class="xm"><div class="xl"></div><div class="xr"></div></div></div>';
   document.body.append(box);box.addEventListener("pointerdown",e=>{if(e.target===box)closeWz()});$("#exwx").onclick=closeWz;
   document.addEventListener("keydown",e=>{if(e.key==="Escape"&&box.classList.contains("on"))closeWz()})}
- wzRender();box.classList.add("on")}
-function closeWz(){const b=$("#exwiz");b&&b.classList.remove("on")}
+ wzOpener=document.activeElement;wzRender();box.classList.add("on");const x=$("#exwx");x&&x.focus()}
+function closeWz(){const b=$("#exwiz");b&&b.classList.remove("on");if(wzOpener&&wzOpener.focus&&document.contains(wzOpener))wzOpener.focus();wzOpener=null}
 $("#exw").onclick=openExportWizard;

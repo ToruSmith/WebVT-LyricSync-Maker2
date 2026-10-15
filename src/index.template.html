@@ -19,14 +19,14 @@
 <canvas id="cv2"></canvas><div id="guides"><i id="vc"></i><i id="vl"></i><i id="vr"></i><i id="hc"></i><i id="ht"></i><i id="hb"></i></div></div>
 <div id="bar">
  <!-- 頂欄分四區：載入／播放／編輯／匯出（右側是快捷與面板）。所有舊 id 都保留在 #bar 內；選單用 position:fixed 浮出，不被 #bar 的橫向捲動裁掉 -->
- <div class="grp"><button class="mb" data-menu="mload" title="載入字幕、音樂或範例">載入 ▾</button>
+ <div class="grp"><button class="mb" aria-haspopup="true" aria-expanded="false" data-menu="mload" title="載入字幕、音樂或範例">載入 ▾</button>
   <div class="menu" id="mload">
-   <label class="fb mi" title="載入 SRT 字幕">📄 載入 SRT 字幕<input type="file" id="fs" accept=".srt,.txt"></label>
+   <label class="fb mi" title="載入字幕：SRT（含標記）、LRC、WebVTT；自動判斷 UTF-8／Big5／GBK 編碼">📄 載入字幕（SRT／LRC／VTT）<input type="file" id="fs" accept=".srt,.txt,.lrc,.vtt"></label>
    <label class="fb mi" title="載入音樂或影片">🎵 載入音樂／影片<input type="file" id="fm" accept="audio/*,video/*"></label>
    <button id="demo" class="mi">✨ 載入範例</button>
   </div></div>
- <div class="grp grow"><button id="play">播放</button><input type="range" id="seek" min="0" max="1000" value="0"><span id="tm">0.0</span></div>
- <div class="grp"><button id="ed" title="逐句編輯文字、時間、動畫、樣式、場景、位置">句子編輯器</button><button class="mb" data-menu="medit" title="更多編輯功能">更多 ▾</button>
+ <div class="grp grow"><button id="play">播放</button><input type="range" id="seek" aria-label="播放進度" min="0" max="1000" value="0"><span id="tm">0.0</span></div>
+ <div class="grp"><button id="ed" title="逐句編輯文字、時間、動畫、樣式、場景、位置">句子編輯器</button><button class="mb" aria-haspopup="true" aria-expanded="false" data-menu="medit" title="更多編輯功能">更多 ▾</button>
   <div class="menu" id="medit">
    <button id="rnd" class="mi" title="隨機指定每一句的版型、進退場與特效（會覆寫逐句設定，可復原）">🎲 隨機化版型與動畫（覆寫逐句設定，可復原）</button>
    <button id="barUndo" class="mi hbU">↶ 復原（Ctrl+Z）</button>
@@ -36,7 +36,7 @@
  <div class="grp"><button id="exw" class="primary" title="你要拿去做什麼？錄製、離線 MP4、透明字層、綠幕、SRT…">⬆ 匯出…</button><button id="rec" style="display:none" title="全螢幕錄製（從「匯出…」進入）">全螢幕錄製</button></div>
  <div class="grp"><button id="qkb" title="所有工具與匯出功能（Ctrl+K）">⚡ 快捷</button><button id="tg">參數</button></div>
 </div>
-<div id="panel"></div><div id="note"></div><div id="cd"></div>
-<div id="qk"><input id="qks" type="text" placeholder="搜尋功能…（例：srt、錄製、位置、霓虹）" autocomplete="off"><div id="qkl"></div></div>
+<div id="panel"></div><div id="note" role="status" aria-live="polite"></div><div id="cd"></div>
+<div id="qk" role="dialog" aria-label="快捷選單"><input id="qks" type="text" aria-label="搜尋功能" placeholder="搜尋功能…（例：srt、錄製、位置、霓虹）" autocomplete="off"><div id="qkl"></div></div>
 <script>
 @@SCRIPT@@</script></body></html>

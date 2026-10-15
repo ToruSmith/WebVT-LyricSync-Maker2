@@ -21,7 +21,8 @@ function projBox(p){   // 回傳 fill()：依 projInfo 重畫提示框（panel()
   t(`已下載 project.json（${i.subs} 句，${i.mb.toFixed(2)} MB${i.fonts.length?"，內含字體："+i.fonts.join("、"):"，沒有自訂字體"}）`);
   t("放進專案的 input/ 資料夾後，在終端機執行：","opacity:.7;margin-top:4px");
   t(i.cmd,"font-family:Consolas,Menlo,monospace;background:rgba(255,255,255,.08);padding:4px 6px;border-radius:4px;word-break:break-all;user-select:all").id="projcmd";
-  const cb=document.createElement("button");cb.textContent="複製指令";cb.onclick=()=>{try{navigator.clipboard.writeText(i.cmd);cb.textContent="已複製"}catch(e){}};b.append(cb);
+  const cb=document.createElement("button");cb.textContent="複製指令";cb.onclick=()=>{const ok=()=>{cb.textContent="已複製"},ng=()=>{const d=$("#projcmd");if(d){const r=document.createRange();r.selectNodeContents(d);const s=getSelection();s.removeAllRanges();s.addRange(r)}cb.textContent="複製失敗：已選取指令，請按 Ctrl+C"};   /* writeText 回傳 Promise：被拒絕時要在 .catch 處理，否則會假顯示「已複製」 */
+  try{navigator.clipboard.writeText(i.cmd).then(ok,ng)}catch(e){ng()}};b.append(cb);
   t(i.media?`音樂／影片檔太大，不會包進 project.json：請把「${i.media}」放進 input/（檔名要和指令一致）。`:"音樂／影片檔太大，不會包進 project.json：若要配樂，把檔案放進 input/ 並在指令加上 --audio input/檔名（背景影片用 --video）。","margin-top:4px");
   t("--width／--height 只是建議值（依目前畫面比例）；比例改了，版面就會和預覽不同。","opacity:.7");
   t("離線後製（輝光 --glow、色差 --aberration、調色 --grade）只影響離線輸出的預覽 MP4，網頁預覽看不到；見 README。","opacity:.7")};
@@ -55,11 +56,12 @@ function extra(p){secAnchor(p,"preset");
   f.onchange=async()=>{try{const J=JSON.parse(await txt(f.files[0]));
    if(J&&typeof J==="object"&&J.config&&typeof J.config==="object"&&"srt" in J){   /* 渲染專案（project.json）：字幕＋設定＋字體一起還原 */
     for(const ft of J.fonts||[]){try{const buf=await(await fetch("data:application/octet-stream;base64,"+(ft.b64||ft.data))).arrayBuffer();await addFont(ft.name,buf);idbPut(ft.name+".ttf",buf)}catch(e){console.error("字體還原失敗："+ft.name,e)}}
-    Object.assign(CONFIG,JSON.parse(JSON.stringify(CFG_DEFAULTS)),J.config);   /* 在字體載入之後套用，config.font 才會是最後的值 */
+    const cc=cfgClean(J.config);Object.assign(CONFIG,JSON.parse(JSON.stringify(CFG_DEFAULTS)),cc.r);   /* 在字體載入之後套用，config.font 才會是最後的值 */
     subs=parseSRT(J.srt==="@demo"?DEMO:String(J.srt||""));subsReplaced();
-    let msg=`專案已還原：${subs.length} 句${J.fonts&&J.fonts.length?"，字體："+J.fonts.map(x=>x.name).join("、"):""}`;
+    let msg=`專案已還原：${subs.length} 句${J.fonts&&J.fonts.length?"，字體："+J.fonts.map(x=>x.name).join("、"):""}${cc.bad.length?"；"+cc.bad.length+" 個格式不符的設定已改用預設（"+cc.bad.slice(0,5).join("、")+(cc.bad.length>5?"…":"")+"）":""}`;
     if(J.media&&J.media.name&&!hasMedia){mediaInfo=J.media;msg+=`。音樂／影片不會存在專案裡，請再載入「${J.media.name}」`;alert(msg)}
     css();cur=-2;save();panel();note(msg);return}
-   Object.assign(CONFIG,JSON.parse(JSON.stringify(CFG_DEFAULTS)),J);css();cur=-2;save();panel()}catch(e){alert("設定檔格式錯誤："+e.message)}};
+   const cc=cfgClean(J);Object.assign(CONFIG,JSON.parse(JSON.stringify(CFG_DEFAULTS)),cc.r);css();cur=-2;save();panel();
+   if(cc.bad.length)note(cc.bad.length+" 個格式不符的設定已改用預設（"+cc.bad.slice(0,5).join("、")+(cc.bad.length>5?"…":"")+"）")}catch(e){alert("設定檔格式錯誤："+e.message)}};
   const fl=document.createElement("label");fl.textContent="匯入設定 JSON 或渲染專案（project.json）";p.append(fl,f);
 }

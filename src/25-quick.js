@@ -13,7 +13,7 @@ function quickActions(){
   {id:"exp-proj",g:"匯出",t:"匯出渲染專案 project.json",h:"字幕＋設定＋字體",k:"project render 離線 渲染 專案 備份",on:needSubs,run:async()=>{await exportProjectUI();showSec("export")}},
   {id:"exp-cmd",g:"匯出",t:"複製離線渲染指令",h:"node render/run.mjs …",k:"command cmd 指令 複製",run:async()=>{const c=projCmd().cmd;try{await navigator.clipboard.writeText(c);note("已複製離線渲染指令："+c)}catch(e){prompt("複製這行指令：",c)}}},
   {id:"exp-rec",g:"匯出",t:"全螢幕錄製並下載影片",h:"mp4／webm",k:"record 錄製 影片 錄影",on:needSubs,run:click("#rec")},
-  {id:"ld-srt",g:"載入",t:"載入 SRT 字幕",h:"",k:"srt load 字幕 開啟",run:click("#fs")},
+  {id:"ld-srt",g:"載入",t:"載入字幕（SRT／LRC／VTT）",h:"",k:"srt lrc vtt load 字幕 歌詞 開啟",run:click("#fs")},
   {id:"ld-media",g:"載入",t:"載入音樂／影片",h:"",k:"media audio video 音樂 影片 媒體",run:click("#fm")},
   {id:"ld-json",g:"載入",t:"匯入設定 JSON／渲染專案",h:"project.json 整包還原",k:"import json 匯入 還原 設定 專案",run:click("#cfgImport")},
   {id:"ld-demo",g:"載入",t:"載入範例",h:"",k:"demo 範例 示範",run:click("#demo")},

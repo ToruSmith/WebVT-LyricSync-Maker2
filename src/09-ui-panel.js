@@ -13,7 +13,16 @@ function foldPanel(p){   /* 把 panel() 建好的扁平內容，依 secAnchor �
    d.addEventListener("toggle",()=>{panelOpen=panelOpen.filter(x=>x!==id);if(d.open)panelOpen.push(id);try{localStorage.setItem(LS_PO,JSON.stringify(panelOpen))}catch(e){}});n.replaceWith(d)}
   else if(box)box.append(n)});
  const t=document.createElement("div");t.className="pt";
- [["全部展開",1],["全部收合",0]].forEach(([x,v])=>{const b=document.createElement("button");b.textContent=x;b.onclick=()=>p.querySelectorAll("details.ps").forEach(d=>d.open=!!v);t.append(b)});p.prepend(t)}
+ [["全部展開",1],["全部收合",0]].forEach(([x,v])=>{const b=document.createElement("button");b.textContent=x;b.onclick=()=>p.querySelectorAll("details.ps").forEach(d=>d.open=!!v);t.append(b)});p.prepend(t);
+ if(!RENDER){const d=document.createElement("div");d.id="curinfo";d.title="唯讀：現在這一句實際生效的設定。標「（全域）」的項目沒有單句設定，跟隨下方的全域參數；要改單句請用句子編輯器。";t.after(d);curInfo()}}
+/* 面板最上方的唯讀摘要：現在這一句「實際生效」的版型／大字／縮放／字體／場景，並標出哪些跟隨全域。
+   刻意只顯示、不寫入 CONFIG／subs：單句設定是「取代」全域值，若把單句值反向寫進 CONFIG，會連動改到其他句子、設定匯出與離線渲染。
+   主迴圈在每次重建畫面（換句、或任何編輯後 cur=-2）時呼叫；離線渲染不啟用。 */
+function curInfo(i){if(RENDER)return;const e=$("#curinfo");if(!e)return;
+ if(i===undefined){const t=now();i=subs.findIndex(s=>t>=s.s&&t<s.e)}
+ const x=subs[i];if(!x){e.textContent="目前沒有字幕顯示中（空白段落）";return}
+ const gl=(own,s)=>s+(own>0?"":"（全域）"),ft=x.font?(FONTS[x.font]?x.font:x.font+"（未載入，改用全域）"):CONFIG.font+"（全域）";
+ e.textContent=`第 ${i+1} 句｜版型 ${layOf(x)}${CONFIG.lock?"（全域鎖定）":CONFIG.auto&&x.auto?"（自動變化）":""}｜大字 ${gl(x.bigR,Math.round(sbBigR(x)*100)+"%")}｜縮放 ${gl(x.txtS,Math.round(sbKs(x)*100)+"%")}｜字體 ${ft}｜場景 ${x.scene||"—"}`}
 function showSec(id){const p=$("#panel");p.classList.remove("off");const a=p.querySelector(`[data-sec="${id}"]`);if(!a)return note("找不到面板區段："+id);if(a.tagName==="DETAILS")a.open=true;id==="rhythm"?p.scrollTo({top:0,behavior:"smooth"}):a.scrollIntoView({block:"start",behavior:"smooth"})}
 function panel(){
  const p=$("#panel");p.innerHTML="";secAnchor(p,"rhythm");
