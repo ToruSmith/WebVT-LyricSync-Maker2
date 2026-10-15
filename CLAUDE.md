@@ -28,6 +28,8 @@
 - **新增項目要補的表（逐句隨機的「適配」）**：新增版型／場景／持續特效後，到 `src/13-rand.js` 補表。場景 → `RND_SCN_TH`（neutral／tech／grunge）；版型 → 視需要列入 `RND_LAY_TH`（接受 tech／grunge 場景）、`RND_SPARSE`（只配文字之下的場景）、`RND_TEXT_CANVAS`（文字畫在 canvas）、`RND_STRONG_LAY`（高能量，才配強烈特效）、`RND_NEED_SUB`（自己畫副文）、`RND_NO_EN`（不使用進場）；特效 → `RND_FX_GRP`（動同一個屬性的同組互斥）、`RND_FX_STRONG`（強烈／重拍）、`RND_FX_DOM`（只作用在 DOM 文字）。新增進場／退場不用補（自動進池）。沒補不會壞（場景當 neutral、特效當 calm 且不互斥），但 `selfCheck()` 會列出沒歸類的場景與特效、並檢查表內名稱是否都已登記；`node test/sentence-opts.mjs` 會驗證規則。
 - 風格包：`regPack(名稱,{…})`（`23-styles.js`）。清除風格包（`packReset`）會自動還原該包定義過的所有欄位，新增風格包不需另外維護還原清單。
 - 工具／匯出／清除功能的入口集中在 `25-quick.js` 的 `quickActions()`（Ctrl+K）；面板按鈕在 `extra()`／`extra3()`／`extra4()`。UI 對等測試（`test/ui-parity.mjs`）只檢查「舊項目不消失」，所以可以新增、不能無故刪改既有的面板項目與快捷 id。
+- **直排文字（`writing-mode:vertical-*`）**：不要把直排元素當成「橫排 flex／grid 容器」的子項。Firefox 量不出這種正交書寫模式子項的寬度，容器會縮成只剩間距，再被 `clip-path` 裁掉（pv-vertical 曾因此在 Firefox 大字欄消失、小字欄被切半）。做法：容器本身設直排、子欄用 block 流向排（vertical-rl 由右往左），欄距用 `margin`。容器的 `writing-mode` 用 class（`.pvv`）而不是 inline style，因為 `18-style.js` 的 `isV()` 讀 inline `writingMode`。沙箱沒有 Firefox，只能在 Chromium 驗證版面不變。
+- **在沙箱／無 CJK 字體的環境驗證直排**：預設備援字體（WenQuanYi）直排進位為 0，欄高會縮成只剩字距，量到的幾何不可信。測直排請在標記指定字體，例如 `#pv-vertical*Noto%20Serif%20CJK%20TC 文字`。
 - 程式風格偏密集（一行多個語句）。用 `Edit` 時請先 `Read` 目標行，`old_string` 取足夠唯一的片段；不要為了排版整檔重排（會讓 diff 無法檢視）。
 
 ## 縮圖預覽（`28-thumbs.js`）

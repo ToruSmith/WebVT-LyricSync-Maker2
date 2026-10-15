@@ -14,19 +14,24 @@ function pvBuild(sb,c,big,vert){
  const n=items.reduce((s,x)=>s+[...x.t].length*(x.k?1.9:1),0)||1,
   base=Math.min(big*.2,vert?SHd()*.74/(n*1.25):SWd()*.62/(n*1.15)),acc=CONFIG.accent;
  const GLOW=`0 0 .12em #fff,0 0 .5em ${acc},0 0 1.1em ${acc}`,SPLIT=`-.08em 0 rgba(255,60,110,.85),.08em 0 rgba(60,220,255,.85),0 0 .5em ${acc}`;
- const e=txtEl(vert?`right:7cqw;top:12cqh;display:flex;flex-direction:row-reverse;align-items:flex-start;gap:.6em;font-size:${base}px;letter-spacing:.35em`
+ /* 直排（vert）：容器 e 本身就是 vertical-rl（class pvv，見 style.css），每一欄（item）是它的 block 子元素，依 vertical-rl 的 block 流向由右往左排。
+    不用「橫排 flex 容器＋直排子項」：Firefox 對這種正交書寫模式的 flex 子項量不出寬度，容器寬度縮成只剩間距，
+    再被下面的 clip-path 裁掉＝大字欄整個不見、小字欄左半被切。writing-mode 不寫在 inline style，是因為 18-style.js 的 isV() 會讀 inline writingMode，寫了會讓 @gradient 等樣式誤判。 */
+ const e=txtEl(vert?`right:7cqw;top:12cqh;font-size:${base}px;letter-spacing:.35em`
   :`left:5cqw;top:54cqh;display:flex;align-items:baseline;gap:.4em;white-space:nowrap;font-size:${base}px;letter-spacing:.12em`);
+ if(vert)e.classList.add("pvv");
  c.appendChild(e);
  const lastK=items.map(x=>x.k).lastIndexOf(1);
  items.forEach((x,i)=>{
   const sp=document.createElement(vert?"div":"span"),dl=i*150/CONFIG.speed*tK;
-  sp.style.cssText=vert?"position:relative;display:block;writing-mode:vertical-rl;width:fit-content;height:fit-content":"position:relative;display:inline-block";
+  /* 直排：欄距 .6×base 用「第 2 欄起的右側 margin」表示（取代 flex gap）；margin 的 em 以該欄自己的字級算，關鍵字欄字級是 1.9em，所以除以 1.9 */
+  sp.style.cssText=vert?`position:relative;display:block;writing-mode:vertical-rl;height:max-content${i?`;margin-right:${(.6/(x.k?1.9:1)).toFixed(4)}em`:""}`:"position:relative;display:inline-block";
   if(!x.k){sp.textContent=x.t;sp.style.opacity=".92";e.appendChild(sp);
    A(sp,[{opacity:0,filter:"blur(8px)",transform:vert?"translateY(-.8em)":"translateX(-.8em)"},{opacity:.92,filter:"blur(0)",transform:"none"}],{duration:D()*1.3,delay:dl});return}
   sp.style.cssText+=`;font-family:${pvKwFont(sb)};font-size:1.9em;font-weight:700;letter-spacing:.02em;line-height:1.1;transform-origin:20% 70%;text-shadow:${GLOW}`;
   sp.textContent=x.t;
   const gh=document.createElement("span");gh.textContent=x.t;   /* 淡墨暈影：模糊、偏色、略偏移的同字複本 */
-  gh.style.cssText=`position:absolute;left:0;top:0;color:${acc};filter:blur(.1em);opacity:.5;transform:translate(.04em,.05em);pointer-events:none;letter-spacing:inherit`;sp.appendChild(gh);
+  gh.style.cssText=`position:absolute;left:0;top:0;right:0;bottom:0;color:${acc};filter:blur(.1em);opacity:.5;transform:translate(.04em,.05em);pointer-events:none;letter-spacing:inherit`;sp.appendChild(gh);
   e.appendChild(sp);
   A(sp,[{opacity:0,filter:"blur(14px)",transform:"scale(1.35)",textShadow:SPLIT},{opacity:1,filter:"blur(0)",transform:"scale(1)",textShadow:GLOW}],{duration:D()*1.7,delay:dl+120/CONFIG.speed*tK});
   A(gh,[{opacity:0},{opacity:.5}],{duration:D()*2.2,delay:dl+300/CONFIG.speed*tK});
@@ -35,7 +40,7 @@ function pvBuild(sb,c,big,vert){
    nt.innerHTML="<div style='letter-spacing:.2em'>‹‹‹</div>";const t2=document.createElement("div");t2.textContent="（"+note+"）";nt.appendChild(t2);sp.appendChild(nt);
    A(nt,[{opacity:0,transform:"translateY(.4em)"},{opacity:.8,transform:"none"}],{duration:D(),delay:dl+D()*.9})}
  });
- if(vert)A(e,[{clipPath:"inset(0 0 100% 0)"},{clipPath:"inset(-40% -40% -40% -40%)"}],{duration:D()*1.6,easing:"linear"});
+ if(vert)A(e,[{clipPath:"inset(0 0 100% 0)"},{clipPath:"inset(-40% -40% -40% -40%)"}],{duration:D()*1.6,easing:"linear"});   /* 由上往下揭開；刻意維持原樣：clip 是相對 e 的框，e 的寬度正確時不會裁到字（見上方 Firefox 說明） */
 }
 registerLayout("pv-lyric",(sb,c,w,big)=>pvBuild(sb,c,big,false),{brace:1});
 registerLayout("pv-vertical",(sb,c,w,big)=>pvBuild(sb,c,big,true),{brace:1});

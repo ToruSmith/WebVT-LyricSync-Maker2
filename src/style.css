@@ -160,3 +160,5 @@ body.rec #exwiz,html.rendering #exwiz{display:none!important}
 .thcard .thtile{margin:0 auto}.thcard .thl{margin-top:2px;font-size:11px;word-break:break-all}
 .thpop.nothumb .thtile:not(.none){display:none}
 body.rec #thtip,html.rendering #thtip,body.rec .thpop,html.rendering .thpop{display:none!important}
+/* pv-vertical（src/23-lay-g.js）：直排容器。writing-mode 用 class 而不是 inline style，避免 18-style.js 的 isV() 誤判 */
+.pvv{writing-mode:vertical-rl}
