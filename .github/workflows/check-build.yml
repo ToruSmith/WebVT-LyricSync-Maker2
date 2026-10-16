@@ -1,12 +1,23 @@
-# 檢查 index.html 是否與 src/ 同步（只需 Node，不需要瀏覽器）。
+# CI：每次 push／PR 跑三道檢查。
+#   build-in-sync：index.html 是否與 src/ 同步（只需 Node，最快）
+#   lint：全域作用域 lint（重複宣告、未定義名稱、頂層先用後宣告；只需 Node）
+#   regression：npm run check ＝ 建置＋lint＋逐像素回歸＋UI 對等＋手冊同步＋各項測試（需要 Chromium，最慢）
 # 不同步時請在本機執行 node build.mjs，並把更新後的 index.html 一起提交。
 name: check-build
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+# 同一個分支上較舊的執行會被取消（push 與 PR 會同時觸發，避免重複跑）
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   build-in-sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,3 +25,41 @@ jobs:
           node-version: 22
       - name: Fail if index.html is out of sync with src/
         run: node build.mjs --check
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Global-scope lint (src/ concatenated in build order)
+        run: node test/lint.mjs
+
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # 版面量測（直排、字距）需要 CJK 字體；回歸是「舊版 vs 新版」在同一台機器上比，所以字體不影響比對，但缺字體會讓測試量到不可信的幾何
+      - name: Install CJK fonts
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Full regression (npm run check)
+        run: npm run check
+      - name: Upload test output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-out
+          path: test/out/
+          if-no-files-found: ignore
