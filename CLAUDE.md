@@ -14,7 +14,8 @@
     node build.mjs            # src/ → index.html
     npm run build:check       # 檢查 index.html 是否與 src/ 同步
     npm run lint              # 全域作用域 lint（只需 npm install，不需瀏覽器）；結果已對映回 src/ 的檔名與行號
-    npm run check             # 建置＋lint＋全部回歸（需 npm install、npx playwright install chromium；沒有瀏覽器就跑不了）。CI 的 regression job 跑的就是這個
+    node test/behavior.mjs    # 行為測試：載入 SRT／VTT／LRC／Big5、標記 SRT 往返、設定匯入、面板摘要、複製按鈕、精靈焦點（改了載入／匯入／編輯流程就加案例；需 Chromium）
+    npm run check             # 建置＋lint＋行為測試＋全部回歸（需 npm install、npx playwright install chromium；沒有瀏覽器就跑不了）。CI 的 regression job 跑的就是這個
     node test/spec-sync.mjs   # 功能手冊與程式的清單同步（新增版型／場景／風格包後，手冊要補，否則失敗）
     # 網址加 ?check=1，F12 主控台跑 selfCheck()（版型／場景／快捷表登記是否一致）
 
@@ -31,6 +32,8 @@
 - 工具／匯出／清除功能的入口集中在 `25-quick.js` 的 `quickActions()`（Ctrl+K）；面板按鈕在 `extra()`／`extra3()`／`extra4()`。UI 對等測試（`test/ui-parity.mjs`）只檢查「舊項目不消失」，所以可以新增、不能無故刪改既有的面板項目與快捷 id。
 - **直排文字（`writing-mode:vertical-*`）**：不要把直排元素當成「橫排 flex／grid 容器」的子項。Firefox 量不出這種正交書寫模式子項的寬度，容器會縮成只剩間距，再被 `clip-path` 裁掉（pv-vertical 曾因此在 Firefox 大字欄消失、小字欄被切半）。做法：容器本身設直排、子欄用 block 流向排（vertical-rl 由右往左），欄距用 `margin`。容器的 `writing-mode` 用 class（`.pvv`）而不是 inline style，因為 `18-style.js` 的 `isV()` 讀 inline `writingMode`。沙箱沒有 Firefox，只能在 Chromium 驗證版面不變。
 - **在沙箱／無 CJK 字體的環境驗證直排**：預設備援字體（WenQuanYi）直排進位為 0，欄高會縮成只剩字距，量到的幾何不可信。測直排請在標記指定字體，例如 `#pv-vertical*Noto%20Serif%20CJK%20TC 文字`。
+- **本機跑瀏覽器測試**：沙箱若已預裝 Chromium（`/opt/pw-browsers/chromium`），預設啟動會因版本對不上而失敗，請設 `CHROME_PATH=/opt/pw-browsers/chromium`（`ui-parity`、`regress-all`、`spec-sync`、`behavior` 都吃這個環境變數），不要執行 `playwright install`。
+- **行為測試**：`test/behavior.mjs` 用合成內容（不放真實歌詞），函式與 `let` 變數都在頁面全域，可直接 `page.evaluate(() => subs…)`。新增載入格式、匯入、編輯器寫入流程時，在裡面加案例；驗證測試有效的方法是對舊版 `index.html` 跑（`node test/behavior.mjs 舊.html`），新案例應該失敗。
 - 程式風格偏密集（一行多個語句）。用 `Edit` 時請先 `Read` 目標行，`old_string` 取足夠唯一的片段；不要為了排版整檔重排（會讓 diff 無法檢視）。
 
 ## 縮圖預覽（`28-thumbs.js`）

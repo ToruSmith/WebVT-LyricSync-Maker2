@@ -6,7 +6,7 @@
   "build": "node build.mjs",
   "build:check": "node build.mjs --check",
   "lint": "node test/lint.mjs",
-  "check": "node build.mjs && node test/lint.mjs && node verify-kit/regress-all.mjs baseline.html index.html 16:9 && node verify-kit/regress-all.mjs baseline.html index.html 9:16 && node test/ui-parity.mjs && node test/spec-sync.mjs && node test/scene.mjs && node test/beatfx-layouts.mjs && node test/beatfx-layouts.mjs 9:16 && node test/styles.mjs && node test/styles.mjs 9:16 && node test/sentence-opts.mjs && node test/sentence-opts.mjs 9:16"
+  "check": "node build.mjs && node test/lint.mjs && node test/behavior.mjs && node verify-kit/regress-all.mjs baseline.html index.html 16:9 && node verify-kit/regress-all.mjs baseline.html index.html 9:16 && node test/ui-parity.mjs && node test/spec-sync.mjs && node test/scene.mjs && node test/beatfx-layouts.mjs && node test/beatfx-layouts.mjs 9:16 && node test/styles.mjs && node test/styles.mjs 9:16 && node test/sentence-opts.mjs && node test/sentence-opts.mjs 9:16"
  },
  "license": "MIT",
  "dependencies": {

@@ -274,7 +274,8 @@
 
 本倉庫實際收錄的驗證（需先 `npm install` 與 `npx playwright install chromium`；`baseline.html` 是凍結基準，不要改）：
 
-    npm run check                           # 建置＋lint＋全部回歸檢查（見 package.json 的 scripts.check）
+    npm run check                           # 建置＋lint＋行為測試＋全部回歸檢查（見 package.json 的 scripts.check）
+    node test/behavior.mjs                  # 行為測試：載入 SRT／WebVTT／LRC／Big5／UTF-16、標記 SRT 匯入再匯出逐字相同、設定匯入把關、面板摘要、複製按鈕、精靈焦點與 ARIA
     npm run build:check                     # 只檢查 index.html 是否與 src/ 同步（CI 也跑這個）
     npm run lint                            # 全域作用域 lint：重複宣告、未定義名稱、頂層先用後宣告（不需瀏覽器；CI 也跑這個）
     node test/ui-parity.mjs                 # UI 功能對等：舊的面板項目、快捷項目、頂欄項目一個不少
