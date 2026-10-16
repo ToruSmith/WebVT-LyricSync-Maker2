@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+人類貢獻者請看 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 動態歌詞字幕工具：單頁網頁（`index.html`）＋離線渲染（`render/run.mjs`，Playwright 逐幀截圖＋ffmpeg）。使用說明見 `README.md`，SRT 標記與清單見《動態歌詞字幕工具_功能手冊與SRT標記指南.md》。
 
 ## 鐵則
@@ -44,7 +46,7 @@
 
 ## 已知落差（不是你搞壞的）
 
-- README 提到的部分測試腳本（`test/chroma.mjs`、`post.mjs`、`position.mjs` 等）不在本倉庫；實際存在的見 README「驗證」。
+- README 提到的部分測試腳本（`test/chroma.mjs`、`post.mjs`、`position.mjs` 等）不在本倉庫；實際存在的見 [DEVELOPMENT.md](DEVELOPMENT.md)「驗證」。
 - `test/_dbg.mjs`、`_err.mjs`、`_sheet.mjs` 是臨時除錯腳本，寫死 `/tmp/sh`，不屬於 `npm run check`（縮圖改用正式的 `test/make-thumbs.mjs`，同樣不屬於 check）。
 - 功能手冊若沒有「風格包／場景層／7.6」等章節，`spec-sync` 會失敗：代表手冊比程式舊，需補手冊而不是改測試。
 
